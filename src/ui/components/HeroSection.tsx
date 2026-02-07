@@ -1,0 +1,502 @@
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { Clock, CheckCircle2, Plus, Utensils, ChevronDown, ChevronUp, AlertCircle, AlertTriangle } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { colors } from '../theme/colors';
+import { haptics } from '../../data/utils/haptics';
+import { formatMedName } from '../../domain/utils';
+import type { RootStackParamList } from '../navigation/types';
+import type { RitualChip } from '../../domain/types';
+
+interface MedicationSlotItem {
+  id: string;
+  name: string;
+  mealInfo: string | null;
+  doseInfo: string;
+  doseSize: number;
+}
+
+interface HeroSectionProps {
+  medications?: MedicationSlotItem[];
+  scheduledTime: string;
+  dateDisplay?: string;
+  isTodayDose?: boolean;
+  hasNextDose?: boolean;
+  onTakeNow?: () => Promise<{
+    isFutureDose: boolean;
+    dateDisplay?: string;
+    partialFailure?: boolean;
+    failedCount?: number;
+  }>;
+  disabled?: boolean;
+  criticalMissedRitual?: RitualChip | null;
+  onCriticalMissPress?: () => void;
+}
+
+export default function HeroSection({
+  medications,
+  scheduledTime,
+  dateDisplay,
+  isTodayDose = true,
+  hasNextDose = true,
+  onTakeNow,
+  disabled = false,
+  criticalMissedRitual,
+  onCriticalMissPress,
+}: HeroSectionProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showFutureMessage, setShowFutureMessage] = useState(false);
+  const [futureDate, setFutureDate] = useState<string>('');
+  const [expanded, setExpanded] = useState(false);
+  const [partialFailureMessage, setPartialFailureMessage] = useState<string | null>(null);
+
+
+  const medCount = medications?.length ?? 0;
+  const isMultipleMeds = medCount > 1;
+  const firstMed = medications?.[0];
+  const displayName = isMultipleMeds
+    ? `${medCount} Medications`
+    : (firstMed ? formatMedName(firstMed.name, 'hero') : 'No medications scheduled');
+  const displayMealInfo = !isMultipleMeds ? firstMed?.mealInfo : null;
+  const totalDoses = medications?.reduce((sum, m) => sum + m.doseSize, 0) ?? 0;
+  const displayDoseInfo = totalDoses > 1 ? `${totalDoses} doses` : '1 dose';
+
+  const handleTakeNow = useCallback(async () => {
+    console.log('[HeroSection] Take Now clicked');
+
+    // For future doses, button is disabled - this shouldn't be called
+    if (!isTodayDose) {
+      console.log('[HeroSection] Button disabled for future dose');
+      return;
+    }
+
+    // Call onTakeNow to log doses
+    const result = await onTakeNow?.();
+
+    if (result?.isFutureDose) {
+      // Show message that dose is for a future date (shouldn't happen with disabled button)
+      console.log('[HeroSection] Future dose detected:', result.dateDisplay);
+      haptics.warning();
+      setFutureDate(result.dateDisplay || 'a future date');
+      setShowFutureMessage(true);
+      setTimeout(() => {
+        setShowFutureMessage(false);
+      }, 2500);
+      return;
+    }
+
+    if (result?.partialFailure) {
+      // Some doses failed
+      haptics.warning();
+      setPartialFailureMessage(`${result.failedCount} dose(s) failed to log`);
+      setTimeout(() => {
+        setPartialFailureMessage(null);
+      }, 3000);
+    }
+
+    // Show success (even for partial success)
+    haptics.success();
+    setShowSuccess(true);
+    setExpanded(false);
+    console.log('[HeroSection] onTakeNow completed');
+    // Show success for a moment then hide
+    setTimeout(() => {
+      setShowSuccess(false);
+      console.log('[HeroSection] Success state cleared');
+    }, 1500);
+  }, [onTakeNow, isTodayDose]);
+
+  // No medications scheduled - show empty state
+  if (!hasNextDose) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.card, styles.cardEmpty]}>
+          <View style={styles.labelRow}>
+            <Clock color={colors.textMuted} size={18} strokeWidth={2.5} />
+            <Text style={[styles.labelText, styles.labelTextMuted]}>NEXT DOSE</Text>
+          </View>
+
+          <View style={styles.centerContent}>
+            <Text style={styles.emptyTitle}>No upcoming doses</Text>
+            <Text style={styles.emptySubtitle}>Add a medication to get started</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('AddMedication')}
+            activeOpacity={0.8}
+          >
+            <Plus color={colors.bg} size={16} strokeWidth={2.5} />
+            <Text style={styles.addButtonText}>ADD MEDICATION</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.card}>
+        {/* Critical Miss Badge - Always visible when there's a critical miss */}
+        {criticalMissedRitual && (
+          <TouchableOpacity
+            style={styles.criticalMissBadgeContainer}
+            onPress={() => {
+              haptics.warning();
+              onCriticalMissPress?.();
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.criticalMissBadge}>
+              <AlertTriangle color="#FFFFFF" size={12} strokeWidth={2.5} />
+              <Text style={styles.criticalMissText}>CRITICAL MISS</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Label with date */}
+        <View style={styles.labelRow}>
+          <Clock color={colors.cyan} size={18} strokeWidth={2.5} />
+          <Text style={styles.labelText}>NEXT DOSE</Text>
+          {dateDisplay && (
+            <View style={[styles.dateBadge, !isTodayDose && styles.dateBadgeFuture]}>
+              <Text style={[styles.dateText, !isTodayDose && styles.dateTextFuture]}>
+                {dateDisplay}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Center content */}
+        <View style={styles.centerContent}>
+          {/* Medication name with expand toggle for multiple meds */}
+          {isMultipleMeds ? (
+            <Pressable style={styles.medNameRow} onPress={() => setExpanded(!expanded)}>
+              <Text style={styles.medName} numberOfLines={1}>{displayName}</Text>
+              {expanded ? (
+                <ChevronUp color={colors.textMuted} size={18} strokeWidth={2.5} />
+              ) : (
+                <ChevronDown color={colors.textMuted} size={18} strokeWidth={2.5} />
+              )}
+            </Pressable>
+          ) : (
+            <Text style={styles.medName} numberOfLines={1}>{displayName}</Text>
+          )}
+
+          {/* Expanded list of medications */}
+          {isMultipleMeds && expanded && (
+            <View style={styles.medicationList}>
+              {medications?.map((med) => (
+                <View key={med.id} style={styles.medicationListItem}>
+                  <Text style={styles.medicationListName}>{formatMedName(med.name, 'hero')}</Text>
+                  <Text style={styles.medicationListDose}>{med.doseInfo}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Time and dose on same line */}
+          <View style={styles.timeRow}>
+            <Text style={styles.timeText}>{scheduledTime}</Text>
+            {displayDoseInfo && <Text style={styles.doseText}>• {displayDoseInfo}</Text>}
+          </View>
+
+          {/* Meal timing (only for single medication) */}
+          {displayMealInfo && (
+            <View style={styles.mealBadge}>
+              <Utensils color={colors.cyan} size={10} strokeWidth={2.5} />
+              <Text style={styles.mealText}>{displayMealInfo}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Partial failure warning */}
+        {partialFailureMessage && (
+          <View style={styles.warningBanner}>
+            <AlertCircle color="#F59E0B" size={14} strokeWidth={2.5} />
+            <Text style={styles.warningText}>{partialFailureMessage}</Text>
+          </View>
+        )}
+
+        {/* Button */}
+        {showFutureMessage ? (
+          <View style={styles.futureButton}>
+            <Clock color="#F59E0B" size={18} strokeWidth={2.5} />
+            <Text style={styles.futureText}>Scheduled for {futureDate}</Text>
+          </View>
+        ) : showSuccess ? (
+          <View style={styles.successButton}>
+            <CheckCircle2 color={colors.cyan} size={18} strokeWidth={2.5} />
+            <Text style={styles.successText}>Taken</Text>
+          </View>
+        ) : !isTodayDose ? (
+          <View style={styles.takeButtonDisabled}>
+            <Text style={styles.takeButtonTextDisabled}>
+              AVAILABLE {dateDisplay?.toUpperCase() || 'LATER'}
+            </Text>
+          </View>
+        ) : disabled ? (
+          <View style={[styles.takeButton, styles.takeButtonLoading]}>
+            <Text style={[styles.takeButtonText, styles.takeButtonTextLoading]}>LOGGING...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.takeButton} onPress={handleTakeNow} activeOpacity={0.8}>
+            <Text style={styles.takeButtonText}>
+              {isMultipleMeds ? `TAKE ALL ${medCount}` : 'TAKE NOW'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { width: '100%' },
+  card: {
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.cyanGlow,
+    backgroundColor: 'rgba(0, 209, 255, 0.04)',
+    minHeight: 150,
+    justifyContent: 'space-between',
+  },
+  // Critical Miss Badge
+  criticalMissBadgeContainer: {
+    position: 'absolute',
+    top: -10,
+    left: '50%',
+    marginLeft: -60,
+    zIndex: 10,
+  },
+  criticalMissBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  criticalMissText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  cardEmpty: {
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  labelText: {
+    color: colors.cyan,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  labelTextMuted: {
+    color: colors.textMuted,
+  },
+  dateBadge: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(0, 209, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dateBadgeFuture: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  dateText: {
+    color: colors.cyan,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  dateTextFuture: {
+    color: '#F59E0B',
+  },
+  centerContent: { flex: 1, justifyContent: 'center', marginVertical: 8 },
+  medNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  medName: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  medicationList: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  medicationListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  medicationListName: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  medicationListDose: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 6,
+  },
+  timeText: {
+    color: colors.cyan,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  doseText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mealBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: 'rgba(45, 212, 191, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  mealText: {
+    color: colors.cyan,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  takeButton: {
+    backgroundColor: colors.cyan,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    shadowColor: colors.cyan,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  takeButtonText: {
+    color: colors.bg,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  takeButtonLoading: {
+    opacity: 0.7,
+  },
+  takeButtonTextLoading: {
+    opacity: 0.8,
+  },
+  successButton: {
+    backgroundColor: colors.cyanDim,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.cyan,
+  },
+  successText: {
+    color: colors.cyan,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  futureButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  futureText: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  takeButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  takeButtonTextDisabled: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  warningText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // Empty state styles
+  emptyTitle: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  emptySubtitle: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  addButton: {
+    backgroundColor: colors.cyan,
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  addButtonText: {
+    color: colors.bg,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+});
