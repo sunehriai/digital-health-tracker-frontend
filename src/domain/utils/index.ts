@@ -8,3 +8,7 @@ export * from './confidenceUtils';
 export * from './imageValidation';
 export * from './aiTransformUtils';
 export * from './geminiValidation';
+
+// Gamification utilities
+export * from './tierGating';
+export * from './xpCalculator';

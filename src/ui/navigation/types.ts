@@ -58,6 +58,8 @@ export type RootStackParamList = {
   NotificationPrefs: undefined;
   AppPreferences: undefined;
   Admin: undefined;
+  MyJourney: undefined;
+  AccountSettings: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

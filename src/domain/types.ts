@@ -7,8 +7,17 @@ export interface Profile {
   gender: string | null;
   primary_health_goal: string | null;
   primary_physician: string | null;
-  vitality_streak: number;
   created_at: string;
+  // Gamification fields (read-only, managed by GamificationService)
+  total_xp: number;
+  current_tier: number;
+  streak_days: number;
+  timezone: string | null;
+  streak_start_date: string | null;
+  last_active_at: string | null;
+  comeback_boost_until: string | null;
+  waiver_badges: number;
+  perfect_months_streak: number;
 }
 
 export interface ProfileUpdate {
@@ -17,6 +26,7 @@ export interface ProfileUpdate {
   gender?: string | null;
   primary_health_goal?: string | null;
   primary_physician?: string | null;
+  timezone?: string | null;
 }
 
 export interface Medication {
@@ -186,6 +196,7 @@ export interface DoseLogInsert {
   scheduled_at: string;
   taken_at?: string | null;
   status?: 'pending' | 'taken' | 'missed' | 'skipped' | 'taken_late';
+  timezone?: string; // D15: IANA timezone for late-detection (e.g. "America/New_York")
 }
 
 export interface RefillLogInsert {
@@ -237,4 +248,73 @@ export interface RitualChip {
   mealInfo: string | null; // "Before meal" etc.
   status: RitualStatus; // Computed status
   isNextDose: boolean; // Highlight indicator
+}
+
+// -- Gamification Types ---------------------------------------------------
+
+/** GET /gamification/status -- main gamification state for the current user. */
+export interface GamificationStatus {
+  total_xp: number;
+  current_tier: number;
+  tier_name: string;
+  streak_days: number;
+  streak_start_date: string | null;
+  waiver_badges: number;
+  comeback_boost_active: boolean;
+  comeback_boost_hours_left: number | null;
+  xp_to_next_tier: number | null; // null when at max tier (Sage)
+  next_tier_name: string | null;
+  has_missed_yesterday: boolean;
+  perfect_months_streak: number;
+  timezone_missing: boolean; // D16: true when user.timezone is null
+}
+
+/** One tier in the journey response. */
+export interface TierInfo {
+  tier: number;
+  name: string;
+  xp_threshold: number;
+  feature_unlock: string | null;
+  is_unlocked: boolean;
+  is_current: boolean;
+  xp_to_unlock: number | null; // null if already unlocked
+}
+
+/** GET /gamification/journey -- the 5-tier progression path. */
+export interface TierJourneyResponse {
+  tiers: TierInfo[];
+  current_tier: number;
+  total_xp: number;
+}
+
+/** One XP event in the history response. */
+export interface XpEvent {
+  id: string;
+  event_type: string;
+  event_date: string | null;
+  points: number;
+  created_at: string;
+}
+
+/** GET /gamification/history -- paginated XP event history. */
+export interface XpHistoryResponse {
+  events: XpEvent[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+/** One milestone tier in the milestones response. */
+export interface MilestoneInfo {
+  name: string;
+  required_months: number;
+  xp_reward: number;
+  current_streak: number;
+  is_achieved: boolean;
+}
+
+/** GET /gamification/milestones -- monthly adherence milestones. */
+export interface MilestonesResponse {
+  milestones: MilestoneInfo[];
+  perfect_months_streak: number;
 }

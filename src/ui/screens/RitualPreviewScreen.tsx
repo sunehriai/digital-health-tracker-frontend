@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, X, Clock, Pencil, Plus, Minus, Trash2 } from 'lucide-react-native';
 import { useMedications } from '../hooks/useMedications';
+import { useGamification } from '../hooks/useGamification';
 import { colors } from '../theme/colors';
 import type { RootStackScreenProps } from '../navigation/types';
 import TimeInput from '../components/TimeInput';
@@ -82,6 +83,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
   } = route.params;
 
   const { createMedication } = useMedications();
+  const { refreshStatus } = useGamification();
   const [saving, setSaving] = useState(false);
 
   // Alarms state - initialize from doseTimes array (supports multiple doses per day)
@@ -323,6 +325,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
       });
 
       await createMedication(medicationData);
+      await refreshStatus();
 
       logger.info('Medication created successfully', { name });
 

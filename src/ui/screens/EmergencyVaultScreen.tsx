@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { X, AlertTriangle, Fingerprint, Edit3 } from 'lucide-react-native';
+import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
 import { colors } from '../theme/colors';
 import { biometrics } from '../../data/utils/biometrics';
+import { useGamification } from '../hooks/useGamification';
+import { isFeatureUnlocked } from '../../domain/utils/tierGating';
+import LockedFeatureScreen from '../components/LockedFeatureScreen';
 import type { RootStackScreenProps } from '../navigation/types';
 
 // Format scheduled time (HH:MM) to AM/PM format
@@ -32,8 +37,10 @@ const formatFrequency = (frequency: string, customDays?: number[] | null): strin
 };
 
 export default function EmergencyVaultScreen({ navigation }: RootStackScreenProps<'EmergencyVault'>) {
-  const { vault, loading: vaultLoading } = useVault();
+  const { user } = useAuth();
+  const { vault, loading: vaultLoading, fetchVault } = useVault();
   const { activeMedications, loading: medsLoading } = useMedications();
+  const { currentTier, totalXp, loading: gamLoading } = useGamification();
   const [authenticated, setAuthenticated] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
 
@@ -43,6 +50,13 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
     setAuthenticated(true);
     setAuthChecking(false);
   }, [navigation]);
+
+  // Re-fetch vault data when screen regains focus (e.g. after editing in PersonalInfo)
+  useFocusEffect(
+    useCallback(() => {
+      fetchVault();
+    }, [fetchVault])
+  );
 
   const loading = vaultLoading || medsLoading;
 
@@ -62,6 +76,33 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
       </SafeAreaView>
     );
   }
+
+  // Wait for data before tier gate check
+  if (gamLoading || vaultLoading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.authContainer}>
+          <ActivityIndicator color={colors.cyan} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Feature gate: Emergency Vault requires Tier 2 (grandfather clause: existing vault data)
+  if (!isFeatureUnlocked('emergency_vault', currentTier, vault != null)) {
+    return (
+      <LockedFeatureScreen
+        featureLabel="Emergency Vault"
+        requiredTier={2}
+        currentTier={currentTier}
+        currentXp={totalXp}
+      />
+    );
+  }
+
+  const computedAge = user?.date_of_birth
+    ? Math.floor((Date.now() - new Date(user.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
 
   const allergiesList = vault?.allergies || [];
   const conditionsList = vault?.conditions || [];
@@ -98,7 +139,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>AGE</Text>
-            <Text style={styles.statValue}>{vault?.age || '—'}</Text>
+            <Text style={styles.statValue}>{computedAge ?? '—'}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>CONDITION</Text>

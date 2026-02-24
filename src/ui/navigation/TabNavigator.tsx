@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Pill, Bell, User } from 'lucide-react-native';
+import { Home, Pill, Bell, Settings } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import type { TabParamList } from './types';
 
@@ -57,7 +57,8 @@ export default function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
         }}
       />
     </Tab.Navigator>

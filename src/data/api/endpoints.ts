@@ -39,6 +39,13 @@ export const ENDPOINTS = {
   AI_ANALYZE: '/ai/analyze-image',
   AI_PROVIDER_METADATA: '/ai/provider-metadata',
 
+  // Gamification
+  GAMIFICATION_STATUS: '/gamification/status',
+  GAMIFICATION_JOURNEY: '/gamification/journey',
+  GAMIFICATION_HISTORY: '/gamification/history',
+  GAMIFICATION_WAIVER: '/gamification/waiver',
+  GAMIFICATION_MILESTONES: '/gamification/milestones',
+
   // Health
   HEALTH: '/health',
 } as const;

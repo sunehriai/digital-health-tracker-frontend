@@ -1,12 +1,14 @@
-import React, { useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock } from 'lucide-react-native';
+import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock, Zap } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useFeed } from '../hooks/useFeed';
+import { useGamification } from '../hooks/useGamification';
+import { gamificationService } from '../../data/services/gamificationService';
 import { colors } from '../theme/colors';
-import type { VitalityFeedItem } from '../../domain/types';
+import type { VitalityFeedItem, XpEvent } from '../../domain/types';
 
 // Format relative time like "2H AGO", "10H AGO", "2D AGO"
 function formatRelativeTime(dateStr: string): string {
@@ -76,15 +78,49 @@ function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
   );
 }
 
+// Human-readable labels for XP event types
+const EVENT_LABELS: Record<string, string> = {
+  first_medication: 'First Medication Added',
+  new_medication: 'New Medication Added',
+  profile_complete: 'Profile Completed',
+  health_profile_complete: 'Health Profile Completed',
+  daily_perfect: 'Perfect Day',
+  daily_imperfect: 'Imperfect Day',
+  daily_missed: 'Missed Day',
+  dose_revert: 'Dose Reverted',
+  waiver_used: 'Waiver Badge Used',
+  milestone_dedicated: 'Milestone: Dedicated',
+  milestone_committed: 'Milestone: Committed',
+  milestone_devoted: 'Milestone: Devoted',
+};
+
 export default function AlertsScreen() {
   const navigation = useNavigation();
   const { feedItems, fetchFeed, archiveFeedItem } = useFeed();
+  const { totalXp, currentTier, tierName } = useGamification();
 
-  // Refresh feed when screen comes into focus
+  // XP History log
+  const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
+  const [xpLoading, setXpLoading] = useState(true);
+
+  const fetchXpHistory = useCallback(async () => {
+    setXpLoading(true);
+    try {
+      const data = await gamificationService.getHistory(0, 50);
+      setXpEvents(data.events);
+    } catch {
+      setXpEvents([]);
+    } finally {
+      setXpLoading(false);
+    }
+  }, []);
+
+  // Refresh feed + XP history when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchFeed();
-    }, [fetchFeed])
+      fetchXpHistory();
+    }, [fetchFeed, fetchXpHistory])
   );
 
   const activeAlerts = feedItems.filter((a) => a.priority === 'high' && !a.is_archived);
@@ -178,6 +214,48 @@ export default function AlertsScreen() {
             </View>
           </View>
         )}
+
+        {/* XP Activity Log (Temporary Debug) */}
+        <View style={styles.section}>
+          <View style={styles.xpLogHeader}>
+            <View style={styles.xpLogTitleRow}>
+              <Zap color="#FFD700" size={16} strokeWidth={2.5} fill="#FFD700" />
+              <Text style={styles.xpLogTitle}>XP ACTIVITY LOG</Text>
+            </View>
+            <Text style={styles.xpLogSummary}>{totalXp} XP — {tierName} (Tier {currentTier})</Text>
+          </View>
+
+          {xpLoading ? (
+            <ActivityIndicator color={colors.cyan} style={{ paddingVertical: 20 }} />
+          ) : xpEvents.length === 0 ? (
+            <View style={styles.xpLogEmpty}>
+              <Text style={styles.xpLogEmptyText}>No XP events yet. Complete actions to earn XP.</Text>
+            </View>
+          ) : (
+            <View style={styles.xpTable}>
+              {/* Table Header */}
+              <View style={styles.xpTableRow}>
+                <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 2 }]}>ACTION</Text>
+                <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 1, textAlign: 'right' }]}>POINTS</Text>
+                <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 1.2, textAlign: 'right' }]}>TIME</Text>
+              </View>
+              {/* Table Rows */}
+              {xpEvents.map((event) => (
+                <View key={event.id} style={styles.xpTableRow}>
+                  <Text style={[styles.xpTableCell, styles.xpTableAction, { flex: 2 }]} numberOfLines={1}>
+                    {EVENT_LABELS[event.event_type] ?? event.event_type}
+                  </Text>
+                  <Text style={[styles.xpTableCell, { flex: 1, textAlign: 'right' }, event.points >= 0 ? styles.xpTablePositive : styles.xpTableNegative]}>
+                    {event.points >= 0 ? '+' : ''}{event.points}
+                  </Text>
+                  <Text style={[styles.xpTableCell, styles.xpTableTime, { flex: 1.2, textAlign: 'right' }]}>
+                    {formatRelativeTime(event.created_at)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -346,5 +424,75 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 14,
     textAlign: 'center',
+  },
+
+  // XP Activity Log
+  xpLogHeader: {
+    marginBottom: 12,
+  },
+  xpLogTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  xpLogTitle: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  xpLogSummary: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 22,
+  },
+  xpLogEmpty: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  xpLogEmptyText: {
+    color: '#64748B',
+    fontSize: 13,
+  },
+  xpTable: {
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.15)',
+  },
+  xpTableRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  xpTableCell: {
+    fontSize: 13,
+  },
+  xpTableHeader: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  xpTableAction: {
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  xpTablePositive: {
+    color: '#4ADE80',
+    fontWeight: '700',
+  },
+  xpTableNegative: {
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  xpTableTime: {
+    color: '#64748B',
+    fontSize: 11,
   },
 });

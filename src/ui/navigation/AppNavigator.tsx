@@ -19,6 +19,8 @@ import PrivacySecurityScreen from '../screens/PrivacySecurityScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import AppPreferencesScreen from '../screens/AppPreferencesScreen';
 import AdminScreen from '../screens/AdminScreen';
+import MyJourneyScreen from '../screens/MyJourneyScreen';
+import AccountSettingsScreen from '../screens/AccountSettingsScreen';
 import RitualPreviewScreen from '../screens/RitualPreviewScreen';
 import MedicationDetailsScreen from '../screens/MedicationDetailsScreen';
 import ArchivedRitualsScreen from '../screens/ArchivedRitualsScreen';
@@ -80,6 +82,8 @@ export default function AppNavigator() {
             <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} />
             <Stack.Screen name="AppPreferences" component={AppPreferencesScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
+            <Stack.Screen name="MyJourney" component={MyJourneyScreen} />
+            <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
           </>
         )}
       </Stack.Navigator>

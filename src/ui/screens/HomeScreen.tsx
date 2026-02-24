@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Plus } from 'lucide-react-native';
@@ -11,11 +11,18 @@ import ActionCenterCard from '../components/ActionCenterCard';
 import RitualsCarousel, { RitualsCarouselRef } from '../components/RitualsCarousel';
 import TipOfTheDay from '../components/TipOfTheDay';
 import VitalityScoreCard from '../components/VitalityScoreCard';
+import GamificationHeader from '../components/GamificationHeader';
+import XpAnimation from '../components/XpAnimation';
+import TierCelebration from '../components/TierCelebration';
+import WaiverPrompt from '../components/WaiverPrompt';
 import { useMedications } from '../hooks/useMedications';
+import { useGamification } from '../hooks/useGamification';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { doseStatusCache } from '../../data/utils/doseStatusCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
+import { estimateDailyXp } from '../../domain/utils/xpCalculator';
+import { TIER_ASSETS, TIER_NAMES } from '../../domain/constants/tierAssets';
 import type { RootStackParamList } from '../navigation/types';
 import type { Medication, DoseTimeSlot, RevertableDose } from '../../domain/types';
 import {
@@ -28,7 +35,6 @@ import {
   buildTodaysRituals,
   getRitualStats,
   isAllRitualsComplete,
-  calculateDailyPoints,
   getVictoryInsight,
   shouldShowActionCenter,
   getOldestMissedRitual,
@@ -41,6 +47,19 @@ import {
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { activeMedications, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
+
+  // Step 40: Gamification hook for XP estimation, tier detection, waiver, etc.
+  const {
+    totalXp,
+    currentTier,
+    streakDays,
+    comebackBoostActive,
+    waiverBadges,
+    hasMissedYesterday,
+    isOnline,
+    refreshStatus,
+    refreshAndDetectTierUp,
+  } = useGamification();
 
   // Debug: Track renders
   const renderCount = useRef(0);
@@ -67,6 +86,18 @@ export default function HomeScreen() {
   // In-memory tracking for revertable doses (not persisted - cleared on app restart)
   const [revertableDoses, setRevertableDoses] = useState<RevertableDose[]>([]);
 
+  // Step 35/40: XP Animation state (D17 Delayed Counter Trick)
+  const [xpAnimationTrigger, setXpAnimationTrigger] = useState(false);
+  const [xpAnimationAmount, setXpAnimationAmount] = useState(0);
+
+  // Step 36/40: Tier Celebration state
+  const [showTierCelebration, setShowTierCelebration] = useState(false);
+  const [celebrationTier, setCelebrationTier] = useState(1);
+
+  // Step 40: Waiver Prompt state (shown on app open when conditions met)
+  const [showWaiverPrompt, setShowWaiverPrompt] = useState(false);
+  const waiverCheckedRef = useRef(false);
+
   // Load persisted taken IDs and revertable doses on mount
   useEffect(() => {
     const loadPersistedState = async () => {
@@ -87,6 +118,14 @@ export default function HomeScreen() {
     };
     loadPersistedState();
   }, []);
+
+  // Step 40: WaiverPrompt -- check on mount if conditions are met
+  useEffect(() => {
+    if (!waiverCheckedRef.current && hasMissedYesterday && waiverBadges > 0) {
+      waiverCheckedRef.current = true;
+      setShowWaiverPrompt(true);
+    }
+  }, [hasMissedYesterday, waiverBadges, streakDays]);
 
   // Subscribe to medication events for cross-screen sync
   useEffect(() => {
@@ -156,31 +195,23 @@ export default function HomeScreen() {
   }, [todaysRituals]);
 
   // Calculate the next dose time slot using hand-off logic (1h 15min rule)
-  // IMPORTANT: Uses getActiveDose() which respects:
-  // - 60 minutes expiry after scheduled time
-  // - 15 minutes hand-off before next dose
   const nextDoseSlot = useMemo((): DoseTimeSlot | null => {
     console.log('[NextDose] ===== RECALCULATING (v' + stateVersion + ') =====');
     console.log('[NextDose] takenTodayArray:', takenTodayArray);
     console.log('[NextDose] todaysRituals:', todaysRituals.map(r => `${r.name}: ${r.status}`));
 
-    // Step 1: Use getActiveDose() to find the current active dose from today's rituals
-    // This respects the 1h 15min hand-off logic
     const activeDose = getActiveDose(todaysRituals, takenTodayIds);
     console.log('[NextDose] activeDose from getActiveDose():', activeDose?.name || 'null');
 
     if (activeDose) {
-      // Found an active dose for today - group all medications at this same time
       const activeTime = activeDose.scheduledTime;
       const medsAtSameTime = todaysRituals
         .filter((r) => {
-          // Same time AND not expired (not taken, not past 60 min expiry)
           const isSameTime = r.scheduledTime.getTime() === activeTime.getTime();
-          const isTaken = takenTodayIds.has(r.id); // Use chipId for taken check
+          const isTaken = takenTodayIds.has(r.id);
           return isSameTime && !isTaken;
         })
         .map((r) => {
-          // Use medicationId to find the actual medication
           const med = activeMedications.find((m) => m.id === r.medicationId);
           return med;
         })
@@ -209,15 +240,11 @@ export default function HomeScreen() {
       }
     }
 
-    // Step 2: No active dose today - check for tomorrow's doses
     console.log('[NextDose] No active dose today, checking tomorrow...');
 
-    // Find medications with doses for tomorrow (or later)
     const futureDoseMap = new Map<string, { doseTime: Date; medications: Medication[] }>();
 
     for (const med of activeMedications) {
-      // Always skip today (all today's doses are either taken or expired)
-      // Pass all possible dose indices (0, 1, 2) to skip all today's doses
       const doseTime = getNextDoseTime(med, new Set([0, 1, 2]));
 
       if (doseTime && !isToday(doseTime)) {
@@ -235,7 +262,6 @@ export default function HomeScreen() {
       return null;
     }
 
-    // Find the earliest future dose
     let earliest: { doseTime: Date; medications: Medication[] } | null = null;
     for (const entry of futureDoseMap.values()) {
       if (!earliest || entry.doseTime < earliest.doseTime) {
@@ -280,11 +306,9 @@ export default function HomeScreen() {
     [activeMedications]
   );
 
-  // Victory card data
-  const victoryPoints = useMemo(
-    () => calculateDailyPoints(ritualStats),
-    [ritualStats]
-  );
+  // D9: Replace calculateDailyPoints() with gamification XP
+  // Use totalXp from useGamification() (server-authoritative)
+  const victoryPoints = totalXp;
 
   const victoryInsight = useMemo(() => getVictoryInsight(), []);
 
@@ -335,7 +359,7 @@ export default function HomeScreen() {
       result: result?.name || null,
     });
     return result;
-  }, [todaysRituals, activeMedications]); // todaysRituals already depends on takenTodayKey
+  }, [todaysRituals, activeMedications]);
 
   // Ref for RitualsCarousel to scroll to critical miss
   const ritualsCarouselRef = useRef<RitualsCarouselRef>(null);
@@ -352,6 +376,52 @@ export default function HomeScreen() {
     month: 'long',
     day: 'numeric',
   });
+
+  /**
+   * Step 40: Gamification wiring after dose logging.
+   * D17 Delayed Counter Trick:
+   * - Online: Fire XpAnimation with estimate, refresh status for tier-up
+   * - Offline: No XP animation, just haptic from chip
+   */
+  const handleGamificationAfterDose = useCallback(async () => {
+    if (!isOnline) {
+      // D17 Option A: Offline -- no XP animation, XP catches up on sync
+      console.log('[Gamification] Offline -- skipping XP animation');
+      return;
+    }
+
+    // D17: Estimate XP using client-side calculator
+    const estimatedXp = estimateDailyXp(streakDays, comebackBoostActive);
+    console.log('[Gamification] Estimated XP:', estimatedXp);
+
+    // Fire XP animation immediately with estimate
+    setXpAnimationAmount(estimatedXp);
+    setXpAnimationTrigger(true);
+
+    // Reset animation trigger after a short delay
+    setTimeout(() => {
+      setXpAnimationTrigger(false);
+    }, 600);
+
+    // Refresh gamification status (server-authoritative) -- header updates during animation
+    const { tierChanged, newTier, showDiscrepancyToast } = await refreshAndDetectTierUp(estimatedXp);
+
+    // D17 Layer 3: Show toast on >5 XP discrepancy (expected <1% of dose logs)
+    if (showDiscrepancyToast) {
+      // Using Alert since there's no toast library currently in the project
+      Alert.alert('XP Adjusted', 'Your XP has been updated to reflect the server value.');
+    }
+
+    // Tier-up detection
+    if (tierChanged) {
+      console.log('[Gamification] Tier up detected! New tier:', newTier);
+      setCelebrationTier(newTier);
+      // Slight delay so XP animation finishes first
+      setTimeout(() => {
+        setShowTierCelebration(true);
+      }, 700);
+    }
+  }, [isOnline, streakDays, comebackBoostActive, refreshAndDetectTierUp]);
 
   const handleTakeNow = useCallback(async (): Promise<{
     isFutureDose: boolean;
@@ -389,10 +459,8 @@ export default function HomeScreen() {
         console.log('[TakeNow] Batch result:', success.length, 'success,', failed.length, 'failed');
 
         // Mark successful doses as taken today using chipIds (supports multi-dose)
-        // Find the corresponding ritual chips at this time slot
         const slotTime = nextDoseSlot.doseTime.getTime();
         const successRituals = todaysRituals.filter((r) => {
-          // Same scheduled time and medication not in failed list
           const isSameTime = r.scheduledTime.getTime() === slotTime;
           const medicationFailed = failed.includes(r.medicationId);
           return isSameTime && !medicationFailed;
@@ -400,7 +468,6 @@ export default function HomeScreen() {
         const successChipIds = successRituals.map((r) => r.id);
 
         if (successChipIds.length > 0) {
-          // Update state using array for reliable React updates
           setTakenTodayArray((prev) => {
             const newArray = [...prev];
             successChipIds.forEach((chipId) => {
@@ -411,9 +478,7 @@ export default function HomeScreen() {
             console.log('[TakeNow] Updated takenTodayArray with chipIds:', newArray);
             return newArray;
           });
-          // Increment version to force memo recalculation
           setStateVersion((v) => v + 1);
-          // Persist to storage (use chipIds for multi-dose support)
           await doseStatusCache.markTaken(successChipIds);
 
           // Track these doses for potential revert (30-minute window) - non-blocking
@@ -440,6 +505,9 @@ export default function HomeScreen() {
           } catch (revertTrackError) {
             console.warn('[TakeNow] Failed to track for revert:', revertTrackError);
           }
+
+          // Step 40: Trigger gamification flow after successful dose
+          handleGamificationAfterDose();
         }
 
         if (failed.length > 0) {
@@ -456,14 +524,11 @@ export default function HomeScreen() {
       console.log('[TakeNow] No nextDoseSlot available');
     }
     return { isFutureDose: false };
-  }, [nextDoseSlot, todaysRituals, logDoseBatch, isLoggingDose]);
+  }, [nextDoseSlot, todaysRituals, logDoseBatch, isLoggingDose, handleGamificationAfterDose]);
 
   // Handler for taking a single dose from RitualsCarousel
-  // chipId: unique identifier for this dose (e.g., "med.id" or "med.id_dose_1")
-  // medicationId: the actual medication ID for API calls
   const handleTakeSingleDose = useCallback(
     async (chipId: string, medicationId: string): Promise<boolean> => {
-      // Prevent concurrent dose logging
       if (isLoggingDose) {
         console.log('[TakeSingleDose] Already logging, ignoring');
         return false;
@@ -475,12 +540,10 @@ export default function HomeScreen() {
         return false;
       }
 
-      // Find the ritual chip to get the correct scheduled time
       const ritual = todaysRituals.find((r) => r.id === chipId);
 
       setIsLoggingDose(true);
       try {
-        // Use the scheduled time from the ritual chip (handles multi-dose correctly)
         const scheduledTime = ritual?.scheduledTime || new Date();
         if (!ritual) {
           scheduledTime.setHours(
@@ -497,7 +560,6 @@ export default function HomeScreen() {
           status: 'taken',
         });
 
-        // Update state using chipId (supports multi-dose tracking)
         console.log('[TakeSingleDose] Updating takenTodayArray with chipId:', chipId);
         setTakenTodayArray((prev) => {
           if (prev.includes(chipId)) {
@@ -508,13 +570,11 @@ export default function HomeScreen() {
           console.log('[TakeSingleDose] New takenTodayArray:', newArray);
           return newArray;
         });
-        // Increment version to force memo recalculation
         setStateVersion((v) => {
           console.log('[TakeSingleDose] Incrementing stateVersion to:', v + 1);
           return v + 1;
         });
 
-        // Persist to storage (use chipId for multi-dose support)
         await doseStatusCache.markTaken([chipId]);
 
         // Track this dose for potential revert (30-minute window) - non-blocking
@@ -534,6 +594,9 @@ export default function HomeScreen() {
           console.warn('[TakeSingleDose] Failed to track for revert:', revertTrackError);
         }
 
+        // Step 40: Trigger gamification flow after successful dose
+        handleGamificationAfterDose();
+
         return true;
       } catch (error) {
         console.error('[TakeSingleDose] Failed to log dose:', error);
@@ -542,20 +605,17 @@ export default function HomeScreen() {
         setIsLoggingDose(false);
       }
     },
-    [activeMedications, todaysRituals, logDose, isLoggingDose]
+    [activeMedications, todaysRituals, logDose, isLoggingDose, handleGamificationAfterDose]
   );
 
   // Handler for logging missed doses from ActionCenterCard
-  // Uses chipId from the missed ritual for proper multi-dose tracking
   const handleLogMissedDose = useCallback(
     async (chipId: string): Promise<boolean> => {
-      // Prevent concurrent dose logging
       if (isLoggingDose) {
         console.log('[LogMissedDose] Already logging, ignoring');
         return false;
       }
 
-      // Find the missed ritual by chipId
       const missedRitual = todaysRituals.find((r) => r.id === chipId);
       if (!missedRitual) {
         console.log('[LogMissedDose] Ritual not found for chipId:', chipId);
@@ -571,17 +631,14 @@ export default function HomeScreen() {
 
       setIsLoggingDose(true);
       try {
-        // Use the scheduled time from the ritual (handles multi-dose correctly)
         const scheduledTime = missedRitual.scheduledTime;
 
         console.log('[LogMissedDose] Logging missed dose for:', medication.name, 'chipId:', chipId);
-        // Note: Backend accepts 'taken' - late status can be inferred from timestamp comparison
         await logDose(medicationId, {
           scheduled_at: scheduledTime.toISOString(),
           status: 'taken',
         });
 
-        // Update state using chipId (supports multi-dose tracking)
         setTakenTodayArray((prev) => {
           if (prev.includes(chipId)) {
             return prev;
@@ -590,11 +647,11 @@ export default function HomeScreen() {
           console.log('[LogMissedDose] Updated takenTodayArray:', newArray);
           return newArray;
         });
-        // Increment version to force memo recalculation
         setStateVersion((v) => v + 1);
-
-        // Persist to storage (use chipId for multi-dose support)
         await doseStatusCache.markTaken([chipId]);
+
+        // Step 40: Trigger gamification flow after missed dose recovery
+        handleGamificationAfterDose();
 
         return true;
       } catch (error) {
@@ -604,7 +661,7 @@ export default function HomeScreen() {
         setIsLoggingDose(false);
       }
     },
-    [activeMedications, todaysRituals, logDose, isLoggingDose]
+    [activeMedications, todaysRituals, logDose, isLoggingDose, handleGamificationAfterDose]
   );
 
   // Check if a chip can be reverted (within 30-minute window)
@@ -620,29 +677,24 @@ export default function HomeScreen() {
   // Handler for reverting (undoing) a dose
   const handleRevertDose = useCallback(
     async (chipId: string): Promise<{ success: boolean; error?: string }> => {
-      // Prevent concurrent operations
       if (isLoggingDose) {
         console.log('[RevertDose] Already processing, ignoring');
         return { success: false, error: 'Please wait' };
       }
 
-      // Find the revertable dose entry
       const revertable = revertableDoses.find((r) => r.chipId === chipId);
       if (!revertable) {
         console.log('[RevertDose] No revertable entry for chipId:', chipId);
         return { success: false, error: 'Cannot undo this dose' };
       }
 
-      // Check if still within revert window
       if (!canRevertDose(revertable.takenAt)) {
         console.log('[RevertDose] Window expired for chipId:', chipId);
-        // Remove expired entry from tracking (memory + storage)
         setRevertableDoses((prev) => prev.filter((r) => r.chipId !== chipId));
         await doseStatusCache.removeRevertableDose(chipId);
         return { success: false, error: 'Undo window expired (30 minutes)' };
       }
 
-      // Find medication for dose size
       const medication = activeMedications.find((m) => m.id === revertable.medicationId);
       const doseSize = medication?.dose_size || 1;
 
@@ -652,16 +704,14 @@ export default function HomeScreen() {
         const result = await revertDose(revertable.medicationId, revertable.doseId, doseSize);
 
         if (result.success) {
-          // Remove from revertable tracking (memory + storage)
           setRevertableDoses((prev) => prev.filter((r) => r.chipId !== chipId));
           await doseStatusCache.removeRevertableDose(chipId);
-
-          // Update takenTodayArray to remove this chip
           setTakenTodayArray((prev) => prev.filter((id) => id !== chipId));
           setStateVersion((v) => v + 1);
-
-          // Update cache to reflect the revert
           await doseStatusCache.markReverted(chipId);
+
+          // Refresh gamification after revert (XP rollback may have occurred)
+          refreshStatus();
 
           console.log('[RevertDose] Successfully reverted chipId:', chipId);
           return { success: true };
@@ -676,16 +726,52 @@ export default function HomeScreen() {
         setIsLoggingDose(false);
       }
     },
-    [revertableDoses, activeMedications, revertDose, isLoggingDose]
+    [revertableDoses, activeMedications, revertDose, isLoggingDose, refreshStatus]
   );
+
+  // Step 40: Waiver prompt handlers
+  const handleWaiverBadgeUsed = useCallback(() => {
+    setShowWaiverPrompt(false);
+    refreshStatus();
+  }, [refreshStatus]);
+
+  const handleWaiverDismiss = useCallback(() => {
+    setShowWaiverPrompt(false);
+  }, []);
+
+  // Step 36: Tier celebration complete handler
+  const handleTierCelebrationComplete = useCallback(() => {
+    setShowTierCelebration(false);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Vision</Text>
-          <Text style={styles.date}>{today}</Text>
+          <View>
+            <Text style={styles.title}>Vision</Text>
+            <Text style={styles.date}>{today}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.tierBadgeBtn}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('MyJourney')}
+            accessibilityLabel={`${TIER_NAMES[currentTier] ?? 'Observer'} tier. Tap to view your journey.`}
+          >
+            <Image source={TIER_ASSETS[currentTier]} style={styles.tierBadgeImg} resizeMode="contain" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Gamification status bar (self-contained -- isolated re-renders R5.3) */}
+        <View style={styles.gamificationHeaderWrap}>
+          <GamificationHeader />
+          {/* Step 35: XP Animation floats above the header */}
+          <XpAnimation
+            xpAmount={xpAnimationAmount}
+            trigger={xpAnimationTrigger}
+            onComplete={() => setXpAnimationTrigger(false)}
+          />
         </View>
 
         {/* Bento layout */}
@@ -762,6 +848,22 @@ export default function HomeScreen() {
       >
         <Plus color={colors.bg} size={24} strokeWidth={2.5} />
       </TouchableOpacity>
+
+      {/* Step 36: Tier Celebration overlay */}
+      <TierCelebration
+        visible={showTierCelebration}
+        newTier={celebrationTier}
+        onComplete={handleTierCelebrationComplete}
+      />
+
+      {/* Step 40: Waiver Prompt on app open */}
+      <WaiverPrompt
+        visible={showWaiverPrompt}
+        waiverBadges={waiverBadges}
+        streakDays={streakDays}
+        onBadgeUsed={handleWaiverBadgeUsed}
+        onDismiss={handleWaiverDismiss}
+      />
     </SafeAreaView>
   );
 }
@@ -770,9 +872,13 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
-  header: { marginBottom: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 24 },
   title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700' },
   date: { ...typography.bodySmall, color: colors.textMuted, marginTop: 2 },
+  tierBadgeBtn: { alignItems: 'center', gap: 4 },
+  tierBadgeImg: { width: 80, height: 80 },
+  tierBadgeName: { color: colors.cyan, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+  gamificationHeaderWrap: { position: 'relative', marginBottom: 16 },
   grid: { gap: 16 },
   fab: {
     position: 'absolute',

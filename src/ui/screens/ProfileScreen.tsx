@@ -1,136 +1,213 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef, useState, useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Lock, ChevronRight, User, Settings, Bell, Shield, LogOut } from 'lucide-react-native';
+import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 
 const SECTIONS = [
-  { id: 'PersonalInfo' as const, icon: User, label: 'Personal Information', desc: 'Name, contact details, emergency contact' },
+  { id: 'EmergencyVault' as const, icon: Lock, label: 'Emergency Vault', desc: 'Critical medical information' },
+  { id: 'MyJourney' as const, icon: Map, label: 'My Journey', desc: 'View your tier progression' },
+  { id: 'AccountSettings' as const, icon: UserCog, label: 'Account', desc: 'Password, email, data deletion, sign out' },
   { id: 'PrivacySecurity' as const, icon: Shield, label: 'Privacy & Security', desc: 'Biometric lock, data export' },
   { id: 'NotificationPrefs' as const, icon: Bell, label: 'Notifications', desc: 'Privacy mode, critical alerts, nudges' },
   { id: 'AppPreferences' as const, icon: Settings, label: 'App Preferences', desc: 'Density, theme, motion settings' },
 ] as const;
 
+// Searchable index of all settings options across all sub-screens
+const ALL_SETTINGS_OPTIONS = [
+  // Personal Information
+  { label: 'Full Name', desc: 'Edit your display name', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Date of Birth', desc: 'Set your date of birth', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Gender', desc: 'Set your gender', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Primary Health Goal', desc: 'Heart health, weight, wellness', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Blood Type', desc: 'Set your blood type', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Weight', desc: 'Set your weight', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Primary Physician', desc: 'Your doctor\'s name', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Allergies', desc: 'Manage your allergies', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Chronic Conditions', desc: 'Manage chronic conditions', screen: 'PersonalInfo' as const, category: 'Profile' },
+  { label: 'Emergency Contact', desc: 'Name, phone, relationship', screen: 'PersonalInfo' as const, category: 'Profile' },
+  // My Journey
+  { label: 'My Journey', desc: 'View your tier progression', screen: 'MyJourney' as const, category: 'My Journey' },
+  // Emergency Vault
+  { label: 'Emergency Vault', desc: 'Critical medical information', screen: 'EmergencyVault' as const, category: 'Emergency Vault' },
+  // Privacy & Security
+  { label: 'Face ID / Biometric Lock', desc: 'Secure app with biometrics', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  { label: 'Auto-Lock', desc: 'Lock after inactivity', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  { label: 'Export Health Data', desc: 'Generate PDF summary', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  { label: 'Privacy Policy', desc: 'Review data practices', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  { label: 'Data Encryption', desc: 'AES-256 encryption status', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  { label: 'Screen Security', desc: 'Block screenshots & recording', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
+  // Notifications
+  { label: 'Dose Reminders', desc: 'Medication dose notifications', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Refill Alerts', desc: 'Low stock notifications', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Streak Milestones', desc: 'Streak achievement alerts', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Quiet Hours', desc: 'Silence notifications 10pm-7am', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  // App Preferences
+  { label: 'Reduced Motion', desc: 'Minimize animations', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  { label: 'Haptic Feedback', desc: 'Vibration on interactions', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  { label: 'Theme', desc: 'Dark mode (default)', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  // Account
+  { label: 'Change Password', desc: 'Send a password reset email', screen: 'AccountSettings' as const, category: 'Account' },
+  { label: 'Change Email', desc: 'Update your login email', screen: 'AccountSettings' as const, category: 'Account' },
+  { label: 'Delete All Data', desc: 'Remove all health data', screen: 'AccountSettings' as const, category: 'Account' },
+  { label: 'Delete Account', desc: 'Permanently delete your account', screen: 'AccountSettings' as const, category: 'Account' },
+  { label: 'Sign Out', desc: 'Sign out of your account', screen: 'AccountSettings' as const, category: 'Account' },
+] as const;
+
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const initials = user?.display_name
-    ? user.display_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-    : user?.email?.slice(0, 2).toUpperCase() || '??';
+  useFocusEffect(
+    React.useCallback(() => {
+      AsyncStorage.getItem('profile_photo_uri').then((uri) => {
+        setProfilePhoto(uri);
+      });
+    }, [])
+  );
+
+  const filteredResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return ALL_SETTINGS_OPTIONS.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        opt.desc.toLowerCase().includes(q) ||
+        opt.category.toLowerCase().includes(q)
+    );
+  }, [searchQuery]);
+
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>Manage your account & settings</Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+        {/* Settings Header */}
+        <Text style={styles.settingsHeading}>Settings</Text>
+
+        {/* Search Bar */}
+        <View style={styles.searchBar}>
+          <Search color={colors.textMuted} size={18} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search settings..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X color={colors.textMuted} size={18} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* User info card */}
-        <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.userName}>{user?.display_name || 'Vision User'}</Text>
-            <Text style={styles.userEmail}>{user?.email || ''}</Text>
-          </View>
-        </View>
-
-        {/* Emergency vault */}
-        <TouchableOpacity
-          style={styles.vaultCard}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('EmergencyVault')}
-        >
-          <View style={styles.vaultRow}>
-            <View style={styles.vaultIcon}>
-              <Lock color="#000" size={24} strokeWidth={2.5} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.vaultTitle}>Access Emergency Vault</Text>
-              <Text style={styles.vaultSubtitle}>Critical medical information</Text>
-            </View>
-            <ChevronRight color="#FFAA00" size={24} strokeWidth={2.5} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Settings sections */}
-        <View style={styles.sectionsList}>
-          {SECTIONS.map((section) => {
-            const Icon = section.icon;
-            return (
-              <TouchableOpacity
-                key={section.id}
-                style={styles.sectionItem}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate(section.id)}
-              >
-                <View style={styles.sectionRow}>
-                  <View style={styles.sectionIcon}>
-                    <Icon color={colors.cyan} size={20} strokeWidth={2} />
-                  </View>
+        {/* Search Results */}
+        {isSearching ? (
+          <View style={styles.searchResults}>
+            {filteredResults.length === 0 ? (
+              <Text style={styles.noResults}>No settings found for "{searchQuery}"</Text>
+            ) : (
+              filteredResults.map((result, index) => (
+                <TouchableOpacity
+                  key={`${result.screen}-${index}`}
+                  style={styles.searchResultItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setSearchQuery('');
+                    navigation.navigate(result.screen);
+                  }}
+                >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.sectionLabel}>{section.label}</Text>
-                    <Text style={styles.sectionDesc}>{section.desc}</Text>
+                    <Text style={styles.searchResultLabel}>{result.label}</Text>
+                    <Text style={styles.searchResultDesc}>{result.desc}</Text>
                   </View>
-                  <ChevronRight color="#8E9196" size={20} strokeWidth={2} />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Account stats */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsTitle}>ACCOUNT STATISTICS</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>127</Text>
-              <Text style={styles.statLabel}>Days Active</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>98%</Text>
-              <Text style={styles.statLabel}>Adherence</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{user?.vitality_streak ?? 0}</Text>
-              <Text style={styles.statLabel}>Streak Days</Text>
-            </View>
+                  <View style={styles.searchResultBadge}>
+                    <Text style={styles.searchResultBadgeText}>{result.category}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
-        </View>
+        ) : (
+          <>
+            {/* Hero Profile Section */}
+            <TouchableOpacity
+              style={styles.heroSection}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('PersonalInfo')}
+            >
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto }} style={styles.heroAvatar} />
+              ) : (
+                <View style={styles.heroAvatarPlaceholder}>
+                  <User color={colors.textMuted} size={36} />
+                </View>
+              )}
+              <View style={styles.heroInfo}>
+                <Text style={styles.heroName}>{user?.display_name || 'Vision User'}</Text>
+                <Text style={styles.heroSubtitle}>View and edit profile</Text>
+              </View>
+              <ChevronRight color="#8E9196" size={20} strokeWidth={2} />
+            </TouchableOpacity>
 
-        {/* Sign out */}
-        <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
-          <LogOut color="#8E9196" size={20} strokeWidth={2} />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+            {/* All Sections */}
+            <View style={styles.sectionsList}>
+              {SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isVault = section.id === 'EmergencyVault';
+                return (
+                  <TouchableOpacity
+                    key={section.id}
+                    style={[styles.sectionItem, isVault && styles.sectionItemVault]}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate(section.id)}
+                  >
+                    <View style={styles.sectionRow}>
+                      <View style={[styles.sectionIcon, isVault && styles.sectionIconVault]}>
+                        <Icon color={isVault ? '#FFAA00' : colors.cyan} size={20} strokeWidth={2} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.sectionLabel}>{section.label}</Text>
+                        <Text style={styles.sectionDesc}>{section.desc}</Text>
+                      </View>
+                      <ChevronRight color={isVault ? '#FFAA00' : '#8E9196'} size={20} strokeWidth={2} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-        {/* Version (admin entry point) */}
-        <TouchableOpacity
-          style={[styles.versionBtn, isLongPressing && styles.versionBtnActive]}
-          onPressIn={() => {
-            setIsLongPressing(true);
-            longPressTimer.current = setTimeout(() => {
-              setIsLongPressing(false);
-              navigation.navigate('Admin');
-            }, 3000);
-          }}
-          onPressOut={() => {
-            if (longPressTimer.current) clearTimeout(longPressTimer.current);
-            setIsLongPressing(false);
-          }}
-        >
-          <Text style={[styles.versionText, isLongPressing && { color: colors.cyan }]}>Version 1.0.4</Text>
-        </TouchableOpacity>
+            {/* Version (admin entry point) */}
+            <TouchableOpacity
+              style={[styles.versionBtn, isLongPressing && styles.versionBtnActive]}
+              onPressIn={() => {
+                setIsLongPressing(true);
+                longPressTimer.current = setTimeout(() => {
+                  setIsLongPressing(false);
+                  navigation.navigate('Admin');
+                }, 3000);
+              }}
+              onPressOut={() => {
+                if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                setIsLongPressing(false);
+              }}
+            >
+              <Text style={[styles.versionText, isLongPressing && { color: colors.cyan }]}>Version 1.0.4</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -139,57 +216,154 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#080A0F' },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
-  header: { marginBottom: 24 },
-  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700' },
-  subtitle: { color: '#64748B', fontSize: 14, marginTop: 4 },
-  userCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 16, padding: 20, marginBottom: 24,
-    backgroundColor: '#121721', borderRadius: 24, borderWidth: 1, borderColor: '#1E2633',
+
+  // Settings Header
+  settingsHeading: {
+    color: colors.textPrimary,
+    fontSize: 28,
+    fontWeight: '700',
+    paddingTop: 16,
+    marginBottom: 16,
   },
-  avatar: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.cyan,
-    justifyContent: 'center', alignItems: 'center',
+
+  // Search Bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121721',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 20,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#1E2633',
   },
-  avatarText: { color: '#000', fontSize: 24, fontWeight: '700' },
-  userName: { color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginBottom: 2 },
-  userEmail: { color: '#8E9196', fontSize: 14 },
-  vaultCard: {
-    marginBottom: 24, borderRadius: 24, padding: 20, overflow: 'hidden',
-    backgroundColor: 'rgba(26,26,26,0.8)', borderWidth: 2, borderColor: '#FFAA00',
+  searchInput: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 15,
+    padding: 0,
+    margin: 0,
+    outlineStyle: 'none',
+    borderWidth: 0,
+  } as any,
+
+  // Search Results
+  searchResults: {
+    marginBottom: 14,
   },
-  vaultRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  vaultIcon: {
-    width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: '#FFAA00',
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121721',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1E2633',
   },
-  vaultTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '600', marginBottom: 2 },
-  vaultSubtitle: { color: '#FFAA00', fontSize: 12, fontWeight: '600' },
-  sectionsList: { gap: 12, marginBottom: 24 },
+  searchResultLabel: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchResultDesc: {
+    color: '#8E9196',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  searchResultBadge: {
+    backgroundColor: 'rgba(0,216,255,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 10,
+  },
+  searchResultBadgeText: {
+    color: colors.cyan,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  noResults: {
+    color: '#8E9196',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+
+  // Hero Profile
+  heroSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121721',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#1E2633',
+  },
+  heroAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: colors.cyan,
+  },
+  heroAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#1E2633',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.cyan,
+  },
+  heroInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  heroName: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  heroSubtitle: {
+    color: '#8E9196',
+    fontSize: 14,
+    marginTop: 4,
+  },
+
+  // Sections
+  sectionsList: { gap: 10, marginBottom: 28 },
   sectionItem: {
-    backgroundColor: '#121721', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#1E2633',
+    backgroundColor: '#121721',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1E2633',
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sectionIcon: {
-    width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: 'rgba(0,216,255,0.1)',
+  },
+  sectionItemVault: {
+    borderColor: '#FFAA00',
+    borderLeftWidth: 3,
+  },
+  sectionIconVault: {
+    backgroundColor: 'rgba(255, 170, 0, 0.12)',
   },
   sectionLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   sectionDesc: { color: '#8E9196', fontSize: 12, marginTop: 2 },
-  statsCard: {
-    backgroundColor: '#121721', borderRadius: 16, padding: 20, marginBottom: 24,
-    borderWidth: 1, borderColor: '#1E2633',
-  },
-  statsTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '600', letterSpacing: 0.5, marginBottom: 16 },
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { color: colors.cyan, fontSize: 24, fontWeight: '700', marginBottom: 4 },
-  statLabel: { color: '#8E9196', fontSize: 10 },
-  signOutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16,
-    borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 24,
-  },
-  signOutText: { color: '#8E9196', fontSize: 14, fontWeight: '600' },
+
+  // Version
   versionBtn: { alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   versionBtnActive: { backgroundColor: 'rgba(0,216,255,0.1)', borderWidth: 1, borderColor: 'rgba(0,216,255,0.3)' },
   versionText: { color: '#8E9196', fontSize: 11, letterSpacing: 0.5 },

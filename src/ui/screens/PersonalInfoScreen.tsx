@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  Modal,
   ActivityIndicator,
   BackHandler,
+  Image,
+  Modal as RNModal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ChevronLeft,
   ChevronDown,
@@ -25,15 +28,16 @@ import {
   AlertCircle,
   Users,
   Phone,
-  Plus,
   Trash2,
   Edit3,
   Scale,
-  Clock,
   Activity,
+  Camera,
 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
+import { useGamification } from '../hooks/useGamification';
+import DateInput from '../components/DateInput';
 import { colors } from '../theme/colors';
 import type { RootStackScreenProps } from '../navigation/types';
 import type { MedicalContact } from '../../domain/types';
@@ -50,11 +54,15 @@ const HEALTH_GOALS = [
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const RELATIONSHIPS = ['Spouse', 'Parent', 'Sibling', 'Child', 'Friend', 'Doctor', 'Other'];
 
-type PickerType = 'gender' | 'healthGoal' | 'bloodType' | 'relationship' | 'date' | null;
+const COMMON_ALLERGIES = ['Penicillin', 'Sulfa', 'Latex', 'Aspirin', 'NSAIDs', 'Ibuprofen', 'Shellfish', 'Peanuts'];
+const COMMON_CONDITIONS = ['Diabetes', 'Hypertension', 'Asthma', 'Heart Disease', 'COPD', 'Arthritis', 'Depression', 'Anxiety'];
+
+type PickerType = 'gender' | 'healthGoal' | 'bloodType' | 'relationship' | null;
 
 export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<'PersonalInfo'>) {
   const { user, updateProfile } = useAuth();
   const { vault, loading: vaultLoading, updateVault } = useVault();
+  const { refreshStatus } = useGamification();
   const [saving, setSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -62,7 +70,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
   // Form state - User model fields
   const [displayName, setDisplayName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
+  const [dateOfBirth, setDateOfBirth] = useState(''); // YYYY-MM-DD format
   const [gender, setGender] = useState('');
   const [primaryHealthGoal, setPrimaryHealthGoal] = useState('');
   const [primaryPhysician, setPrimaryPhysician] = useState('');
@@ -72,7 +80,6 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   const [allergies, setAllergies] = useState<string[]>([]);
   const [conditions, setConditions] = useState<string[]>([]);
   const [weight, setWeight] = useState('');
-  const [age, setAge] = useState('');
   const [newAllergy, setNewAllergy] = useState('');
   const [newCondition, setNewCondition] = useState('');
 
@@ -87,11 +94,19 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   // Picker state - only one can be open at a time
   const [activePicker, setActivePicker] = useState<PickerType>(null);
 
-  // Date picker modal state
-  const [tempDate, setTempDate] = useState<Date>(new Date(1990, 0, 1));
+  // Profile photo
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Load saved profile photo on mount
+  useEffect(() => {
+    AsyncStorage.getItem('profile_photo_uri').then((uri) => {
+      if (uri) setProfilePhoto(uri);
+    });
+  }, []);
 
   const loading = vaultLoading || !user;
 
@@ -102,7 +117,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
     // User data
     setDisplayName(user.display_name || '');
-    setDateOfBirth(user.date_of_birth ? new Date(user.date_of_birth) : null);
+    setDateOfBirth(user.date_of_birth || '');
     setGender(user.gender || '');
     setPrimaryHealthGoal(user.primary_health_goal || '');
     setPrimaryPhysician(user.primary_physician || '');
@@ -113,7 +128,6 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
       setAllergies(vault.allergies || []);
       setConditions(vault.conditions || []);
       setWeight(vault.weight?.toString() || '');
-      setAge(vault.age?.toString() || '');
 
       const contacts = vault.medical_contacts || [];
       if (contacts.length > 0) {
@@ -165,7 +179,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     // Re-trigger the useEffect to reload data
     if (user) {
       setDisplayName(user.display_name || '');
-      setDateOfBirth(user.date_of_birth ? new Date(user.date_of_birth) : null);
+      setDateOfBirth(user.date_of_birth || '');
       setGender(user.gender || '');
       setPrimaryHealthGoal(user.primary_health_goal || '');
       setPrimaryPhysician(user.primary_physician || '');
@@ -175,7 +189,6 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
       setAllergies(vault.allergies || []);
       setConditions(vault.conditions || []);
       setWeight(vault.weight?.toString() || '');
-      setAge(vault.age?.toString() || '');
       const contacts = vault.medical_contacts || [];
       if (contacts.length > 0) {
         setContactName(contacts[0].name);
@@ -190,6 +203,32 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
       }
     }
     setErrors({});
+  };
+
+  const handlePhotoTap = () => {
+    if (isEditMode) {
+      handlePickPhoto();
+    } else if (profilePhoto) {
+      setShowPhotoViewer(true);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setProfilePhoto(result.assets[0].uri);
+      markChanged();
+    }
   };
 
   const handleBack = () => {
@@ -209,13 +248,22 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   const openPicker = (picker: PickerType) => {
     if (!isEditMode) return;
     setActivePicker(activePicker === picker ? null : picker);
-    if (picker === 'date' && dateOfBirth) {
-      setTempDate(dateOfBirth);
-    }
   };
 
   const closePicker = () => {
     setActivePicker(null);
+  };
+
+  const formatPhoneNumber = (text: string): string => {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  const handlePhoneChange = (text: string) => {
+    setContactPhone(formatPhoneNumber(text));
+    markChanged();
   };
 
   const validateForm = (): boolean => {
@@ -225,8 +273,11 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     if (!contactName.trim()) {
       newErrors.contactName = 'Contact name is required';
     }
+    const phoneDigits = contactPhone.replace(/\D/g, '');
     if (!contactPhone.trim()) {
       newErrors.contactPhone = 'Phone number is required';
+    } else if (phoneDigits.length < 10) {
+      newErrors.contactPhone = 'Enter a valid phone number (at least 10 digits)';
     }
     if (!contactRelationship) {
       newErrors.contactRelationship = 'Relationship is required';
@@ -247,7 +298,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
       // Update User profile
       const profileResult = await updateProfile({
         display_name: displayName.trim() || null,
-        date_of_birth: dateOfBirth ? dateOfBirth.toISOString().split('T')[0] : null,
+        date_of_birth: dateOfBirth || null,
         gender: gender || null,
         primary_health_goal: primaryHealthGoal || null,
         primary_physician: primaryPhysician.trim() || null,
@@ -272,13 +323,20 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
         conditions: conditions.length > 0 ? conditions : null,
         medical_contacts: medicalContacts,
         weight: weight ? parseInt(weight, 10) : null,
-        age: age ? parseInt(age, 10) : null,
       });
 
       if (profileResult.success) {
+        // Save profile photo to local storage
+        if (profilePhoto) {
+          await AsyncStorage.setItem('profile_photo_uri', profilePhoto);
+        } else {
+          await AsyncStorage.removeItem('profile_photo_uri');
+        }
+        // Refresh gamification status to pick up profile-complete XP
+        await refreshStatus();
         setIsEditMode(false);
         setHasChanges(false);
-        Alert.alert('Saved', 'Your personal details have been updated.');
+        Alert.alert('Saved', 'Your profile has been updated.');
       } else {
         Alert.alert('Error', profileResult.error || 'Update failed');
       }
@@ -289,19 +347,11 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     }
   };
 
-  const formatDate = (date: Date | null, showPlaceholder = false) => {
-    if (!date) return showPlaceholder ? 'Select date' : '—';
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  const handleDateConfirm = () => {
-    setDateOfBirth(tempDate);
-    markChanged();
-    closePicker();
+  const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[month - 1]} ${day}, ${year}`;
   };
 
   const addAllergy = () => {
@@ -434,7 +484,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
             <ChevronLeft color={colors.textSecondary} size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Personal Details</Text>
+          <Text style={styles.headerTitle}>Profile</Text>
           {isEditMode ? (
             <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.saveBtn}>
               <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
@@ -454,6 +504,44 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Profile Photo */}
+          <View style={styles.photoSection}>
+            <TouchableOpacity style={styles.photoContainer} onPress={handlePhotoTap} activeOpacity={0.8}>
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto }} style={styles.profilePhoto} />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <User color={colors.textMuted} size={40} />
+                </View>
+              )}
+              {isEditMode && (
+                <View style={styles.cameraBadge}>
+                  <Camera color="#000" size={14} />
+                </View>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.photoName}>{displayName || 'Add your name'}</Text>
+            {isEditMode && <Text style={styles.photoHint}>Tap photo to change</Text>}
+          </View>
+
+          {/* Photo Viewer Modal */}
+          <RNModal
+            visible={showPhotoViewer}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowPhotoViewer(false)}
+          >
+            <TouchableOpacity
+              style={styles.photoViewerOverlay}
+              activeOpacity={1}
+              onPress={() => setShowPhotoViewer(false)}
+            >
+              {profilePhoto && (
+                <Image source={{ uri: profilePhoto }} style={styles.photoViewerImage} resizeMode="contain" />
+              )}
+            </TouchableOpacity>
+          </RNModal>
+
           {/* IDENTIFICATION Section */}
           <Text style={styles.sectionTitle}>IDENTIFICATION</Text>
 
@@ -467,22 +555,33 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Date of Birth */}
-          <TouchableOpacity
-            style={styles.fieldCard}
-            activeOpacity={isEditMode ? 0.8 : 1}
-            onPress={() => openPicker('date')}
-          >
-            <View style={styles.fieldIcon}>
-              <Calendar color={colors.cyan} size={20} />
+          {isEditMode ? (
+            <View style={styles.dateInputWrapper}>
+              <View style={styles.fieldIcon}>
+                <Calendar color={colors.cyan} size={20} />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>DATE OF BIRTH</Text>
+                <DateInput
+                  value={dateOfBirth}
+                  onChange={(date) => { setDateOfBirth(date); markChanged(); }}
+                  placeholder="Select date of birth"
+                />
+              </View>
             </View>
-            <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>DATE OF BIRTH</Text>
-              <Text style={[styles.fieldValue, !dateOfBirth && styles.fieldPlaceholder]}>
-                {formatDate(dateOfBirth, isEditMode)}
-              </Text>
+          ) : (
+            <View style={styles.fieldCard}>
+              <View style={styles.fieldIcon}>
+                <Calendar color={colors.cyan} size={20} />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>DATE OF BIRTH</Text>
+                <Text style={[styles.fieldValue, !dateOfBirth && styles.fieldPlaceholder]}>
+                  {formatDisplayDate(dateOfBirth)}
+                </Text>
+              </View>
             </View>
-            {isEditMode && <Calendar color={colors.textMuted} size={18} />}
-          </TouchableOpacity>
+          )}
 
           {/* MEDICAL CONTEXT Section */}
           <Text style={styles.sectionTitle}>MEDICAL CONTEXT</Text>
@@ -520,52 +619,27 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
             'Select blood type'
           )}
 
-          {/* Weight & Age Row */}
-          <View style={styles.rowFields}>
-            <View style={[styles.fieldCard, styles.halfField]}>
-              <View style={styles.fieldIcon}>
-                <Scale color={colors.cyan} size={20} />
-              </View>
-              <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>WEIGHT (lbs)</Text>
-                {isEditMode ? (
-                  <TextInput
-                    value={weight}
-                    onChangeText={(text) => { setWeight(text); markChanged(); }}
-                    placeholder="Enter weight"
-                    placeholderTextColor={colors.textMuted}
-                    style={styles.fieldInput}
-                    keyboardType="number-pad"
-                  />
-                ) : (
-                  <Text style={[styles.fieldValue, !weight && styles.fieldPlaceholder]}>
-                    {weight ? `${weight} lbs` : '—'}
-                  </Text>
-                )}
-              </View>
+          {/* Weight */}
+          <View style={styles.fieldCard}>
+            <View style={styles.fieldIcon}>
+              <Scale color={colors.cyan} size={20} />
             </View>
-
-            <View style={[styles.fieldCard, styles.halfField]}>
-              <View style={styles.fieldIcon}>
-                <Clock color={colors.cyan} size={20} />
-              </View>
-              <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>AGE</Text>
-                {isEditMode ? (
-                  <TextInput
-                    value={age}
-                    onChangeText={(text) => { setAge(text); markChanged(); }}
-                    placeholder="Enter age"
-                    placeholderTextColor={colors.textMuted}
-                    style={styles.fieldInput}
-                    keyboardType="number-pad"
-                  />
-                ) : (
-                  <Text style={[styles.fieldValue, !age && styles.fieldPlaceholder]}>
-                    {age ? `${age} yrs` : '—'}
-                  </Text>
-                )}
-              </View>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldLabel}>WEIGHT (lbs)</Text>
+              {isEditMode ? (
+                <TextInput
+                  value={weight}
+                  onChangeText={(text) => { setWeight(text); markChanged(); }}
+                  placeholder="Enter weight"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.fieldInput}
+                  keyboardType="number-pad"
+                />
+              ) : (
+                <Text style={[styles.fieldValue, !weight && styles.fieldPlaceholder]}>
+                  {weight ? `${weight} lbs` : '—'}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -585,7 +659,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
             </View>
             <View style={styles.fieldContent}>
               <Text style={styles.fieldLabel}>ALLERGIES</Text>
-              {allergies.length > 0 ? (
+              {allergies.length > 0 || isEditMode ? (
                 <View style={styles.chipsList}>
                   {allergies.map((allergy, index) => (
                     <View key={index} style={styles.allergyChip}>
@@ -597,29 +671,36 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                       )}
                     </View>
                   ))}
+                  {isEditMode && (
+                    <TextInput
+                      value={newAllergy}
+                      onChangeText={setNewAllergy}
+                      placeholder="Type allergy..."
+                      placeholderTextColor={colors.textMuted}
+                      style={styles.inlineChipInput}
+                      onSubmitEditing={addAllergy}
+                      blurOnSubmit={false}
+                    />
+                  )}
                 </View>
               ) : (
-                <Text style={styles.fieldPlaceholder}>{isEditMode ? 'Add allergies below' : 'None'}</Text>
+                <Text style={styles.fieldPlaceholder}>None</Text>
+              )}
+              {isEditMode && (
+                <View style={styles.suggestionsRow}>
+                  {COMMON_ALLERGIES.filter((a) => !allergies.includes(a)).map((suggestion) => (
+                    <TouchableOpacity
+                      key={suggestion}
+                      style={styles.suggestionChip}
+                      onPress={() => { setAllergies([...allergies, suggestion]); markChanged(); }}
+                    >
+                      <Text style={styles.suggestionText}>{suggestion}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
           </View>
-
-          {/* Add Allergy Input - only in edit mode */}
-          {isEditMode && (
-            <View style={styles.addRow}>
-              <TextInput
-                value={newAllergy}
-                onChangeText={setNewAllergy}
-                placeholder="Add allergy (e.g., Penicillin)"
-                placeholderTextColor={colors.textMuted}
-                style={styles.addInput}
-                onSubmitEditing={addAllergy}
-              />
-              <TouchableOpacity style={styles.addBtn} onPress={addAllergy}>
-                <Plus color={colors.cyan} size={20} />
-              </TouchableOpacity>
-            </View>
-          )}
 
           {/* Chronic Conditions */}
           <View style={styles.fieldCard}>
@@ -628,7 +709,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
             </View>
             <View style={styles.fieldContent}>
               <Text style={styles.fieldLabel}>CHRONIC CONDITIONS</Text>
-              {conditions.length > 0 ? (
+              {conditions.length > 0 || isEditMode ? (
                 <View style={styles.chipsList}>
                   {conditions.map((condition, index) => (
                     <View key={index} style={styles.conditionChip}>
@@ -640,29 +721,36 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                       )}
                     </View>
                   ))}
+                  {isEditMode && (
+                    <TextInput
+                      value={newCondition}
+                      onChangeText={setNewCondition}
+                      placeholder="Type condition..."
+                      placeholderTextColor={colors.textMuted}
+                      style={styles.inlineChipInput}
+                      onSubmitEditing={addCondition}
+                      blurOnSubmit={false}
+                    />
+                  )}
                 </View>
               ) : (
-                <Text style={styles.fieldPlaceholder}>{isEditMode ? 'Add conditions below' : 'None'}</Text>
+                <Text style={styles.fieldPlaceholder}>None</Text>
+              )}
+              {isEditMode && (
+                <View style={styles.suggestionsRow}>
+                  {COMMON_CONDITIONS.filter((c) => !conditions.includes(c)).map((suggestion) => (
+                    <TouchableOpacity
+                      key={suggestion}
+                      style={styles.suggestionChipCondition}
+                      onPress={() => { setConditions([...conditions, suggestion]); markChanged(); }}
+                    >
+                      <Text style={styles.suggestionTextCondition}>{suggestion}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
           </View>
-
-          {/* Add Condition Input - only in edit mode */}
-          {isEditMode && (
-            <View style={styles.addRow}>
-              <TextInput
-                value={newCondition}
-                onChangeText={setNewCondition}
-                placeholder="Add condition (e.g., Diabetes)"
-                placeholderTextColor={colors.textMuted}
-                style={styles.addInput}
-                onSubmitEditing={addCondition}
-              />
-              <TouchableOpacity style={styles.addBtn} onPress={addCondition}>
-                <Plus color={colors.cyan} size={20} />
-              </TouchableOpacity>
-            </View>
-          )}
 
           {/* EMERGENCY CONTACT Section */}
           <View style={styles.sectionHeaderRow}>
@@ -695,14 +783,27 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Phone Number */}
-          {renderField(
-            'PHONE NUMBER',
-            contactPhone,
-            setContactPhone,
-            '+1 (555) 987-6543',
-            <Phone color={colors.cyan} size={20} />,
-            { keyboardType: 'phone-pad', error: errors.contactPhone }
-          )}
+          <View style={[styles.fieldCard, errors.contactPhone && isEditMode && styles.fieldCardError]}>
+            <View style={styles.fieldIcon}><Phone color={colors.cyan} size={20} /></View>
+            <View style={styles.fieldContent}>
+              <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+              {isEditMode ? (
+                <TextInput
+                  value={contactPhone}
+                  onChangeText={handlePhoneChange}
+                  placeholder="(555) 987-6543"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.fieldInput}
+                  keyboardType="phone-pad"
+                />
+              ) : (
+                <Text style={[styles.fieldValue, !contactPhone && styles.fieldPlaceholder]}>
+                  {contactPhone || '—'}
+                </Text>
+              )}
+              {errors.contactPhone && isEditMode && <Text style={styles.errorText}>{errors.contactPhone}</Text>}
+            </View>
+          </View>
 
           {/* Medical Requirement Notice */}
           <View style={styles.noticeCard}>
@@ -715,104 +816,6 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           <View style={{ height: 40 }} />
         </ScrollView>
 
-        {/* Date Picker Modal */}
-        <Modal
-          visible={activePicker === 'date' && isEditMode}
-          transparent
-          animationType="fade"
-          onRequestClose={closePicker}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity
-              style={styles.modalBackdrop}
-              activeOpacity={1}
-              onPress={closePicker}
-            />
-            <View style={styles.datePickerModal}>
-              <View style={styles.datePickerHeader}>
-                <TouchableOpacity onPress={closePicker}>
-                  <Text style={styles.datePickerCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={styles.datePickerTitle}>Date of Birth</Text>
-                <TouchableOpacity onPress={handleDateConfirm}>
-                  <Text style={styles.datePickerDone}>Done</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.datePickerContent}>
-                {/* Simple date input for web compatibility */}
-                <View style={styles.dateInputRow}>
-                  <View style={styles.dateInputGroup}>
-                    <Text style={styles.dateInputLabel}>Month</Text>
-                    <TextInput
-                      style={styles.dateInput}
-                      value={(tempDate.getMonth() + 1).toString().padStart(2, '0')}
-                      onChangeText={(text) => {
-                        const month = parseInt(text, 10);
-                        if (!isNaN(month) && month >= 1 && month <= 12) {
-                          const newDate = new Date(tempDate);
-                          newDate.setMonth(month - 1);
-                          setTempDate(newDate);
-                        } else if (text === '') {
-                          const newDate = new Date(tempDate);
-                          newDate.setMonth(0);
-                          setTempDate(newDate);
-                        }
-                      }}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      placeholder="MM"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                  <View style={styles.dateInputGroup}>
-                    <Text style={styles.dateInputLabel}>Day</Text>
-                    <TextInput
-                      style={styles.dateInput}
-                      value={tempDate.getDate().toString().padStart(2, '0')}
-                      onChangeText={(text) => {
-                        const day = parseInt(text, 10);
-                        if (!isNaN(day) && day >= 1 && day <= 31) {
-                          const newDate = new Date(tempDate);
-                          newDate.setDate(day);
-                          setTempDate(newDate);
-                        } else if (text === '') {
-                          const newDate = new Date(tempDate);
-                          newDate.setDate(1);
-                          setTempDate(newDate);
-                        }
-                      }}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      placeholder="DD"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                  <View style={styles.dateInputGroup}>
-                    <Text style={styles.dateInputLabel}>Year</Text>
-                    <TextInput
-                      style={[styles.dateInput, styles.dateInputYear]}
-                      value={tempDate.getFullYear().toString()}
-                      onChangeText={(text) => {
-                        const year = parseInt(text, 10);
-                        if (!isNaN(year) && year >= 1900 && year <= new Date().getFullYear()) {
-                          const newDate = new Date(tempDate);
-                          newDate.setFullYear(year);
-                          setTempDate(newDate);
-                        }
-                      }}
-                      keyboardType="number-pad"
-                      maxLength={4}
-                      placeholder="YYYY"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                </View>
-                <Text style={styles.datePreview}>{formatDate(tempDate, true)}</Text>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -882,6 +885,60 @@ const styles = StyleSheet.create({
     color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // Profile Photo
+  photoSection: {
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  photoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    position: 'relative',
+  },
+  profilePhoto: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: colors.cyan,
+  },
+  photoPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#1E2633',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#2A3444',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.cyan,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#080A0F',
+  },
+  photoName: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  photoHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 4,
   },
 
   // Section
@@ -974,15 +1031,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Row fields
-  rowFields: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  halfField: {
-    flex: 1,
-  },
-
   // Picker Dropdown
   pickerDropdown: {
     backgroundColor: '#121721',
@@ -1051,34 +1099,62 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Add Row
-  addRow: {
+  // Inline chip input (inside chipsList)
+  inlineChipInput: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 100,
+    outlineStyle: 'none',
+    borderWidth: 0,
+    padding: 0,
+    margin: 0,
+  } as any,
+
+  // Suggestions row
+  suggestionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  suggestionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  suggestionText: {
+    color: 'rgba(239, 68, 68, 0.7)',
+    fontSize: 12,
+  },
+  suggestionChipCondition: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  suggestionTextCondition: {
+    color: 'rgba(245, 158, 11, 0.7)',
+    fontSize: 12,
+  },
+
+  // Date input wrapper (edit mode)
+  dateInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  addInput: {
-    flex: 1,
     backgroundColor: '#121721',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: colors.textPrimary,
-    fontSize: 15,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#1E2633',
-    outlineStyle: 'none',
-  } as any,
-  addBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.cyan,
   },
 
   // Notice Card
@@ -1102,88 +1178,17 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // Date Picker Modal
-  modalOverlay: {
+  // Photo Viewer
+  photoViewerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  datePickerModal: {
-    backgroundColor: '#1A1A1D',
-    borderRadius: 16,
+  photoViewerImage: {
     width: '85%',
-    maxWidth: 340,
-    overflow: 'hidden',
+    height: '85%',
+    borderRadius: 12,
   },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  datePickerCancel: {
-    color: colors.textSecondary,
-    fontSize: 15,
-  },
-  datePickerTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  datePickerDone: {
-    color: colors.cyan,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  datePickerContent: {
-    padding: 20,
-  },
-  dateInputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  dateInputGroup: {
-    flex: 1,
-  },
-  dateInputLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  dateInput: {
-    backgroundColor: '#121721',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    outlineStyle: 'none',
-  } as any,
-  dateInputYear: {
-    flex: 1.5,
-  },
-  datePreview: {
-    color: colors.cyan,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+
 });

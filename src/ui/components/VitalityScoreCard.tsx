@@ -28,6 +28,9 @@ import Animated, {
   FadeInUp,
 } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
+import { useGamification } from '../hooks/useGamification';
+import { gamificationService } from '../../data/services/gamificationService';
+import type { XpEvent } from '../../domain/types';
 
 // Day labels
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -44,11 +47,37 @@ const COLORS = {
   flameHigh: '#FF4500',     // Flame color for high streak
 };
 
+/**
+ * Build a 7-element array (Mon-Sun) of XP earned per day for the current week.
+ * Sums ALL XP events per day (daily + one-time events that have an event_date).
+ */
+function buildWeeklyXp(events: XpEvent[]): number[] {
+  // Sum XP by date
+  const dateXpMap: Record<string, number> = {};
+  for (const e of events) {
+    if (e.event_date) {
+      dateXpMap[e.event_date] = (dateXpMap[e.event_date] ?? 0) + e.points;
+    }
+  }
+
+  // Get current week's Mon-Sun dates
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+
+  const xpPerDay: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = d.toISOString().split('T')[0];
+    xpPerDay.push(dateXpMap[key] ?? 0);
+  }
+  return xpPerDay;
+}
+
 interface VitalityScoreCardProps {
-  /** Array of 7 daily vitality scores (0-100) */
-  dailyScores?: number[];
-  /** Current streak count in days */
-  streakDays?: number;
   /** Callback when success burst should trigger */
   onDailyGoalComplete?: () => void;
 }
@@ -141,21 +170,25 @@ function VitalityBar({
   dayLabel,
   index,
   isToday,
+  maxScore,
 }: {
   score: number;
   dayLabel: string;
   index: number;
   isToday: boolean;
+  maxScore: number;
 }) {
   const heightAnim = useSharedValue(8);
   const glowAnim = useSharedValue(0);
 
-  // Calculate bar height in pixels (min 8px, max 80px)
-  const barHeightPx = Math.max(8, (Math.min(100, score) / 100) * MAX_BAR_HEIGHT);
+  // Calculate bar height relative to max daily XP (min 8px if non-zero)
+  const barHeightPx = score === 0
+    ? 4
+    : Math.max(8, (score / maxScore) * MAX_BAR_HEIGHT);
 
-  // Determine color based on score
-  const isHighScore = score >= 90;
-  const isMidScore = score >= 70;
+  // Determine color based on XP value
+  const isHighScore = score >= 30;  // ~day 10+ streak bonus
+  const isMidScore = score >= 14;   // ~day 2+ streak bonus
 
   useEffect(() => {
     // Staggered animation for each bar
@@ -318,15 +351,32 @@ function ZenMasterBadge() {
 }
 
 export default function VitalityScoreCard({
-  dailyScores = [75, 82, 78, 85, 92, 88, 95],
-  streakDays = 4,
   onDailyGoalComplete,
 }: VitalityScoreCardProps) {
+  const { streakDays } = useGamification();
   const [showBurst, setShowBurst] = useState(false);
+  const [dailyXp, setDailyXp] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
 
-  // Calculate 7-day average
-  const average = Math.round(dailyScores.reduce((a, b) => a + b, 0) / dailyScores.length);
-  const isZenMaster = average >= 90;
+  // Fetch XP history and derive weekly XP per day
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await gamificationService.getHistory(0, 50);
+        if (mounted) {
+          setDailyXp(buildWeeklyXp(data.events));
+        }
+      } catch {
+        // Keep zeros on failure
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Weekly total XP and max daily XP (for scaling bars)
+  const weeklyTotal = dailyXp.reduce((a, b) => a + b, 0);
+  const maxDailyXp = Math.max(...dailyXp, 1); // avoid div by 0
+  const isZenMaster = dailyXp.every((xp) => xp > 0); // all 7 days had XP
 
   // Get today's index (0 = Monday, 6 = Sunday)
   const today = new Date().getDay();
@@ -336,13 +386,13 @@ export default function VitalityScoreCard({
   const scoreAnim = useSharedValue(0);
 
   useEffect(() => {
-    scoreAnim.value = withTiming(average, { duration: 1000, easing: Easing.out(Easing.cubic) });
-  }, [average]);
+    scoreAnim.value = withTiming(weeklyTotal, { duration: 1000, easing: Easing.out(Easing.cubic) });
+  }, [weeklyTotal]);
 
   const scoreStyle = useAnimatedStyle(() => {
     const color = interpolateColor(
       scoreAnim.value,
-      [0, 70, 90, 100],
+      [0, 30, 80, 150],
       [COLORS.lowScore, COLORS.midScore, COLORS.highScore, COLORS.highScoreGlow]
     );
     return { color };
@@ -371,26 +421,27 @@ export default function VitalityScoreCard({
       {/* Score display with streak */}
       <View style={styles.scoreContainer}>
         <View style={styles.scoreRow}>
-          <Animated.Text style={[styles.scoreValue, scoreStyle]}>{average}</Animated.Text>
-          <Text style={styles.scoreMax}>/ 100</Text>
+          <Animated.Text style={[styles.scoreValue, scoreStyle]}>{weeklyTotal}</Animated.Text>
+          <Text style={styles.scoreMax}>XP</Text>
           <View style={styles.streakContainer}>
             <StreakFlame streakDays={streakDays} />
             <Text style={styles.streakText}>{streakDays} day streak</Text>
           </View>
         </View>
-        <Text style={styles.scoreLabel}>Vitality Index</Text>
+        <Text style={styles.scoreLabel}>This Week</Text>
       </View>
 
       {/* Animated bar chart */}
       <View style={styles.chartContainer}>
         <View style={styles.barChartContainer}>
-          {dailyScores.map((score, index) => (
+          {dailyXp.map((score, index) => (
             <VitalityBar
               key={index}
               score={score}
               dayLabel={DAY_LABELS[index]}
               index={index}
               isToday={index === todayIndex}
+              maxScore={maxDailyXp}
             />
           ))}
         </View>
