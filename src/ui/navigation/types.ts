@@ -60,6 +60,7 @@ export type RootStackParamList = {
   Admin: undefined;
   MyJourney: undefined;
   AccountSettings: undefined;
+  ExportHealthData: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { EmergencyVault, EmergencyVaultUpsert } from '../../domain/types';
 import { vaultService } from '../../data/services/vaultService';
+import { medicationEvents } from '../../data/utils/medicationEvents';
 
 export function useVault() {
   const [vault, setVault] = useState<EmergencyVault | null>(null);
@@ -23,6 +24,13 @@ export function useVault() {
   useEffect(() => {
     fetchVault();
   }, [fetchVault]);
+
+  // Listen for all_data_deleted event to clear in-memory state
+  useEffect(() => {
+    return medicationEvents.on('all_data_deleted', () => {
+      setVault(null);
+    });
+  }, []);
 
   const updateVault = async (data: EmergencyVaultUpsert) => {
     const updated = await vaultService.update(data);

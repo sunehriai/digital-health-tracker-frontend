@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { VitalityFeedItem } from '../../domain/types';
 import { feedService } from '../../data/services/feedService';
+import { medicationEvents } from '../../data/utils/medicationEvents';
 
 export function useFeed() {
   const [feedItems, setFeedItems] = useState<VitalityFeedItem[]>([]);
@@ -23,6 +24,13 @@ export function useFeed() {
   useEffect(() => {
     fetchFeed();
   }, [fetchFeed]);
+
+  // Listen for all_data_deleted event to clear in-memory state
+  useEffect(() => {
+    return medicationEvents.on('all_data_deleted', () => {
+      setFeedItems([]);
+    });
+  }, []);
 
   const archiveFeedItem = async (id: string) => {
     await feedService.archive(id);

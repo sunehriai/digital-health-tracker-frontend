@@ -46,6 +46,14 @@ export const ENDPOINTS = {
   GAMIFICATION_WAIVER: '/gamification/waiver',
   GAMIFICATION_MILESTONES: '/gamification/milestones',
 
+  // Deletion
+  DELETION_REQUEST: '/auth/me/delete',
+  DELETION_CANCEL: '/auth/me/cancel-delete',
+  DELETION_STATUS: '/auth/me/deletion-status',
+
+  // Export
+  EXPORT_HEALTH_REPORT: '/export/health-report',
+
   // Health
   HEALTH: '/health',
 } as const;

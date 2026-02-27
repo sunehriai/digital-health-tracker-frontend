@@ -7,6 +7,30 @@ const logger = createLogger('ApiClient');
 // TODO: Re-enable Firebase token — temporarily disabled for development
 const DEV_SKIP_AUTH = true;
 
+/**
+ * R19: Structured error for deactivated accounts.
+ * Thrown when backend returns 403 with code "ACCOUNT_DEACTIVATED".
+ */
+export class AccountDeactivatedError extends Error {
+  constructor(message: string = 'Account deactivated') {
+    super(message);
+    this.name = 'AccountDeactivatedError';
+  }
+}
+
+/** Listeners for account deactivation events (R9: mid-session detection). */
+type DeactivationListener = () => void;
+const deactivationListeners: Set<DeactivationListener> = new Set();
+
+export function onAccountDeactivated(listener: DeactivationListener): () => void {
+  deactivationListeners.add(listener);
+  return () => deactivationListeners.delete(listener);
+}
+
+export function notifyDeactivation() {
+  deactivationListeners.forEach((listener) => listener());
+}
+
 class ApiClient {
   private async getToken(): Promise<string | null> {
     if (DEV_SKIP_AUTH) return null;
@@ -44,11 +68,29 @@ class ApiClient {
       if (!response.ok) {
         const text = await response.text();
         let message: string;
+        let errorCode: string | undefined;
+
         try {
           const json = JSON.parse(text);
-          message = json.detail || json.message || text;
+          // R19: Check for structured ACCOUNT_DEACTIVATED error code
+          if (json.detail && typeof json.detail === 'object') {
+            errorCode = json.detail.code;
+            message = json.detail.message || text;
+          } else {
+            message = json.detail || json.message || text;
+          }
         } catch {
           message = text;
+        }
+
+        // R19/R9: Detect deactivated account and notify listeners
+        if (response.status === 403 && errorCode === 'ACCOUNT_DEACTIVATED') {
+          logger.error(`${method} ${endpoint} — account deactivated`, new Error(message), {
+            status: response.status,
+            duration,
+          });
+          notifyDeactivation();
+          throw new AccountDeactivatedError(message);
         }
 
         logger.error(`${method} ${endpoint} failed`, new Error(message), {
@@ -69,10 +111,15 @@ class ApiClient {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      if (error instanceof Error && !error.message.includes('failed')) {
-        logger.error(`${method} ${endpoint} network error`, error, { duration });
+      // Don't double-log AccountDeactivatedError or already-logged errors
+      if (
+        error instanceof AccountDeactivatedError ||
+        (error instanceof Error && error.message.includes('failed'))
+      ) {
+        throw error;
       }
 
+      logger.error(`${method} ${endpoint} network error`, error as Error, { duration });
       throw error;
     }
   }

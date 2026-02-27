@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useDeletion } from '../hooks/useDeletion';
+import ReactivationBanner from '../components/ReactivationBanner';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from './types';
 
@@ -24,18 +26,48 @@ import AccountSettingsScreen from '../screens/AccountSettingsScreen';
 import RitualPreviewScreen from '../screens/RitualPreviewScreen';
 import MedicationDetailsScreen from '../screens/MedicationDetailsScreen';
 import ArchivedRitualsScreen from '../screens/ArchivedRitualsScreen';
+import ExportHealthDataScreen from '../screens/ExportHealthDataScreen';
 import { ImageUploadScreen } from '../screens/ImageUploadScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile } = useAuth();
+  const { loading: cancelLoading, cancelDeletion } = useDeletion();
+
+  const handleCancelDeletion = useCallback(async () => {
+    const success = await cancelDeletion();
+    if (success) {
+      clearDeactivation();
+      // Sync user state so is_deactivated reflects server truth
+      await refreshProfile();
+    }
+  }, [cancelDeletion, clearDeactivation, refreshProfile]);
+
+  const handleSignOut = useCallback(async () => {
+    // Sign out without cancelling — timer keeps running
+    await signOut();
+  }, [signOut]);
 
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator size="large" color={colors.cyan} />
       </View>
+    );
+  }
+
+  // Step 19: Show ReactivationBanner when user is deactivated
+  if (isAuthenticated && deactivationInfo?.pending) {
+    return (
+      <ReactivationBanner
+        deletionType={deactivationInfo.deletionType}
+        permanentDeletionDate={deactivationInfo.permanentDeletionDate}
+        daysRemaining={deactivationInfo.daysRemaining}
+        loading={cancelLoading}
+        onCancelDeletion={handleCancelDeletion}
+        onSignOut={handleSignOut}
+      />
     );
   }
 
@@ -84,6 +116,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Admin" component={AdminScreen} />
             <Stack.Screen name="MyJourney" component={MyJourneyScreen} />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+            <Stack.Screen name="ExportHealthData" component={ExportHealthDataScreen} />
           </>
         )}
       </Stack.Navigator>

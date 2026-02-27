@@ -36,6 +36,14 @@ export function useMedications() {
     fetchMedications();
   }, [fetchMedications]);
 
+  // Listen for all_data_deleted event to clear in-memory state
+  useEffect(() => {
+    return medicationEvents.on('all_data_deleted', () => {
+      setMedications([]);
+      offlineCache.set(CACHE_KEY, []);
+    });
+  }, []);
+
   const activeMedications = medications.filter((m) => !m.is_archived);
   const archivedMedications = medications.filter((m) => m.is_archived);
 

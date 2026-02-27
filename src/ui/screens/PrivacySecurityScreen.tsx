@@ -94,20 +94,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
   };
 
   const handleExportData = () => {
-    Alert.alert(
-      'Export Health Data',
-      'This will generate a PDF summary of all your medications, dose history, and health information.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Export',
-          onPress: () => {
-            // TODO: Implement PDF export
-            Alert.alert('Coming Soon', 'PDF export will be available in a future update.');
-          }
-        },
-      ]
-    );
+    navigation.navigate('ExportHealthData');
   };
 
   const handlePrivacyPolicy = async () => {
@@ -119,6 +106,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
   };
 
   const handleDeleteData = () => {
+    console.log('[PrivacySecurityScreen] handleDeleteData fired — NOTE: this screen uses a TODO stub, NOT the real deletion service. Use AccountSettings screen for actual deletion.');
     Alert.alert(
       'Delete All Data',
       'This will permanently delete all your health data including medications, dose history, and personal information. This action cannot be undone.',
@@ -128,6 +116,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
           text: 'Delete Everything',
           style: 'destructive',
           onPress: () => {
+            console.log('[PrivacySecurityScreen] first confirmation passed');
             Alert.alert(
               'Are you absolutely sure?',
               'All your data will be permanently deleted.',
@@ -137,6 +126,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
                   text: 'Yes, Delete All',
                   style: 'destructive',
                   onPress: async () => {
+                    console.warn('[PrivacySecurityScreen] TODO — this handler is a stub and does NOT actually delete data. Wire to deletionService.');
                     // TODO: Implement actual data deletion
                     Alert.alert('Data Deleted', 'All your health data has been deleted.');
                   }

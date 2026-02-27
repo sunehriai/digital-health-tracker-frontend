@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import type { GamificationStatus } from '../../domain/types';
 import { gamificationService } from '../../data/services/gamificationService';
 import { offlineCache } from '../../data/utils/offlineCache';
+import { medicationEvents } from '../../data/utils/medicationEvents';
 import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('useGamification');
@@ -80,6 +81,16 @@ export function useGamificationProvider() {
   // Fetch on mount
   useEffect(() => {
     fetchStatus();
+  }, [fetchStatus]);
+
+  // Listen for all_data_deleted event to reset gamification state
+  useEffect(() => {
+    return medicationEvents.on('all_data_deleted', () => {
+      setStatus(null);
+      offlineCache.set(CACHE_KEY, null);
+      previousTierRef.current = 1;
+      fetchStatus();
+    });
   }, [fetchStatus]);
 
   /**

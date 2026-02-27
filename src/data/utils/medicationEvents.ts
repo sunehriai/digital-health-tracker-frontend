@@ -4,7 +4,9 @@ type MedicationEventType =
   | 'medication_deleted'
   | 'medication_archived'
   | 'medication_restored'
-  | 'medication_updated';
+  | 'medication_updated'
+  | 'dose_reverted'
+  | 'all_data_deleted';
 
 type EventCallback = (medicationId: string) => void;
 

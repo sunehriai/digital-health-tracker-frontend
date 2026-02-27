@@ -18,6 +18,10 @@ export interface Profile {
   comeback_boost_until: string | null;
   waiver_badges: number;
   perfect_months_streak: number;
+  // Deletion / deactivation fields
+  is_deactivated: boolean;
+  deletion_requested_at: string | null;
+  deletion_type: 'data_only' | 'full_account' | null;
 }
 
 export interface ProfileUpdate {
@@ -248,6 +252,17 @@ export interface RitualChip {
   mealInfo: string | null; // "Before meal" etc.
   status: RitualStatus; // Computed status
   isNextDose: boolean; // Highlight indicator
+}
+
+// -- Export Types ---------------------------------------------------------
+
+export type DateRangePreset = '7d' | '30d' | '90d' | '6mo' | 'all';
+
+export type ReportType = 'medication_passport';
+
+export interface ExportState {
+  loading: boolean;
+  error: string | null;
 }
 
 // -- Gamification Types ---------------------------------------------------
