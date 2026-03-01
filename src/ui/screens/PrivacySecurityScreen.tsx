@@ -21,7 +21,6 @@ import {
   FileText,
   Shield,
   Eye,
-  Trash2,
   Lock,
   Info,
 } from 'lucide-react-native';
@@ -103,40 +102,6 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
     } catch (e) {
       Alert.alert('Error', 'Unable to open privacy policy. Please try again later.');
     }
-  };
-
-  const handleDeleteData = () => {
-    console.log('[PrivacySecurityScreen] handleDeleteData fired — NOTE: this screen uses a TODO stub, NOT the real deletion service. Use AccountSettings screen for actual deletion.');
-    Alert.alert(
-      'Delete All Data',
-      'This will permanently delete all your health data including medications, dose history, and personal information. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Everything',
-          style: 'destructive',
-          onPress: () => {
-            console.log('[PrivacySecurityScreen] first confirmation passed');
-            Alert.alert(
-              'Are you absolutely sure?',
-              'All your data will be permanently deleted.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Yes, Delete All',
-                  style: 'destructive',
-                  onPress: async () => {
-                    console.warn('[PrivacySecurityScreen] TODO — this handler is a stub and does NOT actually delete data. Wire to deletionService.');
-                    // TODO: Implement actual data deletion
-                    Alert.alert('Data Deleted', 'All your health data has been deleted.');
-                  }
-                },
-              ]
-            );
-          }
-        },
-      ]
-    );
   };
 
   const getAutoLockLabel = () => {
@@ -283,21 +248,6 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
             thumbColor="#fff"
           />
         </View>
-
-        {/* ACCOUNT Section */}
-        <Text style={styles.sectionTitle}>ACCOUNT</Text>
-
-        {/* Delete All Data */}
-        <TouchableOpacity style={styles.dangerCard} activeOpacity={0.8} onPress={handleDeleteData}>
-          <View style={styles.dangerIcon}>
-            <Trash2 color={colors.error} size={20} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={styles.dangerTitle}>Delete All Data</Text>
-            <Text style={styles.dangerSubtitle}>Permanently remove all health data</Text>
-          </View>
-          <ChevronRight color={colors.error} size={20} />
-        </TouchableOpacity>
 
         {/* Health Data Protection Notice */}
         <View style={styles.noticeCard}>

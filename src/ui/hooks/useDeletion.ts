@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { deletionService, DeletionStatusResponse } from '../../data/services/deletionService';
 import { medicationEvents } from '../../data/utils/medicationEvents';
 
@@ -31,11 +32,14 @@ export function useDeletion(): UseDeletionReturn {
    */
   const clearAllLocalCaches = useCallback(async () => {
     try {
+      // Cancel all scheduled notifications
+      await Notifications.cancelAllScheduledNotificationsAsync();
+
       const allKeys = await AsyncStorage.getAllKeys();
       const visionKeys = allKeys.filter(
         (key) =>
           key.startsWith('vision_') ||
-          key.startsWith('@vision/') ||
+          key.startsWith('@vision') ||
           key.startsWith('@dose_status_cache')
       );
       if (visionKeys.length > 0) {

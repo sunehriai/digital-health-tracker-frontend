@@ -1,5 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -44,9 +45,21 @@ const ALL_SETTINGS_OPTIONS = [
   { label: 'Screen Security', desc: 'Block screenshots & recording', screen: 'PrivacySecurity' as const, category: 'Privacy & Security' },
   // Notifications
   { label: 'Dose Reminders', desc: 'Medication dose notifications', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Advance Reminder', desc: 'Remind before dose time', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Snooze', desc: 'Snooze dose reminders', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Snooze Duration', desc: 'Time before re-alerting', screen: 'NotificationPrefs' as const, category: 'Notifications' },
   { label: 'Refill Alerts', desc: 'Low stock notifications', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Alert Threshold', desc: 'Days of supply warning', screen: 'NotificationPrefs' as const, category: 'Notifications' },
   { label: 'Streak Milestones', desc: 'Streak achievement alerts', screen: 'NotificationPrefs' as const, category: 'Notifications' },
-  { label: 'Quiet Hours', desc: 'Silence notifications 10pm-7am', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Tier Advancement', desc: 'Tier-up celebration alerts', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Waiver Prompts', desc: 'Streak protection reminders', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Comeback Boost', desc: 'Boost availability alerts', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Safety Alerts', desc: 'Allergy and interaction warnings', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Prescription End Alerts', desc: 'Medication end date reminders', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'System Alerts', desc: 'App updates and system messages', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Quiet Hours', desc: 'Silence non-critical notifications', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Critical Bypass', desc: 'Critical meds bypass quiet hours', screen: 'NotificationPrefs' as const, category: 'Notifications' },
+  { label: 'Per-Medication Settings', desc: 'Override alerts per medication', screen: 'NotificationPrefs' as const, category: 'Notifications' },
   // App Preferences
   { label: 'Reduced Motion', desc: 'Minimize animations', screen: 'AppPreferences' as const, category: 'App Preferences' },
   { label: 'Haptic Feedback', desc: 'Vibration on interactions', screen: 'AppPreferences' as const, category: 'App Preferences' },
@@ -204,7 +217,7 @@ export default function ProfileScreen() {
                 setIsLongPressing(false);
               }}
             >
-              <Text style={[styles.versionText, isLongPressing && { color: colors.cyan }]}>Version 1.0.4</Text>
+              <Text style={[styles.versionText, isLongPressing && { color: colors.cyan }]}>v{Constants.expoConfig?.version ?? '1.0.0'} (build {__DEV__ ? new Date().toLocaleString() : Constants.expoConfig?.version})</Text>
             </TouchableOpacity>
           </>
         )}

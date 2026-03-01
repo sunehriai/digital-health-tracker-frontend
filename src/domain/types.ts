@@ -254,6 +254,60 @@ export interface RitualChip {
   isNextDose: boolean; // Highlight indicator
 }
 
+// -- Notification Preferences Types ----------------------------------------
+
+export interface MedicationNotificationOverride {
+  reminders_enabled: boolean;
+  advance_minutes: number | null;
+}
+
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  dose_reminders_enabled: boolean;
+  advance_reminder_minutes: number;
+  snooze_enabled: boolean;
+  snooze_duration_minutes: number;
+  refill_alerts_enabled: boolean;
+  low_stock_threshold_days: number;
+  gamification_notifications_enabled: boolean;
+  streak_milestones_enabled: boolean;
+  tier_advancement_enabled: boolean;
+  waiver_prompt_enabled: boolean;
+  comeback_boost_enabled: boolean;
+  system_notifications_enabled: boolean;
+  medication_end_date_alerts: boolean;
+  safety_alerts_enabled: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  critical_bypass_quiet: boolean;
+  medication_overrides: Record<string, MedicationNotificationOverride>;
+  updated_at: string;
+}
+
+export interface NotificationPreferencesUpdate {
+  dose_reminders_enabled?: boolean;
+  advance_reminder_minutes?: number;
+  snooze_enabled?: boolean;
+  snooze_duration_minutes?: number;
+  refill_alerts_enabled?: boolean;
+  low_stock_threshold_days?: number;
+  gamification_notifications_enabled?: boolean;
+  streak_milestones_enabled?: boolean;
+  tier_advancement_enabled?: boolean;
+  waiver_prompt_enabled?: boolean;
+  comeback_boost_enabled?: boolean;
+  system_notifications_enabled?: boolean;
+  medication_end_date_alerts?: boolean;
+  safety_alerts_enabled?: boolean;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  critical_bypass_quiet?: boolean;
+  medication_overrides?: Record<string, MedicationNotificationOverride | null>;
+}
+
 // -- Export Types ---------------------------------------------------------
 
 export type DateRangePreset = '7d' | '30d' | '90d' | '6mo' | 'all';

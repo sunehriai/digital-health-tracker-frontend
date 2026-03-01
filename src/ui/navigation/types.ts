@@ -56,6 +56,7 @@ export type RootStackParamList = {
   PersonalInfo: undefined;
   PrivacySecurity: undefined;
   NotificationPrefs: undefined;
+  PerMedicationNotif: undefined;
   AppPreferences: undefined;
   Admin: undefined;
   MyJourney: undefined;

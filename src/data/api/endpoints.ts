@@ -46,6 +46,9 @@ export const ENDPOINTS = {
   GAMIFICATION_WAIVER: '/gamification/waiver',
   GAMIFICATION_MILESTONES: '/gamification/milestones',
 
+  // Notification Preferences
+  NOTIFICATION_PREFERENCES: '/notifications/preferences',
+
   // Deletion
   DELETION_REQUEST: '/auth/me/delete',
   DELETION_CANCEL: '/auth/me/cancel-delete',

@@ -19,6 +19,7 @@ import EditEmergencyVaultScreen from '../screens/EditEmergencyVaultScreen';
 import PersonalInfoScreen from '../screens/PersonalInfoScreen';
 import PrivacySecurityScreen from '../screens/PrivacySecurityScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
+import PerMedicationNotifScreen from '../screens/PerMedicationNotifScreen';
 import AppPreferencesScreen from '../screens/AppPreferencesScreen';
 import AdminScreen from '../screens/AdminScreen';
 import MyJourneyScreen from '../screens/MyJourneyScreen';
@@ -112,6 +113,7 @@ export default function AppNavigator() {
             <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
             <Stack.Screen name="PrivacySecurity" component={PrivacySecurityScreen} />
             <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} />
+            <Stack.Screen name="PerMedicationNotif" component={PerMedicationNotifScreen} />
             <Stack.Screen name="AppPreferences" component={AppPreferencesScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
             <Stack.Screen name="MyJourney" component={MyJourneyScreen} />

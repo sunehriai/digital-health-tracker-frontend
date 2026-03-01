@@ -223,6 +223,22 @@ export default function MedicationDetailsScreen({
   };
 
   const saveAlarm = async () => {
+    // Check for duplicate time — exclude the alarm being edited
+    const otherAlarms = editingAlarm
+      ? alarms.filter((a) => a.id !== editingAlarm.id)
+      : alarms;
+    const isDuplicate = otherAlarms.some((a) => a.time === editTime);
+
+    if (isDuplicate) {
+      const msg = `An alarm at ${editTime} already exists for this medication.`;
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Duplicate Alarm', msg);
+      }
+      return;
+    }
+
     // Calculate updated alarms array
     let updatedAlarms: AlarmTime[];
     if (editingAlarm) {
