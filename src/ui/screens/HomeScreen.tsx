@@ -40,13 +40,15 @@ import {
   getOldestMissedRitual,
   getActionCenterInsight,
   getCriticalMissedRitual,
-  getActiveDose,
   canRevertDose,
 } from '../../domain/utils';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { activeMedications, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Home');
 
   // Step 40: Gamification hook for XP estimation, tier detection, waiver, etc.
   const {
@@ -144,12 +146,21 @@ export default function HomeScreen() {
     const unsubRestored = medicationEvents.on('medication_restored', () => {
       fetchMedications();
     });
+    // Reload persisted dose status when a dose is taken from a notification action
+    const unsubDoseTaken = medicationEvents.on('dose_taken', async () => {
+      console.log('[HomeScreen] dose_taken event received — reloading persisted state');
+      const persisted = await doseStatusCache.getTakenToday();
+      const persistedArray = Array.from(persisted);
+      setTakenTodayArray(persistedArray);
+      setStateVersion((v) => v + 1);
+    });
     return () => {
       unsubPaused();
       unsubResumed();
       unsubDeleted();
       unsubArchived();
       unsubRestored();
+      unsubDoseTaken();
     };
   }, [fetchMedications]);
 
@@ -194,17 +205,20 @@ export default function HomeScreen() {
     return todaysRituals.every((r) => r.status === 'completed');
   }, [todaysRituals]);
 
-  // Calculate the next dose time slot using hand-off logic (1h 15min rule)
+  // Calculate the next dose time slot aligned with the carousel's "next" chip.
+  // Uses the same source of truth (buildTodaysRituals) so hero and carousel always agree.
   const nextDoseSlot = useMemo((): DoseTimeSlot | null => {
     console.log('[NextDose] ===== RECALCULATING (v' + stateVersion + ') =====');
     console.log('[NextDose] takenTodayArray:', takenTodayArray);
     console.log('[NextDose] todaysRituals:', todaysRituals.map(r => `${r.name}: ${r.status}`));
 
-    const activeDose = getActiveDose(todaysRituals, takenTodayIds);
-    console.log('[NextDose] activeDose from getActiveDose():', activeDose?.name || 'null');
+    // Find the next active chip from the carousel (already correctly determined by buildTodaysRituals)
+    const nextChip = todaysRituals.find(r => r.status === 'next')
+      || todaysRituals.find(r => r.status === 'due' || r.status === 'pending');
+    console.log('[NextDose] nextChip from todaysRituals:', nextChip?.name || 'null');
 
-    if (activeDose) {
-      const activeTime = activeDose.scheduledTime;
+    if (nextChip) {
+      const activeTime = nextChip.scheduledTime;
       const medsAtSameTime = todaysRituals
         .filter((r) => {
           const isSameTime = r.scheduledTime.getTime() === activeTime.getTime();
@@ -864,6 +878,7 @@ export default function HomeScreen() {
         onBadgeUsed={handleWaiverBadgeUsed}
         onDismiss={handleWaiverDismiss}
       />
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

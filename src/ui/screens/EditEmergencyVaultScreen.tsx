@@ -7,12 +7,15 @@ import Button from '../primitives/Button';
 import Input from '../primitives/Input';
 import { colors } from '../theme/colors';
 import type { RootStackScreenProps } from '../navigation/types';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { EmergencyVaultUpsert, MedicalContact } from '../../domain/types';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 export default function EditEmergencyVaultScreen({ navigation }: RootStackScreenProps<'EditEmergencyVault'>) {
   const { vault, loading, updateVault } = useVault();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EditEmergencyVault');
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -272,6 +275,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
           />
         </ScrollView>
       </KeyboardAvoidingView>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

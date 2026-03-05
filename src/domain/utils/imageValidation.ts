@@ -4,6 +4,9 @@
  * Validates image format, size, and dimensions before upload.
  */
 
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { getInfoAsync } from 'expo-file-system/legacy';
+
 // ============================================================
 // CONSTRAINTS
 // ============================================================
@@ -274,6 +277,50 @@ export function calculateResizeDimensions(
       height: target,
     };
   }
+}
+
+// ============================================================
+// COMPRESSION
+// ============================================================
+
+/**
+ * Compress an image before validation.
+ * Resizes if needed (target: 1200px longest side) and compresses to JPEG.
+ * Returns a new ImageInfo with updated uri, dimensions, and fileSize.
+ */
+export async function compressImage(imageInfo: ImageInfo): Promise<ImageInfo> {
+  const actions: { resize: { width?: number; height?: number } }[] = [];
+
+  if (needsResize(imageInfo.width, imageInfo.height)) {
+    const dims = calculateResizeDimensions(imageInfo.width, imageInfo.height);
+    actions.push({ resize: { width: dims.width, height: dims.height } });
+  }
+
+  const result = await manipulateAsync(imageInfo.uri, actions, {
+    compress: IMAGE_CONSTRAINTS.COMPRESSION_QUALITY,
+    format: SaveFormat.JPEG,
+  });
+
+  // Get the compressed file size
+  let fileSize = imageInfo.fileSize;
+  try {
+    const fileInfo = await getInfoAsync(result.uri);
+    if (fileInfo.exists) {
+      fileSize = fileInfo.size;
+    }
+  } catch {
+    // Fall back to original size if we can't read the compressed file
+  }
+
+  return {
+    ...imageInfo,
+    uri: result.uri,
+    width: result.width,
+    height: result.height,
+    fileSize,
+    mimeType: 'image/jpeg',
+    fileName: imageInfo.fileName.replace(/\.[^.]+$/, '.jpg'),
+  };
 }
 
 // ============================================================

@@ -30,8 +30,10 @@ import { ArrowLeft, Camera, Sparkles } from 'lucide-react-native';
 import { useAIUpload } from '../../data/contexts/AIUploadContext';
 import { useAIConsent } from '../../data/hooks/useAIConsent';
 import { analyzeMedicationImages } from '../../data/services/aiService';
-import { ImageInfo, validateImageAsync, areLikelyDuplicates } from '../../domain/utils/imageValidation';
+import { ImageInfo, validateImageAsync, areLikelyDuplicates, compressImage } from '../../domain/utils/imageValidation';
 import { AI_UPLOAD_COPY } from '../../domain/medicationConfig';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 
 import {
   AIConsentModal,
@@ -56,6 +58,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ImageUpload
 
 export function ImageUploadScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ImageUpload');
   const {
     state,
     acceptConsent,
@@ -185,7 +188,7 @@ export function ImageUploadScreen() {
   };
 
   const handleImageSelected = async (slot: 'front' | 'back', asset: ImagePicker.ImagePickerAsset) => {
-    const imageInfo: ImageInfo = {
+    const rawImageInfo: ImageInfo = {
       uri: asset.uri,
       width: asset.width || 0,
       height: asset.height || 0,
@@ -193,6 +196,14 @@ export function ImageUploadScreen() {
       mimeType: asset.mimeType || 'image/jpeg',
       fileName: asset.fileName || `image_${Date.now()}.jpg`,
     };
+
+    // Compress before validation (Android cameras produce 5-15MB+ images)
+    let imageInfo: ImageInfo;
+    try {
+      imageInfo = await compressImage(rawImageInfo);
+    } catch {
+      imageInfo = rawImageInfo;
+    }
 
     // Validate image (includes magic bytes check)
     const validation = await validateImageAsync(imageInfo);
@@ -438,6 +449,7 @@ export function ImageUploadScreen() {
         onAgree={handleAcceptConsent}
         onDecline={handleDeclineConsent}
       />
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

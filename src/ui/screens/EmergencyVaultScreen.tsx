@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { X, AlertTriangle, Fingerprint, Edit3 } from 'lucide-react-native';
+import { X, Edit3 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
 import { colors } from '../theme/colors';
-import { biometrics } from '../../data/utils/biometrics';
 import { useGamification } from '../hooks/useGamification';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
 
 // Format scheduled time (HH:MM) to AM/PM format
@@ -41,15 +42,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   const { vault, loading: vaultLoading, fetchVault } = useVault();
   const { activeMedications, loading: medsLoading } = useMedications();
   const { currentTier, totalXp, loading: gamLoading } = useGamification();
-  const [authenticated, setAuthenticated] = useState(false);
-  const [authChecking, setAuthChecking] = useState(true);
-
-  // TODO: Re-enable biometric gate when Firebase auth is restored
-  useEffect(() => {
-    // Temporarily skip biometric auth for development
-    setAuthenticated(true);
-    setAuthChecking(false);
-  }, [navigation]);
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EmergencyVault');
 
   // Re-fetch vault data when screen regains focus (e.g. after editing in PersonalInfo)
   useFocusEffect(
@@ -59,23 +52,6 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   );
 
   const loading = vaultLoading || medsLoading;
-
-  if (authChecking || !authenticated) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.authContainer}>
-          {authChecking ? (
-            <ActivityIndicator color={colors.cyan} size="large" />
-          ) : (
-            <>
-              <Fingerprint color={colors.textMuted} size={48} />
-              <Text style={styles.authText}>Authentication required</Text>
-            </>
-          )}
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // Wait for data before tier gate check
   if (gamLoading || vaultLoading) {
@@ -213,6 +189,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
           <Text style={styles.editButtonText}>Edit in Personal Details</Text>
         </TouchableOpacity>
       </ScrollView>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }
@@ -222,7 +199,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  authText: { color: colors.textSecondary, marginTop: 16, fontSize: 15 },
 
   // Header
   header: {

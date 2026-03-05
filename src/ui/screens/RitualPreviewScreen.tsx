@@ -8,6 +8,7 @@ import {
   Modal,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, X, Clock, Pencil, Plus, Minus, Trash2 } from 'lucide-react-native';
@@ -19,6 +20,8 @@ import TimeInput from '../components/TimeInput';
 import DateInput from '../components/DateInput';
 import { formatTime12h } from '../../domain/utils';
 import { createLogger } from '../../utils/logger';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 
 const logger = createLogger('RitualPreview');
 
@@ -52,6 +55,7 @@ const DAYS_OF_WEEK = [
 ];
 
 export default function RitualPreviewScreen({ navigation, route }: RootStackScreenProps<'RitualPreview'>) {
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('RitualPreview');
   const {
     name,
     strength,
@@ -324,13 +328,16 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
         entryMode: medicationData.entry_mode,
       });
 
-      await createMedication(medicationData);
+      const result = await createMedication(medicationData);
       await refreshStatus();
 
       logger.info('Medication created successfully', { name });
 
-      // Show confirmation and navigate to home
-      const message = `${name} has been added to your cabinet. Your vitality streak starts now!`;
+      // Show insight from Gemini if available, otherwise generic message
+      const insightText = result.insight?.insight_text;
+      const message = insightText
+        ? `${name} added!\n\n${insightText}`
+        : `${name} has been added to your cabinet. Your vitality streak starts now!`;
 
       if (Platform.OS === 'web') {
         window.alert(`Ritual Initialized!\n\n${message}`);
@@ -477,9 +484,14 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
           onPress={handleStartStreak}
           disabled={saving}
         >
-          <Text style={styles.startBtnText}>
-            {saving ? 'SAVING...' : 'START VITALITY STREAK'}
-          </Text>
+          {saving ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.startBtnText}>Saving...</Text>
+            </View>
+          ) : (
+            <Text style={styles.startBtnText}>START VITALITY STREAK</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -645,6 +657,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
           </ScrollView>
         </View>
       </Modal>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

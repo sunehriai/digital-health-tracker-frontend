@@ -57,12 +57,16 @@ const RELATIONSHIPS = ['Spouse', 'Parent', 'Sibling', 'Child', 'Friend', 'Doctor
 const COMMON_ALLERGIES = ['Penicillin', 'Sulfa', 'Latex', 'Aspirin', 'NSAIDs', 'Ibuprofen', 'Shellfish', 'Peanuts'];
 const COMMON_CONDITIONS = ['Diabetes', 'Hypertension', 'Asthma', 'Heart Disease', 'COPD', 'Arthritis', 'Depression', 'Anxiety'];
 
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
+
 type PickerType = 'gender' | 'healthGoal' | 'bloodType' | 'relationship' | null;
 
 export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<'PersonalInfo'>) {
   const { user, updateProfile } = useAuth();
   const { vault, loading: vaultLoading, updateVault } = useVault();
   const { refreshStatus } = useGamification();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('PersonalInfo');
   const [saving, setSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -817,6 +821,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
         </ScrollView>
 
       </KeyboardAvoidingView>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

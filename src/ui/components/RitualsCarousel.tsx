@@ -99,7 +99,7 @@ interface RitualTileProps {
 
 function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoading }: RitualTileProps) {
   const sc = getStatusColors(item.status);
-  const canTapToTake = !disabled && (item.status === 'next' || item.status === 'pending' || item.status === 'missed');
+  const canTapToTake = !disabled && (item.status === 'next' || item.status === 'pending' || item.status === 'missed' || item.status === 'due');
   const canTapToRevert = !disabled && item.status === 'completed' && canRevert && onRevert;
 
   const content = (

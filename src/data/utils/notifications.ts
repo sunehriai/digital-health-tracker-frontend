@@ -3,10 +3,19 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type { Medication, NotificationPreferences, MedicationNotificationOverride } from '../../domain/types';
 import { medicationService } from '../services/medicationService';
+import { doseStatusCache } from './doseStatusCache';
+import { medicationEvents } from './medicationEvents';
+import { getDoseTimes as getDoseTimesUtil } from '../../domain/utils/medicationUtils';
 
 const MAX_SCHEDULED = 60;
 const LOOKAHEAD_DAYS = 30;
 const MAX_SNOOZE_COUNT = 3;
+
+// ── Debug logging helper ──────────────────────────────────────────────
+const NOTIF_DEBUG = true; // Set to false to disable debug logging
+function nlog(...args: unknown[]) {
+  if (NOTIF_DEBUG) console.log('[NOTIF-DEBUG]', ...args);
+}
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -24,15 +33,22 @@ Notifications.setNotificationHandler({
  * Call once at app startup.
  */
 export async function initNotifications(): Promise<string | null> {
+  nlog('initNotifications() called');
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
+  nlog('Permission status:', existingStatus);
 
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
+    nlog('Requested permissions, new status:', finalStatus);
   }
 
-  if (finalStatus !== 'granted') return null;
+  if (finalStatus !== 'granted') {
+    nlog('PERMISSION DENIED — notifications will NOT work');
+    return null;
+  }
+  nlog('Permission GRANTED');
 
   // Android channels
   if (Platform.OS === 'android') {
@@ -63,9 +79,11 @@ export async function initNotifications(): Promise<string | null> {
   }
 
   // Register dose-reminder notification category with action buttons
+  // Take runs in background (opensAppToForeground:false) for frictionless UX.
+  // Accepted risk: ~20-30% silent failure on Android until Firebase/Notifee migration.
+  // Skip removed — missed doses are handled automatically; users should pause instead.
   await Notifications.setNotificationCategoryAsync('dose-reminder', [
     { identifier: 'TAKE', buttonTitle: 'Take', options: { opensAppToForeground: false } },
-    { identifier: 'SKIP', buttonTitle: 'Skip', options: { opensAppToForeground: false } },
     { identifier: 'SNOOZE', buttonTitle: 'Snooze', options: { opensAppToForeground: false } },
   ]);
 
@@ -124,12 +142,7 @@ interface NotificationCandidate {
   groupKey: string; // For OS grouping
 }
 
-function getDoseTimes(med: Medication): string[] {
-  if (med.dose_times && med.dose_times.length > 0) {
-    return med.dose_times;
-  }
-  return [med.time_of_day];
-}
+// Use getDoseTimesUtil from domain/utils/medicationUtils (single source of truth)
 
 /**
  * Issue 11: Use UTC date parts for day-diff calculations to avoid DST off-by-one.
@@ -176,24 +189,50 @@ function buildSortedCandidates(
   prefs: NotificationPreferences,
 ): NotificationCandidate[] {
   const now = new Date();
+  nlog('buildSortedCandidates() called at', now.toISOString());
+  nlog('  medications count:', medications.length);
+  nlog('  prefs.dose_reminders_enabled:', prefs.dose_reminders_enabled);
+  nlog('  prefs.advance_reminder_minutes:', prefs.advance_reminder_minutes);
+  nlog('  prefs.quiet_hours_enabled:', prefs.quiet_hours_enabled);
+  if (prefs.quiet_hours_enabled) {
+    nlog('  prefs.quiet_hours_start:', prefs.quiet_hours_start, 'end:', prefs.quiet_hours_end);
+  }
+
   const candidates: NotificationCandidate[] = [];
   const endDate = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
 
   for (const med of medications) {
+    nlog('  Evaluating med:', med.name, '(id:', med.id, ')');
+    nlog('    is_paused:', med.is_paused, 'is_archived:', med.is_archived, 'is_as_needed:', med.is_as_needed);
+    nlog('    time_of_day:', med.time_of_day, 'dose_times:', med.dose_times);
+    nlog('    frequency:', med.frequency, 'start_date:', med.start_date, 'end_date:', med.end_date);
+
     // Filter: active, non-paused, non-archived
-    if (med.is_paused || med.is_archived) continue;
+    if (med.is_paused || med.is_archived) {
+      nlog('    SKIPPED: paused or archived');
+      continue;
+    }
 
     // Check if medication has ended
-    if (med.end_date && new Date(med.end_date) < now) continue;
+    if (med.end_date && new Date(med.end_date) < now) {
+      nlog('    SKIPPED: end_date in the past');
+      continue;
+    }
 
     const { enabled, advanceMinutes } = resolvePrefsForMedication(med, prefs);
-    if (!enabled) continue;
+    nlog('    resolved prefs: enabled=', enabled, 'advanceMinutes=', advanceMinutes);
+    if (!enabled) {
+      nlog('    SKIPPED: reminders disabled for this medication');
+      continue;
+    }
 
-    const doseTimes = getDoseTimes(med);
+    const doseTimes = getDoseTimesUtil(med);
+    nlog('    doseTimes resolved:', doseTimes);
 
     // Project forward day by day
     const currentDay = new Date(now);
     currentDay.setHours(0, 0, 0, 0);
+    let medCandidateCount = 0;
 
     while (currentDay <= endDate) {
       if (shouldScheduleOnDay(med, currentDay)) {
@@ -206,7 +245,13 @@ function buildSortedCandidates(
           notifDate.setMinutes(notifDate.getMinutes() - advanceMinutes);
 
           // Skip past notifications
-          if (notifDate <= now) continue;
+          if (notifDate <= now) {
+            // Only log for today to avoid spam
+            if (currentDay.toDateString() === now.toDateString()) {
+              nlog('    SKIP (past):', timeStr, '→ notifDate:', notifDate.toISOString(), '<= now:', now.toISOString());
+            }
+            continue;
+          }
 
           // Check medication end date
           if (med.end_date && notifDate > new Date(med.end_date)) continue;
@@ -215,6 +260,9 @@ function buildSortedCandidates(
           if (isInQuietHours(notifDate, prefs)) {
             // Critical bypass check
             if (!(prefs.critical_bypass_quiet && med.is_critical)) {
+              if (medCandidateCount < 3) {
+                nlog('    SKIP (quiet hours):', notifDate.toISOString());
+              }
               continue;
             }
           }
@@ -225,15 +273,26 @@ function buildSortedCandidates(
             doseTime: timeStr,
             groupKey: `dose_${timeStr}`,
           });
+          medCandidateCount++;
+
+          // Log first 3 candidates per med
+          if (medCandidateCount <= 3) {
+            nlog('    CANDIDATE:', timeStr, '→ trigger at', notifDate.toISOString());
+          }
         }
       }
 
       currentDay.setDate(currentDay.getDate() + 1);
     }
+    nlog('    Total candidates for', med.name, ':', medCandidateCount);
   }
 
   // Sort chronologically
   candidates.sort((a, b) => a.date.getTime() - b.date.getTime());
+  nlog('  Total candidates (all meds):', candidates.length);
+  if (candidates.length > 0) {
+    nlog('  First candidate:', candidates[0].medication.name, 'at', candidates[0].date.toISOString());
+  }
   return candidates;
 }
 
@@ -261,12 +320,20 @@ export async function rescheduleAll(
   medications: Medication[],
   prefs: NotificationPreferences,
 ): Promise<void> {
+  nlog('=== rescheduleAll() CALLED ===');
+  nlog('  medications:', medications.length, 'prefs:', prefs ? 'loaded' : 'NULL');
+
   // Issue 10: Skip if nothing changed
   const inputHash = computeInputHash(medications, prefs);
-  if (inputHash === lastRescheduleHash) return;
+  if (inputHash === lastRescheduleHash) {
+    nlog('  SKIPPED: input hash unchanged (cached)');
+    return;
+  }
+  nlog('  Hash changed, proceeding with reschedule');
 
   // Step 1: CALCULATE (safe, no side effects)
   const candidates = buildSortedCandidates(medications, prefs);
+  nlog('  Candidates to schedule:', candidates.length);
 
   // Step 2: SCHEDULE new notifications first
   const newIds: string[] = [];
@@ -297,21 +364,31 @@ export async function rescheduleAll(
           sound: 'default',
           categoryIdentifier: 'dose-reminder',
           ...(Platform.OS === 'android' && {
-            channelId: 'doses',
             groupKey: candidate.groupKey,
           }),
           ...(Platform.OS === 'ios' && {
             threadId: candidate.groupKey,
           }),
         },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: candidate.date },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: candidate.date,
+          ...(Platform.OS === 'android' && { channelId: 'doses' }),
+        },
       });
 
       newIds.push(id);
       lastScheduledTime = candidate.date;
       scheduled++;
+
+      // Log first 5 scheduled
+      if (scheduled <= 5) {
+        nlog('  SCHEDULED #' + scheduled + ':', med.name, 'trigger:', candidate.date.toISOString(), 'id:', id);
+      }
     }
+    nlog('  Total scheduled:', scheduled);
   } catch (err) {
+    nlog('  ERROR scheduling notifications:', err);
     // Rollback: cancel partially-scheduled new ones, leave existing intact
     for (const id of newIds) {
       try { await Notifications.cancelScheduledNotificationAsync(id); } catch { /* best-effort */ }
@@ -320,14 +397,19 @@ export async function rescheduleAll(
   }
 
   // Step 3: Cancel OLD notifications only after new ones are safely scheduled
-  // Get all currently scheduled, filter out the ones we just scheduled, cancel the rest
   const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+  nlog('  Previously scheduled (OS):', allScheduled.length);
   const newIdSet = new Set(newIds);
+  let cancelledCount = 0;
   for (const notif of allScheduled) {
     if (!newIdSet.has(notif.identifier)) {
-      try { await Notifications.cancelScheduledNotificationAsync(notif.identifier); } catch { /* best-effort */ }
+      try {
+        await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+        cancelledCount++;
+      } catch { /* best-effort */ }
     }
   }
+  nlog('  Cancelled old:', cancelledCount);
 
   // Step 4: NUDGE — if budget is full, schedule "Open Vision" reminder
   if (lastScheduledTime && newIds.length >= MAX_SCHEDULED) {
@@ -337,14 +419,56 @@ export async function rescheduleAll(
         title: 'Open Vision',
         body: 'Open Vision to keep your medication reminders active.',
         data: { type: 'nudge' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: nudgeTime,
         ...(Platform.OS === 'android' && { channelId: 'system' }),
       },
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nudgeTime },
     });
+    nlog('  Nudge scheduled at:', nudgeTime.toISOString());
   }
 
   // Update cache hash after successful reschedule
   lastRescheduleHash = inputHash;
+
+  // VERIFICATION: Query OS for what's actually scheduled
+  const verifyScheduled = await Notifications.getAllScheduledNotificationsAsync();
+  nlog('=== VERIFICATION: OS has', verifyScheduled.length, 'scheduled notifications ===');
+  for (let i = 0; i < Math.min(verifyScheduled.length, 5); i++) {
+    const n = verifyScheduled[i];
+    const trigger = n.trigger as { type?: string; value?: number; date?: number };
+    const triggerDate = trigger.value ? new Date(trigger.value) : trigger.date ? new Date(trigger.date) : 'unknown';
+    nlog('  OS notif', i + 1, ':', n.content.title, '|', n.content.body, '| trigger:', triggerDate);
+  }
+  nlog('=== rescheduleAll() COMPLETE ===');
+}
+
+// ── Notification Action Helpers ────────────────────────────────────────
+
+/**
+ * Derive the carousel chipId from notification data so doseStatusCache
+ * can be updated without opening the app.
+ *
+ * chipId format: multi-dose → `{medId}_dose_{N}`, single-dose → `{medId}`
+ */
+function deriveChipId(medication: Medication, doseTimeIso: string): string {
+  const doseTimes = getDoseTimesUtil(medication);
+  if (doseTimes.length <= 1) {
+    return medication.id;
+  }
+  // Extract HH:MM from the ISO string
+  const d = new Date(doseTimeIso);
+  const hh = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  const timeStr = `${hh}:${mm}`;
+
+  const idx = doseTimes.indexOf(timeStr);
+  if (idx >= 0) {
+    return `${medication.id}_dose_${idx}`;
+  }
+  // Fallback: no match found, use base id
+  return medication.id;
 }
 
 // ── Notification Action Handlers ───────────────────────────────────────
@@ -395,21 +519,50 @@ export function registerNotificationActionHandler(
 
     try {
       switch (actionId) {
-        case 'TAKE':
+        case 'TAKE': {
+          // Dismiss the original notification immediately so it doesn't linger
+          await Notifications.dismissNotificationAsync(
+            response.notification.request.identifier,
+          );
+
+          // logDose is the critical API call — if it fails, show error notification
           await medicationService.logDose(medicationId, {
             scheduled_at: doseTime,
             status: 'taken',
           });
-          break;
 
-        case 'SKIP':
-          await medicationService.logDose(medicationId, {
-            scheduled_at: doseTime,
-            status: 'skipped',
+          // Post-logDose side effects: failures here are non-critical
+          // (dose is already recorded server-side)
+          try {
+            // Update dose status cache so carousel shows tick on next app open
+            const chipId = deriveChipId(med, doseTime);
+            await doseStatusCache.markTaken([chipId]);
+          } catch (cacheErr) {
+            console.warn('Post-logDose cache error (dose IS logged):', cacheErr);
+          }
+
+          // Emit outside inner try — must fire even if cache write failed
+          medicationEvents.emit('dose_taken', medicationId);
+
+          // Show success notification (app isn't open, so toast won't be visible)
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Dose Logged',
+              body: `${med.name} dose logged successfully`,
+              sound: false, // silent — visual confirmation only
+              ...(Platform.OS === 'android' && { channelId: 'doses' }),
+            },
+            trigger: null, // show immediately
           });
           break;
+        }
 
         case 'SNOOZE': {
+          // Dismiss the original notification immediately
+          await Notifications.dismissNotificationAsync(
+            response.notification.request.identifier,
+          );
+
           if (snoozeCount >= MAX_SNOOZE_COUNT) {
             // Max snoozes reached — log as missed
             await medicationService.logDose(medicationId, {
@@ -432,9 +585,12 @@ export function registerNotificationActionHandler(
                   ...data,
                   snoozeCount: snoozeCount + 1,
                 },
+              },
+              trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: snoozeDate,
                 ...(Platform.OS === 'android' && { channelId: 'doses' }),
               },
-              trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: snoozeDate },
             });
           }
           break;
@@ -445,13 +601,26 @@ export function registerNotificationActionHandler(
           break;
       }
     } catch (err) {
-      // Silently fail — will be retried on next app foreground sync
       console.warn('Notification action handler error:', err);
+      // Only show error notification for TAKE — the logDose API call itself failed
+      if (actionId === 'TAKE') {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Action Failed',
+            body: 'Could not log dose. Please open Vision and try again.',
+            sound: false,
+            ...(Platform.OS === 'android' && { channelId: 'doses' }),
+          },
+          trigger: null,
+        });
+      }
     }
 
     // Reschedule to fill freed slot
-    if (prefs && (actionId === 'TAKE' || actionId === 'SKIP')) {
+    if (prefs && actionId === 'TAKE') {
       try {
+        // Invalidate cache so reschedule actually runs (a dose was just consumed)
+        lastRescheduleHash = null;
         await rescheduleAll(medications, prefs);
       } catch {
         // Non-critical — will reschedule on next foreground

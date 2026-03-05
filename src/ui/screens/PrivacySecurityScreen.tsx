@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ChevronLeft,
   ChevronDown,
@@ -25,11 +24,11 @@ import {
   Info,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
+import { biometrics } from '../../data/utils/biometrics';
+import { useSecurity } from '../hooks/useSecurity';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
-
-const BIOMETRIC_KEY = '@vision_biometric_enabled';
-const AUTO_LOCK_KEY = '@vision_auto_lock_timeout';
-const SCREEN_SECURITY_KEY = '@vision_screen_security';
 
 const AUTO_LOCK_OPTIONS = [
   { label: 'Immediately', value: 0 },
@@ -43,53 +42,57 @@ const AUTO_LOCK_OPTIONS = [
 const PRIVACY_POLICY_URL = 'https://vision-health.app/privacy'; // Replace with actual URL
 
 export default function PrivacySecurityScreen({ navigation }: RootStackScreenProps<'PrivacySecurity'>) {
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [autoLockTimeout, setAutoLockTimeout] = useState(5); // Default 5 minutes
-  const [screenSecurityEnabled, setScreenSecurityEnabled] = useState(false);
+  const security = useSecurity();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('PrivacySecurity');
   const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
 
-  // Load settings on mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const [biometric, autoLock, screenSecurity] = await Promise.all([
-        AsyncStorage.getItem(BIOMETRIC_KEY),
-        AsyncStorage.getItem(AUTO_LOCK_KEY),
-        AsyncStorage.getItem(SCREEN_SECURITY_KEY),
-      ]);
-
-      if (biometric !== null) setBiometricEnabled(biometric === 'true');
-      if (autoLock !== null) setAutoLockTimeout(parseInt(autoLock, 10));
-      if (screenSecurity !== null) setScreenSecurityEnabled(screenSecurity === 'true');
-    } catch (e) {
-      console.error('Failed to load privacy settings:', e);
-    }
-  };
-
   const handleBiometricChange = async (value: boolean) => {
-    setBiometricEnabled(value);
-    await AsyncStorage.setItem(BIOMETRIC_KEY, value.toString());
+    if (value) {
+      // Check hardware availability and enrollment before enabling
+      const available = await biometrics.isAvailable();
+      if (!available) {
+        Alert.alert(
+          'Biometrics Unavailable',
+          'Your device does not have biometric authentication set up. Please enable Face ID, Touch ID, or fingerprint in your device Settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Require a biometric challenge to confirm identity before enabling
+      const result = await biometrics.authenticate('Confirm to enable app lock');
+      if (!result.success) {
+        // User cancelled or authentication failed — don't enable
+        return;
+      }
+    } else {
+      // Require a biometric challenge to confirm identity before disabling
+      const available = await biometrics.isAvailable();
+      if (available) {
+        const result = await biometrics.authenticate('Confirm to disable app lock');
+        if (!result.success) {
+          return;
+        }
+      }
+    }
+
+    await security.setBiometricEnabled(value);
+    security.recordAuthentication();
   };
 
   const handleAutoLockChange = async (value: number) => {
-    setAutoLockTimeout(value);
     setShowAutoLockPicker(false);
-    await AsyncStorage.setItem(AUTO_LOCK_KEY, value.toString());
+    await security.setAutoLockTimeout(value);
   };
 
   const handleScreenSecurityChange = async (value: boolean) => {
-    setScreenSecurityEnabled(value);
-    await AsyncStorage.setItem(SCREEN_SECURITY_KEY, value.toString());
-    // Note: Actual screenshot blocking requires native code
     if (value) {
       Alert.alert(
         'Screen Security Enabled',
         'Screenshots and screen recording will be blocked when viewing sensitive health data.'
       );
     }
+    await security.setScreenSecurityEnabled(value);
   };
 
   const handleExportData = () => {
@@ -105,9 +108,13 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
   };
 
   const getAutoLockLabel = () => {
-    const option = AUTO_LOCK_OPTIONS.find(o => o.value === autoLockTimeout);
+    const option = AUTO_LOCK_OPTIONS.find(o => o.value === security.autoLockTimeout);
     return option?.label || '5 minutes';
   };
+
+  const biometricLabel = security.biometricMethodName
+    ? `${security.biometricMethodName} Lock`
+    : 'Face ID / Biometric Lock';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -127,38 +134,42 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
         {/* AUTHENTICATION Section */}
         <Text style={styles.sectionTitle}>AUTHENTICATION</Text>
 
-        {/* Face ID / Biometric Lock */}
+        {/* Biometric Lock */}
         <View style={styles.settingCard}>
           <View style={styles.settingIcon}>
             <Fingerprint color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Face ID / Biometric Lock</Text>
+            <Text style={styles.settingTitle}>{biometricLabel}</Text>
             <Text style={styles.settingSubtitle}>Secure app access with biometrics</Text>
           </View>
           <Switch
-            value={biometricEnabled}
+            value={security.biometricEnabled}
             onValueChange={handleBiometricChange}
             trackColor={{ false: colors.border, true: colors.cyan }}
             thumbColor="#fff"
           />
         </View>
 
-        {/* Auto-Lock */}
+        {/* Auto-Lock (disabled when biometric lock is OFF) */}
         <TouchableOpacity
-          style={styles.settingCard}
-          activeOpacity={0.8}
-          onPress={() => setShowAutoLockPicker(!showAutoLockPicker)}
+          style={[styles.settingCard, !security.biometricEnabled && styles.settingCardDisabled]}
+          activeOpacity={security.biometricEnabled ? 0.8 : 1}
+          onPress={() => security.biometricEnabled && setShowAutoLockPicker(!showAutoLockPicker)}
         >
-          <View style={styles.settingIcon}>
+          <View style={[styles.settingIcon, !security.biometricEnabled && { opacity: 0.4 }]}>
             <Clock color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Auto-Lock</Text>
-            <Text style={styles.settingSubtitle}>Lock after inactivity</Text>
+            <Text style={[styles.settingTitle, !security.biometricEnabled && { opacity: 0.4 }]}>Auto-Lock</Text>
+            <Text style={styles.settingSubtitle}>
+              {security.biometricEnabled ? 'Lock after inactivity' : 'Enable biometric lock first'}
+            </Text>
           </View>
           <View style={styles.settingValue}>
-            <Text style={styles.settingValueText}>{getAutoLockLabel()}</Text>
+            <Text style={[styles.settingValueText, !security.biometricEnabled && { opacity: 0.4 }]}>
+              {getAutoLockLabel()}
+            </Text>
             <ChevronDown color={colors.textMuted} size={18} />
           </View>
         </TouchableOpacity>
@@ -170,14 +181,14 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
                 key={option.value}
                 style={[
                   styles.pickerOption,
-                  autoLockTimeout === option.value && styles.pickerOptionSelected,
+                  security.autoLockTimeout === option.value && styles.pickerOptionSelected,
                 ]}
                 onPress={() => handleAutoLockChange(option.value)}
               >
                 <Text
                   style={[
                     styles.pickerOptionText,
-                    autoLockTimeout === option.value && styles.pickerOptionTextSelected,
+                    security.autoLockTimeout === option.value && styles.pickerOptionTextSelected,
                   ]}
                 >
                   {option.label}
@@ -242,12 +253,53 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
             <Text style={styles.settingSubtitle}>Block screenshots & app switcher</Text>
           </View>
           <Switch
-            value={screenSecurityEnabled}
+            value={security.screenSecurityEnabled}
             onValueChange={handleScreenSecurityChange}
             trackColor={{ false: colors.border, true: colors.cyan }}
             thumbColor="#fff"
           />
         </View>
+
+        {/* Screen Security Granularity (visible only when security is ON) */}
+        {security.screenSecurityEnabled && (
+          <View style={styles.granularityCard}>
+            <Text style={styles.granularityLabel}>Protected screens</Text>
+            <TouchableOpacity
+              style={[
+                styles.granularityOption,
+                security.screenSecurityGranularity === 'sensitive_only' && styles.granularityOptionSelected,
+              ]}
+              onPress={() => security.setScreenSecurityGranularity('sensitive_only')}
+            >
+              <View style={styles.radioOuter}>
+                {security.screenSecurityGranularity === 'sensitive_only' && (
+                  <View style={styles.radioInner} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.granularityOptionText}>Sensitive screens only</Text>
+                <Text style={styles.granularityOptionSub}>Emergency Vault, medications, personal info (7 screens)</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.granularityOption,
+                security.screenSecurityGranularity === 'all' && styles.granularityOptionSelected,
+              ]}
+              onPress={() => security.setScreenSecurityGranularity('all')}
+            >
+              <View style={styles.radioOuter}>
+                {security.screenSecurityGranularity === 'all' && (
+                  <View style={styles.radioInner} />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.granularityOptionText}>All screens</Text>
+                <Text style={styles.granularityOptionSub}>Includes Home, Cabinet, Alerts, and more (11 screens)</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Health Data Protection Notice */}
         <View style={styles.noticeCard}>
@@ -264,6 +316,8 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }
@@ -321,6 +375,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#1E2633',
+  },
+  settingCardDisabled: {
+    opacity: 0.6,
   },
   settingIcon: {
     width: 40,
@@ -397,6 +454,58 @@ const styles = StyleSheet.create({
   pickerOptionTextSelected: {
     color: colors.cyan,
     fontWeight: '600',
+  },
+
+  // Granularity Card
+  granularityCard: {
+    backgroundColor: '#121721',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    marginTop: -6,
+    borderWidth: 1,
+    borderColor: '#1E2633',
+  },
+  granularityLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  granularityOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    gap: 12,
+  },
+  granularityOptionSelected: {},
+  granularityOptionText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  granularityOptionSub: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.cyan,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.cyan,
   },
 
   // Danger Card

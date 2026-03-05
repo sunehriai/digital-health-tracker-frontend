@@ -31,6 +31,8 @@ import {
   calculateStockPercentage,
   getStockAccentColor,
 } from '../../domain/medicationConfig';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 80;
@@ -73,6 +75,7 @@ function PulsingCard({ children, isLowStock }: { children: React.ReactNode; isLo
 
 export default function CabinetScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Cabinet');
   const {
     activeMedications,
     archivedMedications,
@@ -800,6 +803,7 @@ export default function CabinetScreen() {
           </View>
         </View>
       </Modal>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

@@ -12,6 +12,7 @@ import {
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronDown, ChevronUp, Minus, Plus, UtensilsCrossed, AlertTriangle, AlertCircle, ArrowUp, ArrowDown, Sparkles } from 'lucide-react-native';
@@ -40,9 +41,14 @@ import { useAIUpload } from '../../data/contexts/AIUploadContext';
 import { ConfidenceBadge } from '../components/ai/ConfidenceIndicator';
 import { ConfidenceLevel, getConfidenceLevel } from '../../domain/utils/confidenceUtils';
 import { getLocalDateString } from '../../domain/utils/dateTimeUtils';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import { useGamification } from '../hooks/useGamification';
+import ScreenshotToast from '../components/ScreenshotToast';
 
 
 export default function ManualMedicationEntryScreen({ navigation, route }: RootStackScreenProps<'ManualMedicationEntry'>) {
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ManualMedicationEntry');
+  const { refreshStatus } = useGamification();
   // Get mode from route params - 'ai' mode means we're editing AI-extracted data
   const mode = route.params?.mode || 'manual';
   const isAIMode = mode === 'ai';
@@ -427,6 +433,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         ai_confidence_score: isAIMode ? aiUpload.state.averageConfidence : null,
         requires_review: isAIMode ? aiUpload.state.flaggedForReview : false,
       });
+
+      // Refresh gamification status (XP may have been awarded for first medication)
+      await refreshStatus();
 
       // Reset AI context if we were in AI mode
       if (isAIMode) {
@@ -1220,11 +1229,19 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           onPress={frequencyType === 'as_needed' ? handleDirectSave : handleSave}
           disabled={!name.trim() || isSaving}
         >
-          <Text style={styles.initializeBtnText}>
-            {isSaving ? 'SAVING...' : frequencyType === 'as_needed' ? 'ADD TO CABINET' : 'INITIALIZE RITUAL'}
-          </Text>
+          {isSaving ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.initializeBtnText}>Saving...</Text>
+            </View>
+          ) : (
+            <Text style={styles.initializeBtnText}>
+              {frequencyType === 'as_needed' ? 'ADD TO CABINET' : 'INITIALIZE RITUAL'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

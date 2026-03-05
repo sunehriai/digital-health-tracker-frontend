@@ -50,6 +50,7 @@ export function useNotificationPrefs() {
   // Load from cache on mount, then sync from backend
   useEffect(() => {
     isMounted.current = true;
+    console.log('[NOTIF-DEBUG][Prefs] Mount — loading from cache then backend');
     loadFromCache().then(() => syncFromBackend());
     return () => {
       isMounted.current = false;
@@ -61,19 +62,25 @@ export function useNotificationPrefs() {
     try {
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
       if (cached) {
-        setPrefs(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        console.log('[NOTIF-DEBUG][Prefs] Cache hit — dose_reminders_enabled:', parsed.dose_reminders_enabled, 'advance_minutes:', parsed.advance_reminder_minutes);
+        setPrefs(parsed);
         setLoading(false);
+      } else {
+        console.log('[NOTIF-DEBUG][Prefs] Cache miss — no cached prefs');
       }
-    } catch {
-      // Cache miss is fine
+    } catch (err) {
+      console.log('[NOTIF-DEBUG][Prefs] Cache load error:', err);
     }
   };
 
   const syncFromBackend = async () => {
+    console.log('[NOTIF-DEBUG][Prefs] syncFromBackend() called');
     try {
       // Issue 5: Check for pending sync with timestamp comparison
       const pendingRaw = await AsyncStorage.getItem(PENDING_SYNC_KEY);
       if (pendingRaw) {
+        console.log('[NOTIF-DEBUG][Prefs] Found pending sync payload');
         try {
           const pending: PendingSyncPayload = JSON.parse(pendingRaw);
           // Fetch server state first to compare timestamps
@@ -101,13 +108,16 @@ export function useNotificationPrefs() {
       }
 
       const serverPrefs = await notificationPreferencesService.get();
+      console.log('[NOTIF-DEBUG][Prefs] Backend sync OK — dose_reminders_enabled:', serverPrefs.dose_reminders_enabled, 'advance_minutes:', serverPrefs.advance_reminder_minutes);
       if (isMounted.current) {
         setPrefs(serverPrefs);
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(serverPrefs));
       }
-    } catch {
+    } catch (err) {
+      console.log('[NOTIF-DEBUG][Prefs] Backend sync FAILED:', err);
       // Offline — use cache or defaults
       if (!prefs && isMounted.current) {
+        console.log('[NOTIF-DEBUG][Prefs] Using DEFAULTS (offline, no cache)');
         setPrefs({
           id: '',
           user_id: '',

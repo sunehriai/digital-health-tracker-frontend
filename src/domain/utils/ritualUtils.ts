@@ -15,6 +15,8 @@ import {
 
 /**
  * Calculate the status of a ritual based on current time and taken state.
+ * Uses the same 60-minute grace window as the hand-off logic (DOSE_EXPIRY_MS)
+ * so that a dose isn't marked 'missed' while it's still shown as the active dose.
  */
 export function calculateRitualStatus(
   scheduledTime: Date,
@@ -22,7 +24,9 @@ export function calculateRitualStatus(
   now: Date = new Date()
 ): RitualStatus {
   if (isTaken) return 'completed';
-  if (now > scheduledTime) return 'missed';
+  const expiryTime = new Date(scheduledTime.getTime() + DOSE_EXPIRY_MS);
+  if (now > expiryTime) return 'missed';
+  if (now > scheduledTime) return 'due';
   return 'pending';
 }
 
@@ -84,8 +88,14 @@ export function buildTodaysRituals(
   // Sort chronologically (earliest first)
   chips.sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
 
-  // Mark first pending as "next"
-  const nextIndex = chips.findIndex((c) => c.status === 'pending');
+  // Mark the next actionable chip as "next".
+  // Prefer future pending doses over past due doses — a due dose at 5:05 PM
+  // should not block the hero from showing the 9:40 PM dose.
+  // Fall back to due only if no pending doses remain.
+  let nextIndex = chips.findIndex((c) => c.status === 'pending');
+  if (nextIndex === -1) {
+    nextIndex = chips.findIndex((c) => c.status === 'due');
+  }
   if (nextIndex !== -1) {
     chips[nextIndex].status = 'next';
     chips[nextIndex].isNextDose = true;
@@ -107,7 +117,7 @@ export function getRitualStats(rituals: RitualChip[]): {
     total: rituals.length,
     completed: rituals.filter((r) => r.status === 'completed').length,
     missed: rituals.filter((r) => r.status === 'missed').length,
-    pending: rituals.filter((r) => r.status === 'pending' || r.status === 'next')
+    pending: rituals.filter((r) => r.status === 'pending' || r.status === 'next' || r.status === 'due')
       .length,
   };
 }
@@ -166,8 +176,8 @@ export function getVictoryInsight(): string {
 // Action Center (Recovery State) Logic
 // ============================================================================
 
-/** Grace period before showing Action Center (30 minutes in ms) */
-const ACTION_CENTER_GRACE_PERIOD_MS = 30 * 60 * 1000;
+/** Grace period before showing Action Center — matches DOSE_EXPIRY_MS (60 minutes in ms) */
+const ACTION_CENTER_GRACE_PERIOD_MS = 60 * 60 * 1000;
 
 /**
  * Get the last (latest) scheduled time from today's rituals.
@@ -182,10 +192,17 @@ export function getLastScheduledTime(rituals: RitualChip[]): Date | null {
 /**
  * Check if the Action Center should be displayed.
  *
- * Trigger conditions (all must be true):
- * 1. Not all rituals are complete (isAllRitualsComplete === false)
- * 2. No remaining pending doses (no 'pending' or 'next' status)
- * 3. Current time is 30+ minutes past the last scheduled dose
+ * Trigger conditions:
+ *
+ * Fast path: Last dose of the day is completed but missed doses exist.
+ *   Once the last dose IS taken, there's nothing to wait for — show Action Center
+ *   immediately so the user can recover missed doses.
+ *
+ * Standard path (all must be true):
+ *   1. Not all rituals are complete
+ *   2. No remaining pending doses (no 'pending' or 'next' status)
+ *   3. Current time is 60+ minutes past the last scheduled dose
+ *      (capped at midnight — never spills into the next day)
  *
  * @param rituals - Today's ritual chips
  * @param stats - Ritual statistics
@@ -201,12 +218,23 @@ export function shouldShowActionCenter(
     return false;
   }
 
-  // Condition 2: No pending doses remaining
+  // Fast path: last dose of the day is completed + missed doses exist.
+  // No point waiting for the 30-min grace — the user already took their last dose.
+  if (rituals.length > 0) {
+    const lastRitual = rituals[rituals.length - 1]; // sorted chronologically
+    const hasMissed = rituals.some((r) => r.status === 'missed' || r.status === 'due');
+    const noFuturePending = !rituals.some((r) => r.status === 'pending' || r.status === 'next');
+    if (lastRitual.status === 'completed' && hasMissed && noFuturePending) {
+      return true;
+    }
+  }
+
+  // Standard path: No pending doses remaining
   if (stats.pending > 0) {
     return false;
   }
 
-  // Condition 3: 30+ minutes past last scheduled dose
+  // Condition 3: 60+ minutes past last scheduled dose, capped at midnight
   const lastScheduledTime = getLastScheduledTime(rituals);
   if (!lastScheduledTime) {
     return false;
@@ -216,7 +244,12 @@ export function shouldShowActionCenter(
     lastScheduledTime.getTime() + ACTION_CENTER_GRACE_PERIOD_MS
   );
 
-  return now >= gracePeriodEnd;
+  // Cap at midnight so the grace period never spills into the next day
+  const midnight = new Date(now);
+  midnight.setHours(23, 59, 59, 999);
+  const effectiveEnd = gracePeriodEnd > midnight ? midnight : gracePeriodEnd;
+
+  return now >= effectiveEnd;
 }
 
 /**
@@ -253,7 +286,9 @@ const HANDOFF_BUFFER_MS = 15 * 60 * 1000;
  * A dose expires when ANY of these conditions is true:
  * 1. It has been taken
  * 2. 60 minutes have passed since the scheduled time
- * 3. Current time is within 15 minutes of the next scheduled dose
+ * 3. Current dose's scheduled time has passed AND current time is within
+ *    15 minutes of the next scheduled dose (handoff rule only applies to
+ *    due/overdue doses, never to pending/future ones)
  *
  * @param currentDoseTime - Scheduled time of the current dose
  * @param nextDoseTime - Scheduled time of the next dose (null if no next dose)
@@ -274,8 +309,10 @@ export function shouldDoseExpire(
   const expiryTime = new Date(currentDoseTime.getTime() + DOSE_EXPIRY_MS);
   if (now >= expiryTime) return true;
 
-  // Condition 3: Within 15 minutes of next dose
-  if (nextDoseTime) {
+  // Condition 3: Within 15 minutes of next dose, BUT only if current dose
+  // is already past its scheduled time (due/overdue). A pending dose should
+  // never be expired just because a nearby future dose exists.
+  if (nextDoseTime && now >= currentDoseTime) {
     const handoffTime = new Date(nextDoseTime.getTime() - HANDOFF_BUFFER_MS);
     if (now >= handoffTime) return true;
   }

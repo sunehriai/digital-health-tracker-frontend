@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Medication, MedicationInsert, MedicationUpdate, DoseLogInsert, DoseLog } from '../../domain/types';
+import type { Medication, MedicationInsert, MedicationUpdate, MedicationWithInsight, DoseLogInsert, DoseLog } from '../../domain/types';
 import { medicationService } from '../../data/services/medicationService';
 import { offlineCache } from '../../data/utils/offlineCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
@@ -44,18 +44,48 @@ export function useMedications() {
     });
   }, []);
 
+  // Re-fetch when medication lifecycle events fire from OTHER hook instances
+  // (e.g., NotificationBridge needs to pick up meds created in CabinetScreen)
+  useEffect(() => {
+    const events = [
+      'medication_created',
+      'medication_deleted',
+      'medication_paused',
+      'medication_resumed',
+      'medication_archived',
+      'medication_restored',
+      'medication_updated',
+    ] as const;
+
+    const unsubs = events.map((event) =>
+      medicationEvents.on(event, () => {
+        console.log('[NOTIF-DEBUG][useMedications] Re-fetching due to event:', event);
+        fetchMedications();
+      }),
+    );
+
+    return () => unsubs.forEach((unsub) => unsub());
+  }, [fetchMedications]);
+
   const activeMedications = medications.filter((m) => !m.is_archived);
   const archivedMedications = medications.filter((m) => m.is_archived);
 
-  const createMedication = async (data: MedicationInsert) => {
-    const med = await medicationService.create(data);
-    setMedications((prev) => [med, ...prev]);
-    return med;
+  const createMedication = async (data: MedicationInsert): Promise<MedicationWithInsight> => {
+    const response = await medicationService.create(data);
+    // R-02: Strip insight before storing in medications state to prevent
+    // extra field from leaking into future API calls. offlineCache is NOT
+    // updated here — fetchMedications() triggered by medication_created event
+    // refreshes from the clean GET response.
+    const { insight, ...medicationOnly } = response;
+    setMedications((prev) => [medicationOnly as Medication, ...prev]);
+    medicationEvents.emit('medication_created', response.id);
+    return response;
   };
 
   const updateMedication = async (id: string, data: MedicationUpdate) => {
     const med = await medicationService.update(id, data);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
+    medicationEvents.emit('medication_updated', id);
     return med;
   };
 

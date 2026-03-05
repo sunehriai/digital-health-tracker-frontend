@@ -4,6 +4,7 @@ import type {
   Medication,
   MedicationInsert,
   MedicationUpdate,
+  MedicationWithInsight,
   DoseLog,
   DoseLogInsert,
   RefillLog,
@@ -18,7 +19,7 @@ export const medicationService = {
     return apiClient.request(ENDPOINTS.MEDICATION(id));
   },
 
-  async create(data: MedicationInsert): Promise<Medication> {
+  async create(data: MedicationInsert): Promise<MedicationWithInsight> {
     return apiClient.request(ENDPOINTS.MEDICATIONS, {
       method: 'POST',
       body: JSON.stringify(data),

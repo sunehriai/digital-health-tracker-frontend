@@ -1,10 +1,12 @@
 type MedicationEventType =
+  | 'medication_created'
   | 'medication_paused'
   | 'medication_resumed'
   | 'medication_deleted'
   | 'medication_archived'
   | 'medication_restored'
   | 'medication_updated'
+  | 'dose_taken'
   | 'dose_reverted'
   | 'all_data_deleted';
 

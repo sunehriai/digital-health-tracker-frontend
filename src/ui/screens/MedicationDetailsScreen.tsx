@@ -17,6 +17,8 @@ import { medicationService } from '../../data/services/medicationService';
 import { feedService } from '../../data/services/feedService';
 import TimeInput from '../components/TimeInput';
 import DateInput from '../components/DateInput';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { Medication, MedicationUpdate } from '../../domain/types';
 import type { RootStackScreenProps } from '../navigation/types';
 import { getDoseTimes } from '../../domain/utils';
@@ -87,6 +89,7 @@ export default function MedicationDetailsScreen({
   route,
 }: RootStackScreenProps<'MedicationDetails'>) {
   const { medicationId, isArchived = false, alertId } = route.params;
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
   const [medication, setMedication] = useState<Medication | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1612,6 +1615,7 @@ export default function MedicationDetailsScreen({
           </View>
         </View>
       </Modal>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

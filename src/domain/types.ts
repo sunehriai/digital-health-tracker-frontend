@@ -101,13 +101,44 @@ export interface RefillLog {
 export interface VitalityFeedItem {
   id: string;
   user_id: string;
-  type: 'refill_alert' | 'streak' | 'intake' | 'safety' | 'sync';
+  type: 'refill_alert' | 'streak' | 'intake' | 'safety' | 'sync' | 'cabinet_insight';
   priority: 'high' | 'normal';
   title: string;
   subtitle: string | null;
   medication_id: string | null;
   is_archived: boolean;
+  metadata: string | null; // JSON string: { xp_awarded, category, nih_source }
   created_at: string;
+}
+
+/** Parsed metadata from a cabinet_insight feed item. */
+export interface FeedInsightMetadata {
+  xp_awarded: number;
+  category: string | null;
+  nih_source: string | null;
+}
+
+/** Parse VitalityFeedItem.metadata JSON safely. */
+export function parseFeedMetadata(metadataStr: string | null): FeedInsightMetadata | null {
+  if (!metadataStr) return null;
+  try {
+    return JSON.parse(metadataStr) as FeedInsightMetadata;
+  } catch {
+    return null;
+  }
+}
+
+/** Insight payload returned in POST /medications response. */
+export interface InsightPayload {
+  category: string | null;
+  insight_text: string;
+  nih_source: string | null;
+  xp_awarded: number;
+}
+
+/** POST /medications response — Medication with insight field. */
+export interface MedicationWithInsight extends Medication {
+  insight: InsightPayload;
 }
 
 export interface MedicalContact {
@@ -238,7 +269,7 @@ export interface DoseTimeSlot {
 }
 
 // Ritual status for Today's Rituals timeline
-export type RitualStatus = 'completed' | 'missed' | 'next' | 'pending';
+export type RitualStatus = 'completed' | 'missed' | 'next' | 'pending' | 'due';
 
 // Ritual chip for display in timeline
 export interface RitualChip {

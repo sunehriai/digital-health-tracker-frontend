@@ -19,7 +19,7 @@ interface TimeInputProps {
 }
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-const MINUTES = ['00', '15', '30', '45'];
+const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 const PERIODS = ['AM', 'PM'];
 
 // Convert 24-hour to 12-hour format
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   scrollView: {
-    maxHeight: 160,
+    maxHeight: 200,
   },
   periodOptions: {
     gap: 8,

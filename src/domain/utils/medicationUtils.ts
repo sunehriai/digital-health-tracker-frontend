@@ -326,9 +326,12 @@ export function buildTodayRitualChips(
 
       if (isTaken) {
         status = 'completed';
-      } else if (scheduledTime < now) {
-        // Past the scheduled time and not taken = missed
+      } else if (now.getTime() > scheduledTime.getTime() + 60 * 60 * 1000) {
+        // 60+ minutes past scheduled time and not taken = missed
         status = 'missed';
+      } else if (scheduledTime < now) {
+        // Within 60-minute grace window = due
+        status = 'due';
       }
 
       // Build display name - add dose number suffix for multi-dose meds
@@ -355,9 +358,9 @@ export function buildTodayRitualChips(
   // Sort by scheduled time
   chips.sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
 
-  // Mark the first pending/missed chip as the next dose
+  // Mark the first pending/due chip as the next dose
   const nextDoseChip = chips.find(
-    (chip) => chip.status === 'pending' || chip.status === 'missed'
+    (chip) => chip.status === 'pending' || chip.status === 'due'
   );
   if (nextDoseChip) {
     nextDoseChip.isNextDose = true;

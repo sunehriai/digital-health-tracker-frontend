@@ -28,19 +28,29 @@ export function useDeletion(): UseDeletionReturn {
 
   /**
    * R3 fix: Clear ALL vision_* and @vision/* AsyncStorage keys.
-   * Preserves device settings (biometric, auto-lock) but clears all health data caches.
+   * Preserves device security settings (biometric, auto-lock, screen security)
+   * but clears all health data caches.
    */
   const clearAllLocalCaches = useCallback(async () => {
     try {
       // Cancel all scheduled notifications
       await Notifications.cancelAllScheduledNotificationsAsync();
 
+      // Security settings that must survive data clear
+      const PRESERVED_KEYS = new Set([
+        '@vision_biometric_enabled',
+        '@vision_auto_lock_timeout',
+        '@vision_screen_security',
+        '@vision_screen_security_granularity',
+      ]);
+
       const allKeys = await AsyncStorage.getAllKeys();
       const visionKeys = allKeys.filter(
         (key) =>
-          key.startsWith('vision_') ||
-          key.startsWith('@vision') ||
-          key.startsWith('@dose_status_cache')
+          !PRESERVED_KEYS.has(key) &&
+          (key.startsWith('vision_') ||
+           key.startsWith('@vision') ||
+           key.startsWith('@dose_status_cache'))
       );
       if (visionKeys.length > 0) {
         await AsyncStorage.multiRemove(visionKeys);

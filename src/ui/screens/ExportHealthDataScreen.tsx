@@ -11,7 +11,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, FileText, AlertCircle } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { useExport } from '../hooks/useExport';
+import { useSecurity } from '../hooks/useSecurity';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import { biometrics } from '../../data/utils/biometrics';
 import DateRangePickerModal from '../components/DateRangePickerModal';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
 import type { DateRangePreset } from '../../domain/types';
 
@@ -19,9 +23,17 @@ export default function ExportHealthDataScreen({
   navigation,
 }: RootStackScreenProps<'ExportHealthData'>) {
   const { loading, error, generateAndShare, clearError } = useExport();
+  const security = useSecurity();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ExportHealthData');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const handleSelectReport = () => {
+  const handleSelectReport = async () => {
+    // Require elevated auth if biometric is enabled and grace period expired
+    if (security.biometricEnabled && security.requiresElevatedAuth(2)) {
+      const result = await biometrics.authenticate('Confirm to export health data');
+      if (!result.success) return;
+      security.recordAuthentication();
+    }
     clearError();
     setShowDatePicker(true);
   };
@@ -114,6 +126,7 @@ export default function ExportHealthDataScreen({
         onClose={handleCloseDatePicker}
         onGenerate={handleGenerate}
       />
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }

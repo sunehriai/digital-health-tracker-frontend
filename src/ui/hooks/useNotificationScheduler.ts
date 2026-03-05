@@ -6,6 +6,11 @@ import type { Medication, NotificationPreferences } from '../../domain/types';
 
 const DEBOUNCE_MS = 1500;
 
+// Debug logging
+function nlog(...args: unknown[]) {
+  console.log('[NOTIF-DEBUG][Scheduler]', ...args);
+}
+
 /**
  * Hook that wires AppState changes and medication lifecycle events
  * to rescheduleAll(). Mount once in App.tsx or a top-level component.
@@ -21,25 +26,38 @@ export function useNotificationScheduler(
   const medicationsRef = useRef<Medication[]>(medications);
   const prefsRef = useRef<NotificationPreferences | null>(prefs);
 
+  nlog('Hook rendered — meds:', medications.length, 'prefs:', prefs ? 'loaded' : 'null');
+
   // Keep refs in sync
   useEffect(() => {
     medicationsRef.current = medications;
+    nlog('medicationsRef updated:', medications.length, 'meds');
   }, [medications]);
 
   useEffect(() => {
     prefsRef.current = prefs;
+    nlog('prefsRef updated:', prefs ? `dose_reminders=${prefs.dose_reminders_enabled}, advance=${prefs.advance_reminder_minutes}` : 'null');
   }, [prefs]);
 
-  const debouncedReschedule = useCallback(() => {
+  const debouncedReschedule = useCallback((source: string = 'unknown') => {
+    nlog('debouncedReschedule called from:', source);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(async () => {
       const currentPrefs = prefsRef.current;
       const currentMeds = medicationsRef.current;
-      if (!currentPrefs || currentMeds.length === 0) return;
+      nlog('Debounce fired (from:', source, ') — meds:', currentMeds.length, 'prefs:', currentPrefs ? 'loaded' : 'NULL');
+      if (!currentPrefs) {
+        nlog('ABORT: prefs is null');
+        return;
+      }
+      if (currentMeds.length === 0) {
+        nlog('ABORT: medications array is empty');
+        return;
+      }
       try {
         await rescheduleAll(currentMeds, currentPrefs);
-      } catch {
-        // Non-critical
+      } catch (err) {
+        nlog('rescheduleAll ERROR:', err);
       }
     }, DEBOUNCE_MS);
   }, []);
@@ -47,8 +65,9 @@ export function useNotificationScheduler(
   // AppState listener: reschedule on foreground
   useEffect(() => {
     const handleAppState = (nextState: AppStateStatus) => {
+      nlog('AppState changed to:', nextState);
       if (nextState === 'active') {
-        debouncedReschedule();
+        debouncedReschedule('app_foreground');
       }
     };
     const sub = AppState.addEventListener('change', handleAppState);
@@ -58,6 +77,7 @@ export function useNotificationScheduler(
   // Medication lifecycle events → reschedule
   useEffect(() => {
     const events = [
+      'medication_created',
       'medication_paused',
       'medication_resumed',
       'medication_deleted',
@@ -67,7 +87,10 @@ export function useNotificationScheduler(
     ] as const;
 
     const unsubs = events.map((event) =>
-      medicationEvents.on(event, () => debouncedReschedule()),
+      medicationEvents.on(event, () => {
+        nlog('Medication event:', event);
+        debouncedReschedule(event);
+      }),
     );
 
     return () => unsubs.forEach((unsub) => unsub());
@@ -84,9 +107,19 @@ export function useNotificationScheduler(
   }, []);
 
   // Initial reschedule on mount (when data is ready)
+  // BUG FIX: Also depend on medications.length so reschedule fires
+  // when medications load after prefs are already cached.
   useEffect(() => {
+    nlog('Initial reschedule effect — prefs:', prefs ? 'loaded' : 'null',
+         'meds:', medications.length,
+         'dose_reminders_enabled:', prefs?.dose_reminders_enabled);
     if (prefs && medications.length > 0) {
-      rescheduleAll(medications, prefs).catch(() => {});
+      nlog('Triggering initial rescheduleAll()');
+      rescheduleAll(medications, prefs).catch((err) => {
+        nlog('Initial rescheduleAll ERROR:', err);
+      });
+    } else {
+      nlog('Initial reschedule SKIPPED: prefs=', !!prefs, 'meds.length=', medications.length);
     }
-  }, [prefs?.dose_reminders_enabled]);
+  }, [prefs?.dose_reminders_enabled, medications.length > 0]);
 }

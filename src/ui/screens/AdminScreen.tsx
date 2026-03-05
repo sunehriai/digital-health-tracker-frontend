@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors } from '../theme/colors';
+import { useSecurity } from '../hooks/useSecurity';
 import type { RootStackScreenProps } from '../navigation/types';
 
 export default function AdminScreen({ navigation }: RootStackScreenProps<'Admin'>) {
+  const security = useSecurity();
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -39,6 +42,26 @@ export default function AdminScreen({ navigation }: RootStackScreenProps<'Admin'
           <Text style={styles.debugText}>Auth: @react-native-firebase/auth</Text>
           <Text style={styles.debugText}>Backend: FastAPI</Text>
         </View>
+
+        {__DEV__ && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Developer Options</Text>
+            <View style={styles.statRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statLabel}>Force Screen Security in DEV</Text>
+                <Text style={styles.debugText}>
+                  Override __DEV__ bypass for useScreenSecurity
+                </Text>
+              </View>
+              <Switch
+                value={security.devForceScreenSecurity}
+                onValueChange={security.setDevForceScreenSecurity}
+                trackColor={{ false: colors.border, true: colors.cyan }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

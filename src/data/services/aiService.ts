@@ -214,6 +214,8 @@ function getErrorMessageForCode(code: string): string {
     'PRODUCT_MISMATCH': 'The front and back images appear to be from different products. Please try again.',
     'NOT_PACKAGING': 'We detected a document instead of medication packaging. Please enter details manually.',
     'UNSUPPORTED_FORMAT': 'This format is not yet supported. Please enter details manually.',
+    'QUOTA_EXCEEDED': 'AI service quota exceeded. Please try again later or enter details manually.',
+    'AUTH_ERROR': 'AI service authentication failed. Please contact support.',
     'API_ERROR': 'Unable to analyze the image. Please try again or enter details manually.',
     'PARSE_ERROR': 'Unable to process the AI response. Please try again or enter details manually.',
   };
@@ -227,13 +229,14 @@ function getErrorMessageForCode(code: string): string {
  */
 export function isHardError(errorCode: string | null): boolean {
   if (!errorCode) return false;
-  return ['MULTIPLE_PRODUCTS', 'UNSUPPORTED_LANGUAGE', 'PRODUCT_MISMATCH', 'API_ERROR', 'PARSE_ERROR'].includes(errorCode);
+  return ['MULTIPLE_PRODUCTS', 'UNSUPPORTED_LANGUAGE', 'PRODUCT_MISMATCH', 'API_ERROR', 'PARSE_ERROR', 'AUTH_ERROR'].includes(errorCode);
 }
 
 /**
  * Check if an error code indicates a "soft" error (can proceed to manual entry).
+ * Includes transient errors like quota limits where retrying later may help.
  */
 export function isSoftError(errorCode: string | null): boolean {
   if (!errorCode) return false;
-  return ['NOT_PACKAGING', 'UNSUPPORTED_FORMAT'].includes(errorCode);
+  return ['NOT_PACKAGING', 'UNSUPPORTED_FORMAT', 'QUOTA_EXCEEDED'].includes(errorCode);
 }

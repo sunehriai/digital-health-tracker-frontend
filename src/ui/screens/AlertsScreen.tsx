@@ -1,14 +1,17 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock, Zap } from 'lucide-react-native';
+import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock, Zap, Info } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useFeed } from '../hooks/useFeed';
 import { useGamification } from '../hooks/useGamification';
 import { gamificationService } from '../../data/services/gamificationService';
 import { colors } from '../theme/colors';
+import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import ScreenshotToast from '../components/ScreenshotToast';
 import type { VitalityFeedItem, XpEvent } from '../../domain/types';
+import { parseFeedMetadata } from '../../domain/types';
 
 // Format relative time like "2H AGO", "10H AGO", "2D AGO"
 function formatRelativeTime(dateStr: string): string {
@@ -42,6 +45,8 @@ function getAlertIcon(type: string, isActive: boolean) {
       return <ShieldCheck color={color} size={size} strokeWidth={sw} />;
     case 'sync':
       return <AlertCircle color={color} size={size} strokeWidth={sw} />;
+    case 'cabinet_insight':
+      return <Pill color={color} size={size} strokeWidth={sw} />;
     default:
       return <Bell color={color} size={size} strokeWidth={sw} />;
   }
@@ -55,6 +60,11 @@ interface AlertCardProps {
 }
 
 function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
+  const [showNihTooltip, setShowNihTooltip] = useState(false);
+
+  // Parse metadata for cabinet_insight cards
+  const meta = item.type === 'cabinet_insight' ? parseFeedMetadata(item.metadata) : null;
+
   return (
     <View style={[styles.alertCard, isActive && styles.alertCardActive]}>
       <View style={styles.alertRow}>
@@ -66,6 +76,20 @@ function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
           {item.subtitle && (
             <Text style={styles.alertSubtitle}>{item.subtitle}</Text>
           )}
+          {/* XP badge — shown on cabinet_insight cards when xp_awarded > 0 */}
+          {meta && meta.xp_awarded > 0 && (
+            <View style={styles.xpBadge}>
+              <Zap color="#FFD700" size={12} strokeWidth={2.5} fill="#FFD700" />
+              <Text style={styles.xpBadgeText}>+{meta.xp_awarded} XP</Text>
+            </View>
+          )}
+          {/* NIH badge — shown only when Gemini provided the insight (nih_source is non-null) */}
+          {meta && meta.nih_source && (
+            <TouchableOpacity style={styles.nihBadge} onPress={() => setShowNihTooltip(true)}>
+              <Info color="#64748B" size={12} strokeWidth={2} />
+              <Text style={styles.nihBadgeText}>Based on NIH guidelines</Text>
+            </TouchableOpacity>
+          )}
           <Text style={styles.alertTime}>{formatRelativeTime(item.created_at)}</Text>
         </View>
         {isActive && item.type === 'refill_alert' && onLogRefill && (
@@ -74,6 +98,22 @@ function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
           </TouchableOpacity>
         )}
       </View>
+      {/* NIH Disclaimer Tooltip (Step 23) */}
+      {showNihTooltip && (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setShowNihTooltip(false)}>
+          <TouchableOpacity style={styles.tooltipOverlay} activeOpacity={1} onPress={() => setShowNihTooltip(false)}>
+            <View style={styles.tooltipBox}>
+              <Text style={styles.tooltipTitle}>NIH Data Source</Text>
+              <Text style={styles.tooltipText}>
+                This information is sourced from NIH public databases. It is not medical advice. Consult your healthcare provider for personalized guidance.
+              </Text>
+              <TouchableOpacity style={styles.tooltipClose} onPress={() => setShowNihTooltip(false)}>
+                <Text style={styles.tooltipCloseText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -98,6 +138,7 @@ export default function AlertsScreen() {
   const navigation = useNavigation();
   const { feedItems, fetchFeed, archiveFeedItem } = useFeed();
   const { totalXp, currentTier, tierName } = useGamification();
+  const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Alerts');
 
   // XP History log
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
@@ -257,6 +298,7 @@ export default function AlertsScreen() {
           )}
         </View>
       </ScrollView>
+      <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>
   );
 }
@@ -386,6 +428,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     marginTop: 4,
+  },
+
+  // XP Badge (cabinet_insight cards)
+  xpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  xpBadgeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // NIH Badge (cabinet_insight cards)
+  nihBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  nihBadgeText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+
+  // NIH Tooltip Modal
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  tooltipBox: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.3)',
+  },
+  tooltipTitle: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  tooltipText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  tooltipClose: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 209, 255, 0.15)',
+  },
+  tooltipCloseText: {
+    color: colors.cyan,
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Log Refill Button

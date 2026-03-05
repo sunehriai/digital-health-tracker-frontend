@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useDeletion } from '../hooks/useDeletion';
+import { useSecurity } from '../hooks/useSecurity';
+import { biometrics } from '../../data/utils/biometrics';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { colors } from '../theme/colors';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -11,6 +13,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 export default function AccountSettingsScreen({ navigation }: RootStackScreenProps<'AccountSettings'>) {
   const { user, signOut } = useAuth();
   const { loading: deletionLoading, requestDeletion } = useDeletion();
+  const security = useSecurity();
   const [resetCooldown, setResetCooldown] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'data_only' | 'full_account'>('data_only');
@@ -36,13 +39,25 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
     Alert.alert('Coming Soon', 'Change email will be available in a future update.');
   };
 
-  const handleDeleteData = () => {
+  const handleDeleteData = async () => {
+    // Require biometric re-auth for destructive actions (no grace period)
+    if (security.biometricEnabled) {
+      const result = await biometrics.authenticate('Confirm to delete all data');
+      if (!result.success) return;
+      security.recordAuthentication();
+    }
     console.log('[AccountSettings] handleDeleteData fired — setting modalType=data_only, modalVisible=true');
     setModalType('data_only');
     setModalVisible(true);
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
+    // Require biometric re-auth for destructive actions (no grace period)
+    if (security.biometricEnabled) {
+      const result = await biometrics.authenticate('Confirm to delete account');
+      if (!result.success) return;
+      security.recordAuthentication();
+    }
     console.log('[AccountSettings] handleDeleteAccount fired — setting modalType=full_account, modalVisible=true');
     setModalType('full_account');
     setModalVisible(true);

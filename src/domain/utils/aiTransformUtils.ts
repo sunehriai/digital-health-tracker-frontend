@@ -247,18 +247,44 @@ function mapMealRelation(geminiValue: string | null): MealRelation {
 // ============================================================
 
 /**
- * Map Gemini dose unit to app dose unit.
+ * Resolve a raw unit string to a DoseUnit enum value.
+ * Returns null if the string doesn't match any known unit.
  */
-function mapDoseUnit(geminiUnit: string | null): DoseUnit {
-  if (!geminiUnit) return 'tablets';
+function resolveUnit(rawUnit: string | null): DoseUnit | null {
+  if (!rawUnit) return null;
 
-  const normalized = geminiUnit.toLowerCase();
+  const normalized = rawUnit.toLowerCase();
 
   if (normalized.includes('tablet')) return 'tablets';
   if (normalized.includes('capsule')) return 'capsules';
   if (normalized.includes('ml') || normalized.includes('milliliter')) return 'mL';
   if (normalized.includes('tsp') || normalized.includes('teaspoon')) return 'tsp';
+  if (normalized.includes('fl oz') || normalized.includes('fluid')) return 'mL'; // closest supported liquid unit
 
+  return null;
+}
+
+/**
+ * Check if a DoseUnit represents a liquid measurement.
+ */
+function isLiquidUnit(unit: DoseUnit | null): boolean {
+  return unit === 'mL' || unit === 'tsp';
+}
+
+/**
+ * Map Gemini dose unit to app dose unit, with inventory-unit fallback.
+ * Tries dose.unit first → falls back to inventoryUnit → ultimate fallback 'tablets'.
+ */
+function mapDoseUnit(geminiUnit: string | null, inventoryUnit?: string | null): DoseUnit {
+  // Try dose unit first
+  const resolved = resolveUnit(geminiUnit);
+  if (resolved) return resolved;
+
+  // Fall back to inventory unit (e.g., bottle says "355 mL" but no per-dose unit)
+  const inventoryResolved = resolveUnit(inventoryUnit ?? null);
+  if (inventoryResolved) return inventoryResolved;
+
+  // Ultimate fallback
   return 'tablets';
 }
 
@@ -322,8 +348,21 @@ export function transformGeminiResponse(response: GeminiResponse): TransformResu
     warnings.push('Frequency could not be mapped automatically. Please select from the dropdown.');
   }
 
-  // Map dose unit
-  const doseUnit = mapDoseUnit(response.medication_info.dose.unit.value);
+  // Map dose unit — use inventory unit as fallback when dose unit confidence is low
+  const inventoryUnit = response.medication_info.inventory.initial_stock.unit;
+  const doseUnitConfidence = response.medication_info.dose.unit.confidence;
+  const useInventoryFallback = doseUnitConfidence < 0.5;
+  let doseUnit = mapDoseUnit(
+    response.medication_info.dose.unit.value,
+    useInventoryFallback ? inventoryUnit : undefined
+  );
+
+  // Cross-field sanity check: if final unit is 'tablets' but inventory unit is liquid → override
+  const resolvedInventoryUnit = resolveUnit(inventoryUnit);
+  if (doseUnit === 'tablets' && resolvedInventoryUnit && isLiquidUnit(resolvedInventoryUnit)) {
+    doseUnit = resolvedInventoryUnit;
+    warnings.push('Liquid medication detected from bottle label. Unit set to "' + doseUnit + '" instead of "tablets".');
+  }
 
   // Sanity checks
   const doseSize = response.medication_info.dose.size.value;
@@ -335,6 +374,12 @@ export function transformGeminiResponse(response: GeminiResponse): TransformResu
   const initialStock = response.medication_info.inventory.initial_stock.value;
   if (initialStock && initialStock > 1000) {
     warnings.push('Stock quantity seems unusually high. Please verify.');
+    fieldStatus.initialStock = 'low';
+  }
+
+  // High-stock tablet warning: if stock > 200 and unit is still 'tablets' → flag for review
+  if (initialStock && initialStock > 200 && doseUnit === 'tablets') {
+    warnings.push('Stock of ' + initialStock + ' tablets seems high. Verify this is not a liquid volume.');
     fieldStatus.initialStock = 'low';
   }
 
