@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   TextInput,
@@ -35,6 +34,7 @@ import {
   Camera,
 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useAlert } from '../context/AlertContext';
 import { useVault } from '../hooks/useVault';
 import { useGamification } from '../hooks/useGamification';
 import DateInput from '../components/DateInput';
@@ -64,6 +64,7 @@ type PickerType = 'gender' | 'healthGoal' | 'bloodType' | 'relationship' | null;
 
 export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<'PersonalInfo'>) {
   const { user, updateProfile } = useAuth();
+  const { showAlert } = useAlert();
   const { vault, loading: vaultLoading, updateVault } = useVault();
   const { refreshStatus } = useGamification();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('PersonalInfo');
@@ -160,22 +161,18 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   }, [isEditMode, hasChanges]);
 
   const showDiscardAlert = () => {
-    Alert.alert(
-      'Discard Changes?',
-      'You have unsaved changes. Are you sure you want to discard them?',
-      [
-        { text: 'Keep Editing', style: 'cancel' },
-        {
-          text: 'Discard',
-          style: 'destructive',
-          onPress: () => {
-            setIsEditMode(false);
-            setHasChanges(false);
-            resetForm();
-          }
-        },
-      ]
-    );
+    showAlert({
+      title: 'Discard Changes?',
+      message: 'You have unsaved changes. Are you sure you want to discard them?',
+      type: 'destructive',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep Editing',
+      onConfirm: () => {
+        setIsEditMode(false);
+        setHasChanges(false);
+        resetForm();
+      },
+    });
   };
 
   const resetForm = () => {
@@ -220,7 +217,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile picture.');
+      showAlert({ title: 'Permission Required', message: 'Please allow access to your photo library to upload a profile picture.', type: 'warning' });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -293,7 +290,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
   const handleSave = async () => {
     if (!validateForm()) {
-      Alert.alert('Required Fields', 'Please fill in all required emergency contact fields.');
+      showAlert({ title: 'Required Fields', message: 'Please fill in all required emergency contact fields.', type: 'warning' });
       return;
     }
 
@@ -340,12 +337,12 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
         await refreshStatus();
         setIsEditMode(false);
         setHasChanges(false);
-        Alert.alert('Saved', 'Your profile has been updated.');
+        showAlert({ title: 'Saved', message: 'Your profile has been updated.', type: 'success' });
       } else {
-        Alert.alert('Error', profileResult.error || 'Update failed');
+        showAlert({ title: 'Error', message: profileResult.error || 'Update failed', type: 'error' });
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Update failed');
+      showAlert({ title: 'Error', message: e.message || 'Update failed', type: 'error' });
     } finally {
       setSaving(false);
     }

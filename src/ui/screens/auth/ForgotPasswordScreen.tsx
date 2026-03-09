@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { authService } from '../../../data/services/authService';
+import { useAlert } from '../../context/AlertContext';
 import Button from '../../primitives/Button';
 import Input from '../../primitives/Input';
 import { colors } from '../../theme/colors';
@@ -8,6 +9,7 @@ import { typography } from '../../theme/typography';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 export default function ForgotPasswordScreen({ navigation }: RootStackScreenProps<'ForgotPassword'>) {
+  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,11 +17,14 @@ export default function ForgotPasswordScreen({ navigation }: RootStackScreenProp
     setLoading(true);
     try {
       await authService.resetPassword(email.trim());
-      Alert.alert('Email Sent', 'Check your inbox for password reset instructions.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      showAlert({
+        title: 'Email Sent',
+        message: 'Check your inbox for password reset instructions.',
+        type: 'success',
+        onConfirm: () => navigation.goBack(),
+      });
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to send reset email');
+      showAlert({ title: 'Error', message: err?.message || 'Failed to send reset email', type: 'error' });
     } finally {
       setLoading(false);
     }

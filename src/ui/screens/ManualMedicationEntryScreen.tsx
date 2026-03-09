@@ -6,10 +6,8 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   TextInput,
   Switch,
-  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
   ActivityIndicator,
@@ -43,12 +41,14 @@ import { ConfidenceLevel, getConfidenceLevel } from '../../domain/utils/confiden
 import { getLocalDateString } from '../../domain/utils/dateTimeUtils';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import { useGamification } from '../hooks/useGamification';
+import { useAlert } from '../context/AlertContext';
 import ScreenshotToast from '../components/ScreenshotToast';
 
 
 export default function ManualMedicationEntryScreen({ navigation, route }: RootStackScreenProps<'ManualMedicationEntry'>) {
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ManualMedicationEntry');
   const { refreshStatus } = useGamification();
+  const { showAlert } = useAlert();
   // Get mode from route params - 'ai' mode means we're editing AI-extracted data
   const mode = route.params?.mode || 'manual';
   const isAIMode = mode === 'ai';
@@ -283,11 +283,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
       const end = new Date(date);
       if (end <= start) {
         const msg = 'End date must be after start date';
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Invalid Date', msg);
-        }
+        showAlert({ title: 'Invalid Date', message: msg, type: 'warning' });
         return;
       }
     }
@@ -355,20 +351,14 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
     };
 
     if (hasFormData()) {
-      if (Platform.OS === 'web') {
-        if (window.confirm('Discard changes? Any unsaved data will be lost.')) {
-          closeAndReset();
-        }
-      } else {
-        Alert.alert(
-          'Discard Changes?',
-          'Any unsaved data will be lost.',
-          [
-            { text: 'Keep Editing', style: 'cancel' },
-            { text: 'Discard', style: 'destructive', onPress: closeAndReset },
-          ]
-        );
-      }
+      showAlert({
+        title: 'Discard Changes?',
+        message: 'Any unsaved data will be lost.',
+        type: 'destructive',
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep Editing',
+        onConfirm: closeAndReset,
+      });
     } else {
       closeAndReset();
     }
@@ -378,21 +368,13 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
   const handleDirectSave = async () => {
     if (!name.trim()) {
       const msg = VALIDATION.name.errorMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Required', msg);
-      }
+      showAlert({ title: 'Required', message: msg, type: 'warning' });
       return;
     }
 
     if (inventoryQuantity <= 0) {
       const msg = VALIDATION.stock.errorMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Invalid Stock', msg);
-      }
+      showAlert({ title: 'Invalid Stock', message: msg, type: 'warning' });
       return;
     }
 
@@ -446,11 +428,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
       navigation.navigate('MainTabs', { screen: 'Cabinet' });
     } catch (e: any) {
       const errorMsg = e?.message || 'Failed to save medication';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -459,44 +437,28 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
   const handleSave = () => {
     if (!name.trim()) {
       const msg = VALIDATION.name.errorMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Required', msg);
-      }
+      showAlert({ title: 'Required', message: msg, type: 'warning' });
       return;
     }
 
     // Validate stock is greater than 0
     if (inventoryQuantity <= 0) {
       const msg = VALIDATION.stock.errorMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Invalid Stock', msg);
-      }
+      showAlert({ title: 'Invalid Stock', message: msg, type: 'warning' });
       return;
     }
 
     // Validate specific days selection
     if (frequencyType === 'specific_days' && selectedDays.length === 0) {
       const msg = VALIDATION.specificDays.errorMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Required', msg);
-      }
+      showAlert({ title: 'Required', message: msg, type: 'warning' });
       return;
     }
 
     // Validate end date is required when not ongoing
     if (!isOngoing && !endDate) {
       const msg = VALIDATION.endDate.requiredMessage;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Required', msg);
-      }
+      showAlert({ title: 'Required', message: msg, type: 'warning' });
       return;
     }
 
@@ -506,11 +468,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
       const end = new Date(endDate);
       if (end <= start) {
         const msg = VALIDATION.endDate.errorMessage;
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Invalid Date', msg);
-        }
+        showAlert({ title: 'Invalid Date', message: msg, type: 'warning' });
         return;
       }
     }

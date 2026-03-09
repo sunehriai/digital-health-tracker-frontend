@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, TextInput } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pill, RotateCcw, Trash2, Search, X, ChevronLeft, CheckSquare, Square, AlertTriangle } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
@@ -10,6 +10,7 @@ import { useMedications } from '../hooks/useMedications';
 import { feedService } from '../../data/services/feedService';
 import { colors } from '../theme/colors';
 import type { Medication } from '../../domain/types';
+import { useAlert } from '../context/AlertContext';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -23,6 +24,7 @@ export default function ArchivedRitualsScreen() {
     restoreMedication,
     deleteMedication,
   } = useMedications();
+  const { showAlert } = useAlert();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -66,7 +68,7 @@ export default function ArchivedRitualsScreen() {
         console.error('Failed to create activity log:', activityError);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     }
   };
 
@@ -75,35 +77,20 @@ export default function ArchivedRitualsScreen() {
       try {
         await deleteMedication(med.id);
         const successMsg = `${med.name} has been permanently deleted.`;
-        if (Platform.OS === 'web') {
-          window.alert(successMsg);
-        } else {
-          Alert.alert('Deleted', successMsg);
-        }
+        showAlert({ title: 'Deleted', message: successMsg, type: 'success' });
       } catch (e: any) {
         const errorMsg = e?.message || 'Failed to delete medication';
-        if (Platform.OS === 'web') {
-          window.alert(`Error: ${errorMsg}`);
-        } else {
-          Alert.alert('Error', errorMsg);
-        }
+        showAlert({ title: 'Error', message: errorMsg, type: 'error' });
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Permanently delete "${med.name}"?\n\nThis action cannot be undone.`)) {
-        doDelete();
-      }
-    } else {
-      Alert.alert(
-        'Delete Medication',
-        `Permanently delete "${med.name}"?\n\nThis action cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: doDelete },
-        ]
-      );
-    }
+    showAlert({
+      title: 'Delete Medication',
+      message: `Permanently delete "${med.name}"?\n\nThis action cannot be undone.`,
+      type: 'destructive',
+      confirmLabel: 'Delete',
+      onConfirm: doDelete,
+    });
   };
 
   // Selection handlers
@@ -154,7 +141,7 @@ export default function ArchivedRitualsScreen() {
       }
       exitSelectMode();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     }
   };
 
@@ -169,24 +156,17 @@ export default function ArchivedRitualsScreen() {
         }
         exitSelectMode();
       } catch (e: any) {
-        Alert.alert('Error', e.message);
+        showAlert({ title: 'Error', message: e.message, type: 'error' });
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Permanently delete ${count} medication${count > 1 ? 's' : ''}?\n\nThis action cannot be undone.`)) {
-        doDelete();
-      }
-    } else {
-      Alert.alert(
-        'Delete Medications',
-        `Permanently delete ${count} medication${count > 1 ? 's' : ''}?\n\nThis action cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: doDelete },
-        ]
-      );
-    }
+    showAlert({
+      title: 'Delete Medications',
+      message: `Permanently delete ${count} medication${count > 1 ? 's' : ''}?\n\nThis action cannot be undone.`,
+      type: 'destructive',
+      confirmLabel: 'Delete',
+      onConfirm: doDelete,
+    });
   };
 
   // Swipeable card component using react-native-gesture-handler's Swipeable

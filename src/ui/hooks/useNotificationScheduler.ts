@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { rescheduleAll, registerNotificationActionHandler } from '../../data/utils/notifications';
 import { medicationEvents } from '../../data/utils/medicationEvents';
+import { registerToken } from '../../data/services/pushService';
 import type { Medication, NotificationPreferences } from '../../domain/types';
 
 const DEBOUNCE_MS = 1500;
@@ -17,6 +18,8 @@ function nlog(...args: unknown[]) {
  *
  * Issue 17: Accepts medications and prefs as props to avoid
  * creating duplicate hook instances (useNotificationPrefs, useMedications).
+ *
+ * Phase 6: Also registers FCM push token with backend on mount.
  */
 export function useNotificationScheduler(
   medications: Medication[],
@@ -25,6 +28,7 @@ export function useNotificationScheduler(
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const medicationsRef = useRef<Medication[]>(medications);
   const prefsRef = useRef<NotificationPreferences | null>(prefs);
+  const pushTokenRegistered = useRef(false);
 
   nlog('Hook rendered — meds:', medications.length, 'prefs:', prefs ? 'loaded' : 'null');
 
@@ -122,4 +126,15 @@ export function useNotificationScheduler(
       nlog('Initial reschedule SKIPPED: prefs=', !!prefs, 'meds.length=', medications.length);
     }
   }, [prefs?.dose_reminders_enabled, medications.length > 0]);
+
+  // Phase 6: Register FCM push token once on mount (BP-017: no independent permission request)
+  useEffect(() => {
+    if (pushTokenRegistered.current) return;
+    if (!prefs) return; // Wait until prefs loaded (implies user is authenticated)
+    pushTokenRegistered.current = true;
+
+    registerToken().catch((err) => {
+      nlog('Push token registration failed (non-blocking):', err);
+    });
+  }, [prefs]);
 }

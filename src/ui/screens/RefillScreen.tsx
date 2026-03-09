@@ -1,14 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, Check } from 'lucide-react-native';
 import { useMedications } from '../hooks/useMedications';
+import { useAlert } from '../context/AlertContext';
 import { colors } from '../theme/colors';
 import type { Medication } from '../../domain/types';
 import LogRefillSheet from '../components/LogRefillSheet';
 
 export default function RefillScreen() {
   const { medications, refillMedication } = useMedications();
+  const { showAlert } = useAlert();
   const [refillTarget, setRefillTarget] = useState<Medication | null>(null);
 
   const lowStockMeds = medications.filter(
@@ -21,7 +23,7 @@ export default function RefillScreen() {
       await refillMedication(refillTarget.id, quantity);
       setRefillTarget(null);
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     }
   }, [refillTarget, refillMedication]);
 

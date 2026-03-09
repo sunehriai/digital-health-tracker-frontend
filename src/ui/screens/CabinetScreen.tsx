@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, TextInput, Dimensions, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Platform, TextInput, Dimensions, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pill, Clock, Pause, Archive, Play, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, Plus } from 'lucide-react-native';
 import Animated, {
@@ -32,6 +32,7 @@ import {
   getStockAccentColor,
 } from '../../domain/medicationConfig';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import { useAlert } from '../context/AlertContext';
 import ScreenshotToast from '../components/ScreenshotToast';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -76,6 +77,7 @@ function PulsingCard({ children, isLowStock }: { children: React.ReactNode; isLo
 export default function CabinetScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Cabinet');
+  const { showAlert } = useAlert();
   const {
     activeMedications,
     archivedMedications,
@@ -174,10 +176,10 @@ export default function CabinetScreen() {
   );
 
   const handlePause = async (id: string) => {
-    try { await pauseMedication(id); } catch (e: any) { Alert.alert('Error', e.message); }
+    try { await pauseMedication(id); } catch (e: any) { showAlert({ title: 'Error', message: e.message, type: 'error' }); }
   };
   const handleResume = async (id: string) => {
-    try { await resumeMedication(id); } catch (e: any) { Alert.alert('Error', e.message); }
+    try { await resumeMedication(id); } catch (e: any) { showAlert({ title: 'Error', message: e.message, type: 'error' }); }
   };
   const handleArchive = async (id: string) => {
     try {
@@ -218,7 +220,7 @@ export default function CabinetScreen() {
         console.error('Failed to create activity log:', activityError);
       }
 
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { showAlert({ title: 'Error', message: e.message, type: 'error' }); }
   };
 
   // Open refill modal for a medication
@@ -233,7 +235,7 @@ export default function CabinetScreen() {
     if (!selectedMedForRefill) return;
     const amount = parseInt(refillAmount, 10);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid refill quantity.');
+      showAlert({ title: 'Invalid Amount', message: 'Please enter a valid refill quantity.', type: 'warning' });
       return;
     }
 
@@ -274,7 +276,7 @@ export default function CabinetScreen() {
       setRefillAmount('');
       fetchMedications(); // Refresh list to show updated stock
     } catch (e: any) {
-      Alert.alert('Refill Failed', e.message || 'Unable to log refill.');
+      showAlert({ title: 'Refill Failed', message: e.message || 'Unable to log refill.', type: 'error' });
     } finally {
       setRefillLoading(false);
     }
@@ -318,7 +320,7 @@ export default function CabinetScreen() {
     });
 
     if (pausableIds.length === 0) {
-      Alert.alert('No Action', 'No active medications selected to pause.');
+      showAlert({ title: 'No Action', message: 'No active medications selected to pause.', type: 'warning' });
       return;
     }
 
@@ -328,7 +330,7 @@ export default function CabinetScreen() {
       }
       exitSelectMode();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     }
   };
 
@@ -339,7 +341,7 @@ export default function CabinetScreen() {
     });
 
     if (resumableIds.length === 0) {
-      Alert.alert('No Action', 'No paused medications selected to resume.');
+      showAlert({ title: 'No Action', message: 'No paused medications selected to resume.', type: 'warning' });
       return;
     }
 
@@ -349,7 +351,7 @@ export default function CabinetScreen() {
       }
       exitSelectMode();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     }
   };
 
@@ -392,24 +394,17 @@ export default function CabinetScreen() {
         }
         exitSelectMode();
       } catch (e: any) {
-        Alert.alert('Error', e.message);
+        showAlert({ title: 'Error', message: e.message, type: 'error' });
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Archive ${count} medication${count > 1 ? 's' : ''}?`)) {
-        doArchive();
-      }
-    } else {
-      Alert.alert(
-        'Archive Medications',
-        `Archive ${count} medication${count > 1 ? 's' : ''}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Archive', onPress: doArchive },
-        ]
-      );
-    }
+    showAlert({
+      title: 'Archive Medications',
+      message: `Archive ${count} medication${count > 1 ? 's' : ''}?`,
+      type: 'destructive',
+      confirmLabel: 'Archive',
+      onConfirm: doArchive,
+    });
   };
 
   // Swipeable card component using react-native-gesture-handler's Swipeable

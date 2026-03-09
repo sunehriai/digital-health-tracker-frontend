@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
-  Alert,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +23,7 @@ import {
   Info,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
+import { useAlert } from '../context/AlertContext';
 import { biometrics } from '../../data/utils/biometrics';
 import { useSecurity } from '../hooks/useSecurity';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
@@ -43,6 +43,7 @@ const PRIVACY_POLICY_URL = 'https://vision-health.app/privacy'; // Replace with 
 
 export default function PrivacySecurityScreen({ navigation }: RootStackScreenProps<'PrivacySecurity'>) {
   const security = useSecurity();
+  const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('PrivacySecurity');
   const [showAutoLockPicker, setShowAutoLockPicker] = useState(false);
 
@@ -51,11 +52,11 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
       // Check hardware availability and enrollment before enabling
       const available = await biometrics.isAvailable();
       if (!available) {
-        Alert.alert(
-          'Biometrics Unavailable',
-          'Your device does not have biometric authentication set up. Please enable Face ID, Touch ID, or fingerprint in your device Settings.',
-          [{ text: 'OK' }]
-        );
+        showAlert({
+          title: 'Biometrics Unavailable',
+          message: 'Your device does not have biometric authentication set up. Please enable Face ID, Touch ID, or fingerprint in your device Settings.',
+          type: 'warning',
+        });
         return;
       }
 
@@ -87,10 +88,11 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
 
   const handleScreenSecurityChange = async (value: boolean) => {
     if (value) {
-      Alert.alert(
-        'Screen Security Enabled',
-        'Screenshots and screen recording will be blocked when viewing sensitive health data.'
-      );
+      showAlert({
+        title: 'Screen Security Enabled',
+        message: 'Screenshots and screen recording will be blocked when viewing sensitive health data.',
+        type: 'info',
+      });
     }
     await security.setScreenSecurityEnabled(value);
   };
@@ -103,7 +105,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
     try {
       await Linking.openURL(PRIVACY_POLICY_URL);
     } catch (e) {
-      Alert.alert('Error', 'Unable to open privacy policy. Please try again later.');
+      showAlert({ title: 'Error', message: 'Unable to open privacy policy. Please try again later.', type: 'error' });
     }
   };
 

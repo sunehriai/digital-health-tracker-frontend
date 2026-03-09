@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
-  Platform,
   Modal,
   TextInput,
 } from 'react-native';
@@ -21,6 +19,7 @@ import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
 import type { Medication, MedicationUpdate } from '../../domain/types';
 import type { RootStackScreenProps } from '../navigation/types';
+import { useAlert } from '../context/AlertContext';
 import { getDoseTimes } from '../../domain/utils';
 import {
   ALARM_FREQUENCY_OPTIONS,
@@ -89,6 +88,7 @@ export default function MedicationDetailsScreen({
   route,
 }: RootStackScreenProps<'MedicationDetails'>) {
   const { medicationId, isArchived = false, alertId } = route.params;
+  const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
   const [medication, setMedication] = useState<Medication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,11 +167,7 @@ export default function MedicationDetailsScreen({
       }
     } catch (e: any) {
       const msg = e?.message || 'Failed to load medication';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${msg}`);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showAlert({ title: 'Error', message: msg, type: 'error' });
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -233,12 +229,11 @@ export default function MedicationDetailsScreen({
     const isDuplicate = otherAlarms.some((a) => a.time === editTime);
 
     if (isDuplicate) {
-      const msg = `An alarm at ${editTime} already exists for this medication.`;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Duplicate Alarm', msg);
-      }
+      showAlert({
+        title: 'Duplicate Alarm',
+        message: `An alarm at ${editTime} already exists for this medication.`,
+        type: 'warning',
+      });
       return;
     }
 
@@ -307,12 +302,7 @@ export default function MedicationDetailsScreen({
         });
       } catch (e) {
         console.error('Failed to update medication:', e);
-        const errorMsg = 'Failed to save alarm changes';
-        if (Platform.OS === 'web') {
-          window.alert(errorMsg);
-        } else {
-          Alert.alert('Error', errorMsg);
-        }
+        showAlert({ title: 'Error', message: 'Failed to save alarm changes', type: 'error' });
       }
     }
 
@@ -321,12 +311,11 @@ export default function MedicationDetailsScreen({
 
   const removeAlarm = async (id: string) => {
     if (alarms.length <= 1) {
-      const msg = 'You need at least one alarm time.';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Cannot Remove', msg);
-      }
+      showAlert({
+        title: 'Cannot Remove',
+        message: 'You need at least one alarm time.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -359,16 +348,13 @@ export default function MedicationDetailsScreen({
       }
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm('Remove this alarm?')) {
-        doRemove();
-      }
-    } else {
-      Alert.alert('Remove Alarm', 'Are you sure you want to remove this alarm?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: doRemove },
-      ]);
-    }
+    showAlert({
+      title: 'Remove Alarm',
+      message: 'Are you sure you want to remove this alarm?',
+      type: 'destructive',
+      confirmLabel: 'Remove',
+      onConfirm: doRemove,
+    });
   };
 
   // Edit medication functions
@@ -402,12 +388,11 @@ export default function MedicationDetailsScreen({
       const start = new Date(medication.start_date);
       const end = new Date(date);
       if (end <= start) {
-        const msg = VALIDATION.endDate.errorMessage;
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Invalid Date', msg);
-        }
+        showAlert({
+          title: 'Invalid Date',
+          message: VALIDATION.endDate.errorMessage,
+          type: 'warning',
+        });
         return;
       }
     }
@@ -422,12 +407,11 @@ export default function MedicationDetailsScreen({
       const start = new Date(medication.start_date);
       const end = new Date(editEndDate);
       if (end <= start) {
-        const msg = VALIDATION.endDate.errorMessage;
-        if (Platform.OS === 'web') {
-          window.alert(msg);
-        } else {
-          Alert.alert('Invalid Date', msg);
-        }
+        showAlert({
+          title: 'Invalid Date',
+          message: VALIDATION.endDate.errorMessage,
+          type: 'warning',
+        });
         return;
       }
     }
@@ -514,18 +498,10 @@ export default function MedicationDetailsScreen({
       const successMsg = newStock < 10
         ? `Medication updated. Low stock alert created (${newStock} doses remaining).`
         : 'Medication updated successfully';
-      if (Platform.OS === 'web') {
-        window.alert(successMsg);
-      } else {
-        Alert.alert('Success', successMsg);
-      }
+      showAlert({ title: 'Success', message: successMsg, type: 'success' });
     } catch (e: any) {
       const errorMsg = e?.message || 'Failed to update medication';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -538,19 +514,10 @@ export default function MedicationDetailsScreen({
     try {
       const updated = await medicationService.pause(medicationId);
       setMedication(updated);
-      const msg = `${medication.name} paused`;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Success', msg);
-      }
+      showAlert({ title: 'Success', message: `${medication.name} paused`, type: 'success' });
     } catch (e: any) {
       const errorMsg = e?.message || 'Failed to pause medication';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -562,19 +529,10 @@ export default function MedicationDetailsScreen({
     try {
       const updated = await medicationService.resume(medicationId);
       setMedication(updated);
-      const msg = `${medication.name} resumed`;
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Success', msg);
-      }
+      showAlert({ title: 'Success', message: `${medication.name} resumed`, type: 'success' });
     } catch (e: any) {
       const errorMsg = e?.message || 'Failed to resume medication';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -587,41 +545,25 @@ export default function MedicationDetailsScreen({
       setActionLoading(true);
       medicationService.archive(medicationId)
         .then(() => {
-          const msg = `${medication.name} archived`;
-          if (Platform.OS === 'web') {
-            window.alert(msg);
-          } else {
-            Alert.alert('Success', msg);
-          }
+          showAlert({ title: 'Success', message: `${medication.name} archived`, type: 'success' });
           navigation.goBack();
         })
         .catch((e: any) => {
           const errorMsg = e?.message || 'Failed to archive medication';
-          if (Platform.OS === 'web') {
-            window.alert(`Error: ${errorMsg}`);
-          } else {
-            Alert.alert('Error', errorMsg);
-          }
+          showAlert({ title: 'Error', message: errorMsg, type: 'error' });
         })
         .finally(() => {
           setActionLoading(false);
         });
     };
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Archive ${medication.name}? It will be moved to History.`)) {
-        confirmArchive();
-      }
-    } else {
-      Alert.alert(
-        'Archive Medication',
-        `Archive ${medication.name}? It will be moved to History.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Archive', style: 'destructive', onPress: confirmArchive },
-        ]
-      );
-    }
+    showAlert({
+      title: 'Archive Medication',
+      message: `Archive ${medication.name}? It will be moved to History.`,
+      type: 'destructive',
+      confirmLabel: 'Archive',
+      onConfirm: confirmArchive,
+    });
   };
 
   // Refill handlers
@@ -639,12 +581,11 @@ export default function MedicationDetailsScreen({
 
     const amount = parseInt(refillAmount, 10);
     if (!amount || amount <= 0) {
-      const msg = 'Please enter a valid refill amount';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Invalid Amount', msg);
-      }
+      showAlert({
+        title: 'Invalid Amount',
+        message: 'Please enter a valid refill amount',
+        type: 'warning',
+      });
       return;
     }
 
@@ -684,19 +625,14 @@ export default function MedicationDetailsScreen({
       }
 
       setRefillModalVisible(false);
-      const successMsg = `Added ${amount} doses. New total: ${refillLog.new_stock}`;
-      if (Platform.OS === 'web') {
-        window.alert(successMsg);
-      } else {
-        Alert.alert('Refill Logged', successMsg);
-      }
+      showAlert({
+        title: 'Refill Logged',
+        message: `Added ${amount} doses. New total: ${refillLog.new_stock}`,
+        type: 'success',
+      });
     } catch (e: any) {
       const errorMsg = e?.message || 'Failed to log refill';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setRefillLoading(false);
     }

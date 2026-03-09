@@ -187,6 +187,7 @@ export function useGamificationProvider() {
   const waiverBadges = status?.waiver_badges ?? 0;
   const comebackBoostActive = status?.comeback_boost_active ?? false;
   const comebackBoostHoursLeft = status?.comeback_boost_hours_left ?? null;
+  const comebackBoostUntil = status?.comeback_boost_until ?? null;
   const xpToNextTier = status?.xp_to_next_tier ?? null;
   const nextTierName = status?.next_tier_name ?? null;
   const hasMissedYesterday = status?.has_missed_yesterday ?? false;
@@ -213,6 +214,7 @@ export function useGamificationProvider() {
     waiverBadges,
     comebackBoostActive,
     comebackBoostHoursLeft,
+    comebackBoostUntil,
     xpToNextTier,
     nextTierName,
     hasMissedYesterday,

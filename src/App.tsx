@@ -6,6 +6,7 @@ import { AuthContext, useAuthProvider } from './ui/hooks/useAuth';
 import { GamificationContext, useGamificationProvider } from './ui/hooks/useGamification';
 import { SecurityContext, useSecurityProvider } from './ui/hooks/useSecurity';
 import { AIUploadProvider } from './data/contexts/AIUploadContext';
+import { AlertProvider } from './ui/context/AlertContext';
 import AppNavigator from './ui/navigation/AppNavigator';
 import LockScreen from './ui/components/LockScreen';
 import PrivacyOverlay from './ui/components/PrivacyOverlay';
@@ -137,7 +138,9 @@ export default function App() {
         <AuthContext.Provider value={auth}>
           <GamificationContext.Provider value={gamification}>
             <SecurityContext.Provider value={security}>
-              <AppShell />
+              <AlertProvider>
+                <AppShell />
+              </AlertProvider>
             </SecurityContext.Provider>
           </GamificationContext.Provider>
         </AuthContext.Provider>

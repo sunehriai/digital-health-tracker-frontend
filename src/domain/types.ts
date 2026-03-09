@@ -362,6 +362,7 @@ export interface GamificationStatus {
   waiver_badges: number;
   comeback_boost_active: boolean;
   comeback_boost_hours_left: number | null;
+  comeback_boost_until: string | null; // BP-018: ISO datetime for frontend countdown
   xp_to_next_tier: number | null; // null when at max tier (Sage)
   next_tier_name: string | null;
   has_missed_yesterday: boolean;

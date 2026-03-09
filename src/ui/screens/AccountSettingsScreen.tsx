@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useAlert } from '../context/AlertContext';
 import { useDeletion } from '../hooks/useDeletion';
 import { useSecurity } from '../hooks/useSecurity';
 import { biometrics } from '../../data/utils/biometrics';
@@ -12,6 +13,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 
 export default function AccountSettingsScreen({ navigation }: RootStackScreenProps<'AccountSettings'>) {
   const { user, signOut } = useAuth();
+  const { showAlert } = useAlert();
   const { loading: deletionLoading, requestDeletion } = useDeletion();
   const security = useSecurity();
   const [resetCooldown, setResetCooldown] = useState(false);
@@ -23,20 +25,21 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
 
     try {
       // Firebase sendPasswordResetEmail will be wired here
-      Alert.alert(
-        'Password Reset Email Sent',
-        `A password reset link has been sent to ${user?.email}. Check your inbox.`,
-      );
+      showAlert({
+        title: 'Password Reset Email Sent',
+        message: `A password reset link has been sent to ${user?.email}. Check your inbox.`,
+        type: 'success',
+      });
       setResetCooldown(true);
       setTimeout(() => setResetCooldown(false), 60000);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to send reset email. Please try again.');
+      showAlert({ title: 'Error', message: e.message || 'Failed to send reset email. Please try again.', type: 'error' });
     }
   };
 
   const handleChangeEmail = () => {
     // TODO: Open Change Email modal
-    Alert.alert('Coming Soon', 'Change email will be available in a future update.');
+    showAlert({ title: 'Coming Soon', message: 'Change email will be available in a future update.', type: 'info' });
   };
 
   const handleDeleteData = async () => {
@@ -74,14 +77,15 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
         await signOut();
       } else {
         // Data-only deletion: immediate wipe, keep user logged in, navigate back
-        Alert.alert(
-          'Data Deleted',
-          'Your health data has been permanently deleted. You can start adding new data.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
+        showAlert({
+          title: 'Data Deleted',
+          message: 'Your health data has been permanently deleted. You can start adding new data.',
+          type: 'success',
+          onConfirm: () => navigation.goBack(),
+        });
       }
     } else {
-      Alert.alert('Error', 'Failed to request deletion. Please check your connection and try again.');
+      showAlert({ title: 'Error', message: 'Failed to request deletion. Please check your connection and try again.', type: 'error' });
     }
   };
 

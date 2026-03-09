@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Plus, Trash2, ChevronLeft } from 'lucide-react-native';
 import { useVault } from '../hooks/useVault';
+import { useAlert } from '../context/AlertContext';
 import Button from '../primitives/Button';
 import Input from '../primitives/Input';
 import { colors } from '../theme/colors';
@@ -15,6 +16,7 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 export default function EditEmergencyVaultScreen({ navigation }: RootStackScreenProps<'EditEmergencyVault'>) {
   const { vault, loading, updateVault } = useVault();
+  const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EditEmergencyVault');
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +61,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
       await updateVault(data);
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      showAlert({ title: 'Error', message: e.message, type: 'error' });
     } finally {
       setSaving(false);
     }

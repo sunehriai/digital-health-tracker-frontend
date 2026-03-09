@@ -6,6 +6,7 @@ import { medicationService } from '../services/medicationService';
 import { doseStatusCache } from './doseStatusCache';
 import { medicationEvents } from './medicationEvents';
 import { getDoseTimes as getDoseTimesUtil } from '../../domain/utils/medicationUtils';
+import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
 
 const MAX_SCHEDULED = 60;
 const LOOKAHEAD_DAYS = 30;
@@ -545,10 +546,11 @@ export function registerNotificationActionHandler(
           medicationEvents.emit('dose_taken', medicationId);
 
           // Show success notification (app isn't open, so toast won't be visible)
+          const doseMsg = getRandomDoseMessage(med.name);
           await Notifications.scheduleNotificationAsync({
             content: {
-              title: 'Dose Logged',
-              body: `${med.name} dose logged successfully`,
+              title: doseMsg.title,
+              body: doseMsg.body,
               sound: false, // silent — visual confirmation only
               ...(Platform.OS === 'android' && { channelId: 'doses' }),
             },

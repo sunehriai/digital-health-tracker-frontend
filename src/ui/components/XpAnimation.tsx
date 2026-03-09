@@ -32,9 +32,11 @@ interface XpAnimationProps {
   onComplete?: () => void;
   /** Whether to trigger the animation (set to true to fire) */
   trigger: boolean;
+  /** N-22/BP-019: When true, shows gold text with "2x Boost!" label. Defaults to false. */
+  isBoosted?: boolean;
 }
 
-export default function XpAnimation({ xpAmount, onComplete, trigger }: XpAnimationProps) {
+export default function XpAnimation({ xpAmount, onComplete, trigger, isBoosted = false }: XpAnimationProps) {
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -84,9 +86,11 @@ export default function XpAnimation({ xpAmount, onComplete, trigger }: XpAnimati
     return null;
   }
 
+  const label = isBoosted ? `+${xpAmount} XP (2x Boost!)` : `+${xpAmount} XP`;
+
   return (
-    <Animated.Text style={[styles.xpText, animatedStyle]}>
-      +{xpAmount} XP
+    <Animated.Text style={[isBoosted ? styles.xpTextBoosted : styles.xpText, animatedStyle]}>
+      {label}
     </Animated.Text>
   );
 }
@@ -98,6 +102,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     textShadowColor: 'rgba(0, 209, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+    position: 'absolute',
+    alignSelf: 'center',
+    top: -8,
+    zIndex: 10,
+  },
+  xpTextBoosted: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(255, 215, 0, 0.5)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
     position: 'absolute',

@@ -4,15 +4,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Modal,
   ScrollView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, X, Clock, Pencil, Plus, Minus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, X, Clock, Pencil, Plus, Minus, Trash2, Zap } from 'lucide-react-native';
 import { useMedications } from '../hooks/useMedications';
+import { useAlert } from '../context/AlertContext';
 import { useGamification } from '../hooks/useGamification';
 import { colors } from '../theme/colors';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -87,6 +86,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
   } = route.params;
 
   const { createMedication } = useMedications();
+  const { showAlert } = useAlert();
   const { refreshStatus } = useGamification();
   const [saving, setSaving] = useState(false);
 
@@ -253,17 +253,16 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
 
   const removeAlarm = (id: string) => {
     if (alarms.length <= 1) {
-      Alert.alert('Cannot Remove', 'You need at least one alarm time.');
+      showAlert({ title: 'Cannot Remove', message: 'You need at least one alarm time.', type: 'warning' });
       return;
     }
-    Alert.alert('Remove Alarm', 'Are you sure you want to remove this alarm?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => setAlarms((prev) => prev.filter((a) => a.id !== id)),
-      },
-    ]);
+    showAlert({
+      title: 'Remove Alarm',
+      message: 'Are you sure you want to remove this alarm?',
+      type: 'destructive',
+      confirmLabel: 'Remove',
+      onConfirm: () => setAlarms((prev) => prev.filter((a) => a.id !== id)),
+    });
   };
 
   const updateAlarmDose = (id: string, delta: number) => {
@@ -335,41 +334,39 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
 
       // Show insight from Gemini if available, otherwise generic message
       const insightText = result.insight?.insight_text;
-      const message = insightText
-        ? `${name} added!\n\n${insightText}`
-        : `${name} has been added to your cabinet. Your vitality streak starts now!`;
+      const xp = result.insight?.xp_awarded;
 
-      if (Platform.OS === 'web') {
-        window.alert(`Ritual Initialized!\n\n${message}`);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-      } else {
-        Alert.alert(
-          'Ritual Initialized!',
-          message,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainTabs' }],
-                });
-              },
-            },
-          ]
-        );
-      }
+      const messageContent = (
+        <>
+          <Text style={{ color: '#A0A0A8', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+            {insightText
+              ? `${name} added!\n\n${insightText}`
+              : `${name} has been added to your cabinet.`}
+          </Text>
+          {xp ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, alignSelf: 'center', backgroundColor: 'rgba(255, 215, 0, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Zap color="#FFD700" size={14} strokeWidth={2.5} fill="#FFD700" />
+              <Text style={{ color: '#FFD700', fontSize: 13, fontWeight: '700' }}>+{xp} XP</Text>
+            </View>
+          ) : null}
+        </>
+      );
+
+      showAlert({
+        title: 'Ritual Initialized!',
+        messageContent,
+        type: 'success',
+        onConfirm: () => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
+        },
+      });
     } catch (e: any) {
       logger.error('Failed to create medication', e, { name });
       const errorMsg = e?.message || 'Failed to save medication. Please check if the backend is running.';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${errorMsg}`);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert({ title: 'Error', message: errorMsg, type: 'error' });
     } finally {
       setSaving(false);
     }

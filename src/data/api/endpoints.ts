@@ -48,6 +48,11 @@ export const ENDPOINTS = {
 
   // Notification Preferences
   NOTIFICATION_PREFERENCES: '/notifications/preferences',
+  DAY_SETTLED: '/notifications/day-settled',
+
+  // Device Tokens (Push Notifications)
+  DEVICE_TOKENS: '/device-tokens',
+  DEVICE_TOKEN_DELETE: (token: string) => `/device-tokens/${encodeURIComponent(token)}`,
 
   // Deletion
   DELETION_REQUEST: '/auth/me/delete',

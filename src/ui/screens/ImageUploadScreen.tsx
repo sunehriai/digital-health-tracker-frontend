@@ -27,6 +27,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Sparkles } from 'lucide-react-native';
 
+import { useAlert } from '../context/AlertContext';
 import { useAIUpload } from '../../data/contexts/AIUploadContext';
 import { useAIConsent } from '../../data/hooks/useAIConsent';
 import { analyzeMedicationImages } from '../../data/services/aiService';
@@ -58,6 +59,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ImageUpload
 
 export function ImageUploadScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ImageUpload');
   const {
     state,
@@ -120,14 +122,7 @@ export function ImageUploadScreen() {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        if (Platform.OS === 'web') {
-          window.alert('Please allow access to your photo library to select images.');
-        } else {
-          Alert.alert(
-            'Permission Required',
-            'Please allow access to your photo library to select images.'
-          );
-        }
+        showAlert({ title: 'Permission Required', message: 'Please allow access to your photo library to select images.', type: 'warning' });
         return;
       }
 
@@ -160,7 +155,7 @@ export function ImageUploadScreen() {
   const launchCamera = async (slot: 'front' | 'back') => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+      showAlert({ title: 'Permission Required', message: 'Please allow camera access to take photos.', type: 'warning' });
       return;
     }
 
@@ -281,7 +276,7 @@ export function ImageUploadScreen() {
   const handleQuickSave = useCallback(async () => {
     // TODO: Implement direct save to backend
     // For now, navigate to RitualPreview with the data
-    Alert.alert('Quick Save', 'Quick save will be implemented in integration step.');
+    showAlert({ title: 'Quick Save', message: 'Quick save will be implemented in integration step.', type: 'info' });
   }, []);
 
   // Go to edit mode

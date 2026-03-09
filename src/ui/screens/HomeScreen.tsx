@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, AppState } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Plus } from 'lucide-react-native';
@@ -15,7 +15,9 @@ import GamificationHeader from '../components/GamificationHeader';
 import XpAnimation from '../components/XpAnimation';
 import TierCelebration from '../components/TierCelebration';
 import WaiverPrompt from '../components/WaiverPrompt';
+import WelcomeBackModal, { shouldShowWelcomeBack, markWelcomeBackShown } from '../components/WelcomeBackModal';
 import { useMedications } from '../hooks/useMedications';
+import { useAlert } from '../context/AlertContext';
 import { useGamification } from '../hooks/useGamification';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
@@ -43,10 +45,16 @@ import {
   canRevertDose,
 } from '../../domain/utils';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient } from '../../data/api/client';
+import { ENDPOINTS } from '../../data/api/endpoints';
 import ScreenshotToast from '../components/ScreenshotToast';
+import DoseToast from '../components/DoseToast';
+import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { showAlert } = useAlert();
   const { activeMedications, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Home');
 
@@ -56,17 +64,13 @@ export default function HomeScreen() {
     currentTier,
     streakDays,
     comebackBoostActive,
+    comebackBoostUntil,
     waiverBadges,
     hasMissedYesterday,
     isOnline,
     refreshStatus,
     refreshAndDetectTierUp,
   } = useGamification();
-
-  // Debug: Track renders
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-  console.log('[HomeScreen] ===== RENDER #' + renderCount.current + ' =====');
 
   // Track medications that have been taken today (to skip them in next dose calculation)
   // Using array instead of Set for more reliable React state updates
@@ -96,9 +100,20 @@ export default function HomeScreen() {
   const [showTierCelebration, setShowTierCelebration] = useState(false);
   const [celebrationTier, setCelebrationTier] = useState(1);
 
-  // Step 40: Waiver Prompt state (shown on app open when conditions met)
-  const [showWaiverPrompt, setShowWaiverPrompt] = useState(false);
+  // N-21/BP-021: Modal priority state machine — welcomeBack > waiver, never simultaneous
+  const [pendingModal, setPendingModal] = useState<'none' | 'welcomeBack' | 'waiver'>('none');
+  const showWaiverPrompt = pendingModal === 'waiver';
+  const showWelcomeBack = pendingModal === 'welcomeBack';
   const waiverCheckedRef = useRef(false);
+  const modalCheckedRef = useRef(false);
+
+  // N-22/BP-022: Track boost label per foreground session
+  const [hasShownBoostLabel, setHasShownBoostLabel] = useState(false);
+
+  // Dose toast state (peppy messages on successful dose)
+  const [doseToast, setDoseToast] = useState<{ visible: boolean; title: string; body: string }>({
+    visible: false, title: '', body: '',
+  });
 
   // Load persisted taken IDs and revertable doses on mount
   useEffect(() => {
@@ -121,13 +136,54 @@ export default function HomeScreen() {
     loadPersistedState();
   }, []);
 
-  // Step 40: WaiverPrompt -- check on mount if conditions are met
+  // N-21: Modal priority state machine — check boost first, then waiver
+  // AsyncStorage guard prevents waiver re-showing on screen remount within the same day
   useEffect(() => {
-    if (!waiverCheckedRef.current && hasMissedYesterday && waiverBadges > 0) {
-      waiverCheckedRef.current = true;
-      setShowWaiverPrompt(true);
-    }
-  }, [hasMissedYesterday, waiverBadges, streakDays]);
+    if (modalCheckedRef.current) return;
+
+    const checkModals = async () => {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Priority 1: WelcomeBack modal (comeback boost active)
+      if (comebackBoostActive && comebackBoostUntil) {
+        const shouldShow = await shouldShowWelcomeBack(comebackBoostUntil);
+        if (shouldShow) {
+          modalCheckedRef.current = true;
+          setPendingModal('welcomeBack');
+          await markWelcomeBackShown(comebackBoostUntil);
+          return;
+        }
+      }
+
+      // Priority 2: Waiver prompt — AsyncStorage dedup per day
+      if (!waiverCheckedRef.current && hasMissedYesterday && waiverBadges > 0) {
+        const waiverKey = `waiverShown:${today}`;
+        const alreadyShown = await AsyncStorage.getItem(waiverKey);
+        if (alreadyShown) {
+          waiverCheckedRef.current = true;
+          modalCheckedRef.current = true;
+          return;
+        }
+        waiverCheckedRef.current = true;
+        modalCheckedRef.current = true;
+        await AsyncStorage.setItem(waiverKey, '1').catch(() => {});
+        setPendingModal('waiver');
+        return;
+      }
+    };
+
+    checkModals();
+  }, [comebackBoostActive, comebackBoostUntil, hasMissedYesterday, waiverBadges]);
+
+  // N-22/BP-022: Reset hasShownBoostLabel on app foreground (HomeScreen stays mounted)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setHasShownBoostLabel(false);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Subscribe to medication events for cross-screen sync
   useEffect(() => {
@@ -349,6 +405,32 @@ export default function HomeScreen() {
     }
   }, [showActionCenter]);
 
+  // Phase 6: Fire POST /notifications/day-settled when Action Center first appears
+  // (all doses resolved — backend evaluates missed-day notifications)
+  // AsyncStorage guard prevents re-firing on HomeScreen remount within the same day
+  const daySettledFired = useRef(false);
+  useEffect(() => {
+    if (!showActionCenter || daySettledFired.current) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const key = `daySettled:${today}`;
+
+    AsyncStorage.getItem(key).then((val) => {
+      if (val) {
+        daySettledFired.current = true;
+        return;
+      }
+      daySettledFired.current = true;
+      AsyncStorage.setItem(key, '1').catch(() => {});
+      apiClient
+        .request(ENDPOINTS.DAY_SETTLED, {
+          method: 'POST',
+          body: JSON.stringify({ event_date: today }),
+        })
+        .catch(() => {}); // non-blocking fire-and-forget
+    });
+  }, [showActionCenter]);
+
   // Detect transition from ActionCenter to Victory and trigger animation
   useEffect(() => {
     if (wasInActionCenter && isVictory && !showActionCenter) {
@@ -420,10 +502,10 @@ export default function HomeScreen() {
     // Refresh gamification status (server-authoritative) -- header updates during animation
     const { tierChanged, newTier, showDiscrepancyToast } = await refreshAndDetectTierUp(estimatedXp);
 
-    // D17 Layer 3: Show toast on >5 XP discrepancy (expected <1% of dose logs)
+    // D17 Layer 3: XP discrepancy detected — logged as warning in useGamification,
+    // no user-facing alert (the header silently updates to the server value)
     if (showDiscrepancyToast) {
-      // Using Alert since there's no toast library currently in the project
-      Alert.alert('XP Adjusted', 'Your XP has been updated to reflect the server value.');
+      console.log('[Gamification] XP discrepancy > threshold — header updated silently');
     }
 
     // Tier-up detection
@@ -522,6 +604,14 @@ export default function HomeScreen() {
 
           // Step 40: Trigger gamification flow after successful dose
           handleGamificationAfterDose();
+
+          // Show peppy dose toast with all medication names
+          const names = successRituals.map((r) => r.name);
+          const batchLabel = names.length <= 2
+            ? names.join(' & ')
+            : `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+          const msg = getRandomDoseMessage(batchLabel);
+          setDoseToast({ visible: true, title: msg.title, body: msg.body });
         }
 
         if (failed.length > 0) {
@@ -610,6 +700,10 @@ export default function HomeScreen() {
 
         // Step 40: Trigger gamification flow after successful dose
         handleGamificationAfterDose();
+
+        // Show peppy dose toast
+        const msg = getRandomDoseMessage(medication.name);
+        setDoseToast({ visible: true, title: msg.title, body: msg.body });
 
         return true;
       } catch (error) {
@@ -745,13 +839,24 @@ export default function HomeScreen() {
 
   // Step 40: Waiver prompt handlers
   const handleWaiverBadgeUsed = useCallback(() => {
-    setShowWaiverPrompt(false);
+    setPendingModal('none');
     refreshStatus();
   }, [refreshStatus]);
 
   const handleWaiverDismiss = useCallback(() => {
-    setShowWaiverPrompt(false);
+    setPendingModal('none');
   }, []);
+
+  // Phase 7: WelcomeBack dismiss — chain to waiver if conditions met
+  const handleWelcomeBackDismiss = useCallback(() => {
+    // After dismissing boost modal, check if waiver should show next
+    if (hasMissedYesterday && waiverBadges > 0 && !waiverCheckedRef.current) {
+      waiverCheckedRef.current = true;
+      setPendingModal('waiver');
+    } else {
+      setPendingModal('none');
+    }
+  }, [hasMissedYesterday, waiverBadges]);
 
   // Step 36: Tier celebration complete handler
   const handleTierCelebrationComplete = useCallback(() => {
@@ -784,7 +889,11 @@ export default function HomeScreen() {
           <XpAnimation
             xpAmount={xpAnimationAmount}
             trigger={xpAnimationTrigger}
-            onComplete={() => setXpAnimationTrigger(false)}
+            isBoosted={comebackBoostActive && !hasShownBoostLabel}
+            onComplete={() => {
+              setXpAnimationTrigger(false);
+              setHasShownBoostLabel(true);
+            }}
           />
         </View>
 
@@ -817,6 +926,10 @@ export default function HomeScreen() {
                 tomorrowSlot={tomorrowSlot}
                 completedCount={ritualStats.completed}
                 totalCount={ritualStats.total}
+                comebackBoostActive={comebackBoostActive}
+                boostHoursRemaining={comebackBoostUntil
+                  ? Math.max(0, Math.floor((new Date(comebackBoostUntil).getTime() - Date.now()) / 3600000))
+                  : 0}
               />
             )
           ) : (
@@ -870,13 +983,28 @@ export default function HomeScreen() {
         onComplete={handleTierCelebrationComplete}
       />
 
-      {/* Step 40: Waiver Prompt on app open */}
+      {/* Phase 7: WelcomeBack modal (priority 1) */}
+      <WelcomeBackModal
+        visible={showWelcomeBack}
+        boostHoursRemaining={comebackBoostUntil
+          ? Math.max(0, Math.floor((new Date(comebackBoostUntil).getTime() - Date.now()) / 3600000))
+          : 0}
+        onDismiss={handleWelcomeBackDismiss}
+      />
+
+      {/* Step 40: Waiver Prompt on app open (priority 2) */}
       <WaiverPrompt
         visible={showWaiverPrompt}
         waiverBadges={waiverBadges}
         streakDays={streakDays}
         onBadgeUsed={handleWaiverBadgeUsed}
         onDismiss={handleWaiverDismiss}
+      />
+      <DoseToast
+        visible={doseToast.visible}
+        title={doseToast.title}
+        body={doseToast.body}
+        onDismiss={() => setDoseToast((prev) => ({ ...prev, visible: false }))}
       />
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
     </SafeAreaView>

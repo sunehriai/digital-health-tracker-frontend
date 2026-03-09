@@ -12,6 +12,8 @@ interface VictoryCardProps {
   tomorrowSlot: DoseTimeSlot | null;
   completedCount: number;
   totalCount: number;
+  comebackBoostActive?: boolean;
+  boostHoursRemaining?: number;
 }
 
 export default function VictoryCard({
@@ -20,6 +22,8 @@ export default function VictoryCard({
   tomorrowSlot,
   completedCount,
   totalCount,
+  comebackBoostActive = false,
+  boostHoursRemaining = 0,
 }: VictoryCardProps) {
   const [showTomorrowDoses, setShowTomorrowDoses] = useState(false);
 
@@ -60,6 +64,16 @@ export default function VictoryCard({
       >
         {completedCount}/{totalCount} doses recorded
       </Animated.Text>
+
+      {/* Comeback Boost Callout */}
+      {comebackBoostActive && boostHoursRemaining > 0 && (
+        <Animated.Text
+          entering={FadeInDown.delay(350).duration(300)}
+          style={styles.boostCallout}
+        >
+          Comeback boost active — today's XP was doubled! {boostHoursRemaining}h left.
+        </Animated.Text>
+      )}
 
       {/* Insight Text */}
       <Animated.Text
@@ -182,6 +196,13 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  boostCallout: {
+    color: '#FFD700',
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12,
   },

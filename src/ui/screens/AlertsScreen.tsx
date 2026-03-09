@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock, Zap, Info } from 'lucide-react-native';
@@ -8,6 +8,7 @@ import { useFeed } from '../hooks/useFeed';
 import { useGamification } from '../hooks/useGamification';
 import { gamificationService } from '../../data/services/gamificationService';
 import { colors } from '../theme/colors';
+import { useAlert } from '../context/AlertContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
 import type { VitalityFeedItem, XpEvent } from '../../domain/types';
@@ -137,6 +138,7 @@ const EVENT_LABELS: Record<string, string> = {
 export default function AlertsScreen() {
   const navigation = useNavigation();
   const { feedItems, fetchFeed, archiveFeedItem } = useFeed();
+  const { showAlert } = useAlert();
   const { totalXp, currentTier, tierName } = useGamification();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Alerts');
 
@@ -187,11 +189,7 @@ export default function AlertsScreen() {
       await archiveFeedItem(id);
     } catch (e: any) {
       const msg = e?.message || 'Failed to dismiss alert';
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${msg}`);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showAlert({ title: 'Error', message: msg, type: 'error' });
     }
   };
 
