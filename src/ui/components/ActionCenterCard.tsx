@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { AlertTriangle, Clock, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useTheme } from '../theme/ThemeContext';
 import { formatMedName } from '../../domain/utils';
+import { logActionCenter } from '../../data/utils/notificationDebugLog';
 import type { RitualChip, DoseTimeSlot } from '../../domain/types';
 
 // Amber theme colors for Tier 1 (Minor Glitch)
@@ -31,8 +33,18 @@ export default function ActionCenterCard({
   tomorrowSlot,
   onLogMissedDose,
 }: ActionCenterCardProps) {
+  const { colors } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const [isLogging, setIsLogging] = useState(false);
   const [showNextDose, setShowNextDose] = useState(false);
+
+  // Log once on mount (useRef guards against React Strict Mode double-invoke)
+  const logged = React.useRef(false);
+  React.useEffect(() => {
+    if (logged.current) return;
+    logged.current = true;
+    logActionCenter(completedCount, totalCount);
+  }, []);
 
   const handleLogMissedDose = async () => {
     if (isLogging) return;
@@ -50,7 +62,7 @@ export default function ActionCenterCard({
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <AlertTriangle color={amberColors.primary} size={20} strokeWidth={2.5} />
@@ -59,17 +71,17 @@ export default function ActionCenterCard({
 
       {/* Large Fraction */}
       <Animated.View
-        entering={FadeInDown.delay(100).duration(300)}
+        entering={reducedMotion ? undefined : FadeInDown.delay(100).duration(300)}
         style={styles.fractionContainer}
       >
-        <Text style={styles.fractionText}>
+        <Text style={[styles.fractionText, { color: colors.textPrimary }]}>
           {completedCount}/{totalCount}
         </Text>
         <Text style={styles.actionRequired}>ACTION REQUIRED</Text>
       </Animated.View>
 
       {/* Log Button */}
-      <Animated.View entering={FadeInDown.delay(200).duration(300)}>
+      <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(200).duration(300)}>
         <TouchableOpacity
           style={[styles.logButton, isLogging && styles.logButtonLoading]}
           onPress={handleLogMissedDose}
@@ -79,7 +91,7 @@ export default function ActionCenterCard({
           {isLogging ? (
             <ActivityIndicator size="small" color={colors.bg} />
           ) : (
-            <Text style={styles.logButtonText}>
+            <Text style={[styles.logButtonText, { color: colors.bg }]}>
               LOG {formatMedName(missedRitual.name, 'card').toUpperCase()}
             </Text>
           )}
@@ -88,16 +100,16 @@ export default function ActionCenterCard({
 
       {/* Insight Text */}
       <Animated.Text
-        entering={FadeInDown.delay(300).duration(300)}
-        style={styles.insightText}
+        entering={reducedMotion ? undefined : FadeInDown.delay(300).duration(300)}
+        style={[styles.insightText, { color: colors.textSecondary }]}
       >
         {insightText}
       </Animated.Text>
 
       {/* Next Dose Section */}
       <Animated.View
-        entering={FadeInDown.delay(400).duration(300)}
-        style={styles.nextDoseSection}
+        entering={reducedMotion ? undefined : FadeInDown.delay(400).duration(300)}
+        style={[styles.nextDoseSection, { borderTopColor: colors.borderSubtle }]}
       >
         <TouchableOpacity
           style={styles.nextDoseToggle}
@@ -105,7 +117,7 @@ export default function ActionCenterCard({
           activeOpacity={0.7}
         >
           <Clock color={colors.textMuted} size={14} strokeWidth={2} />
-          <Text style={styles.nextDoseLabel}>Next Dose</Text>
+          <Text style={[styles.nextDoseLabel, { color: colors.textMuted }]}>Next Dose</Text>
           {showNextDose ? (
             <ChevronUp color={colors.textMuted} size={14} />
           ) : (
@@ -115,23 +127,23 @@ export default function ActionCenterCard({
 
         {showNextDose && tomorrowSlot && (
           <Animated.View
-            entering={FadeInDown.duration(200)}
+            entering={reducedMotion ? undefined : FadeInDown.duration(200)}
             style={styles.nextDoseDetails}
           >
-            <Text style={styles.nextDoseTime}>
+            <Text style={[styles.nextDoseTime, { color: colors.textSecondary }]}>
               {tomorrowSlot.timeDisplay} Tomorrow
             </Text>
             {tomorrowSlot.medications.map(({ medication, doseInfo }) => (
-              <View key={medication.id} style={styles.nextDoseMed}>
-                <Text style={styles.nextDoseMedName}>{formatMedName(medication.name, 'card')}</Text>
-                <Text style={styles.nextDoseMedDose}>{doseInfo}</Text>
+              <View key={medication.id} style={[styles.nextDoseMed, { backgroundColor: colors.bgSubtle }]}>
+                <Text style={[styles.nextDoseMedName, { color: colors.textPrimary }]}>{formatMedName(medication.name, 'card')}</Text>
+                <Text style={[styles.nextDoseMedDose, { color: colors.textMuted }]}>{doseInfo}</Text>
               </View>
             ))}
           </Animated.View>
         )}
 
         {showNextDose && !tomorrowSlot && (
-          <Text style={styles.noUpcoming}>No upcoming doses scheduled</Text>
+          <Text style={[styles.noUpcoming, { color: colors.textMuted }]}>No upcoming doses scheduled</Text>
         )}
       </Animated.View>
     </Animated.View>
@@ -163,7 +175,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   fractionText: {
-    color: colors.textPrimary,
     fontSize: 48,
     fontWeight: '800',
     letterSpacing: -1,
@@ -176,7 +187,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   insightText: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 18,
@@ -200,7 +210,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   logButtonText: {
-    color: colors.bg,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -209,7 +218,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   nextDoseToggle: {
     flexDirection: 'row',
@@ -218,7 +226,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nextDoseLabel: {
-    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -227,7 +234,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   nextDoseTime: {
-    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
@@ -238,21 +244,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 8,
   },
   nextDoseMedName: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '500',
   },
   nextDoseMedDose: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
   },
   noUpcoming: {
-    color: colors.textMuted,
     fontSize: 13,
     fontWeight: '500',
     marginTop: 8,

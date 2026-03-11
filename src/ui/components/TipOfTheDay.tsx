@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Lightbulb } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 export default function TipOfTheDay() {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
       <View style={styles.row}>
@@ -11,8 +13,8 @@ export default function TipOfTheDay() {
           <Lightbulb color={colors.cyan} size={16} strokeWidth={2} />
         </View>
         <View style={styles.textContent}>
-          <Text style={styles.heading}>TIP OF THE DAY</Text>
-          <Text style={styles.body}>
+          <Text style={[styles.heading, { color: colors.cyan }]}>TIP OF THE DAY</Text>
+          <Text style={[styles.body, { color: colors.textPrimary }]}>
             Take your medications with a full glass of water to improve absorption and reduce stomach irritation.
           </Text>
         </View>
@@ -39,7 +41,6 @@ const styles = StyleSheet.create({
   },
   textContent: { flex: 1 },
   heading: {
-    color: colors.cyan,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
@@ -47,7 +48,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   body: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '400',
     lineHeight: 20,

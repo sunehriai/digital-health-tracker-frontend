@@ -1,3 +1,4 @@
+// Force-dark: This screen always uses dark theme regardless of user preference
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { X, Edit3 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
-import { colors } from '../theme/colors';
+import { darkColors } from '../theme/ThemeContext';
 import { useGamification } from '../hooks/useGamification';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
@@ -58,7 +59,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.authContainer}>
-          <ActivityIndicator color={colors.cyan} size="large" />
+          <ActivityIndicator color={darkColors.cyan} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -89,7 +90,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-            <X color={colors.textSecondary} size={24} />
+            <X color={darkColors.textSecondary} size={24} />
           </TouchableOpacity>
           <Text style={styles.closeText}>Close</Text>
         </View>
@@ -185,7 +186,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
           style={styles.editButton}
           onPress={() => navigation.navigate('PersonalInfo')}
         >
-          <Edit3 color={colors.cyan} size={18} />
+          <Edit3 color={darkColors.cyan} size={18} />
           <Text style={styles.editButtonText}>Edit in Personal Details</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -195,7 +196,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1, backgroundColor: darkColors.bg },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -209,12 +210,12 @@ const styles = StyleSheet.create({
   },
   closeBtn: { padding: 4 },
   closeText: {
-    color: colors.textSecondary,
+    color: darkColors.textSecondary,
     fontSize: 14,
     marginLeft: 4,
   },
   title: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 20,
@@ -245,28 +246,28 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: darkColors.border,
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
   },
   statLabel: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   statValue: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
 
   // Section Title
   sectionTitle: {
-    color: colors.cyan,
+    color: darkColors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -283,31 +284,31 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: darkColors.border,
   },
   medicationLeft: {
     flex: 1,
   },
   medicationName: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   medicationDosage: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 13,
   },
   medicationRight: {
     alignItems: 'flex-end',
   },
   lastTakenLabel: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 11,
     marginBottom: 2,
   },
   lastTakenTime: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   emptyText: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -328,18 +329,18 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   historySubtitle: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   historyEmpty: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 14,
   },
   historyItem: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 14,
     marginBottom: 8,
   },
@@ -351,16 +352,16 @@ const styles = StyleSheet.create({
   contactItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: darkColors.border,
   },
   contactName: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   contactDetails: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 13,
   },
 
@@ -373,12 +374,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.cyan,
-    backgroundColor: colors.cyanDim,
+    borderColor: darkColors.cyan,
+    backgroundColor: darkColors.cyanDim,
     marginTop: 8,
   },
   editButtonText: {
-    color: colors.cyan,
+    color: darkColors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },

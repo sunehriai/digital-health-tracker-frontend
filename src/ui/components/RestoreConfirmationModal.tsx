@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { RotateCcw } from 'lucide-react-native';
 import Modal from '../primitives/Modal';
 import Button from '../primitives/Button';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface RestoreConfirmationModalProps {
   visible: boolean;
@@ -18,16 +18,18 @@ export default function RestoreConfirmationModal({
   onConfirm,
   onCancel,
 }: RestoreConfirmationModalProps) {
+  const { colors } = useTheme();
+
   return (
     <Modal visible={visible} onClose={onCancel} title="Restore Medication">
       <View style={styles.content}>
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, { backgroundColor: colors.cyanDim }]}>
           <RotateCcw color={colors.cyan} size={32} />
         </View>
-        <Text style={styles.message}>
+        <Text style={[styles.message, { color: colors.textPrimary }]}>
           Restore <Text style={styles.bold}>{medicationName}</Text> to your active medications?
         </Text>
-        <Text style={styles.detail}>
+        <Text style={[styles.detail, { color: colors.textSecondary }]}>
           This will move it back to your active list and resume any scheduled doses.
         </Text>
         <View style={styles.actions}>
@@ -45,14 +47,13 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.cyanDim,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
-  message: { color: colors.textPrimary, fontSize: 16, textAlign: 'center', marginBottom: 8 },
+  message: { fontSize: 16, textAlign: 'center', marginBottom: 8 },
   bold: { fontWeight: '700' },
-  detail: { color: colors.textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 24, lineHeight: 18 },
+  detail: { fontSize: 13, textAlign: 'center', marginBottom: 24, lineHeight: 18 },
   actions: { flexDirection: 'row', gap: 12, width: '100%' },
   btn: { flex: 1 },
 });

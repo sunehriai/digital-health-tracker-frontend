@@ -12,6 +12,7 @@ import {
   ConfidenceLevel,
   getConfidenceStyles,
 } from '../../../domain/utils/confidenceUtils';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface ConfidenceIndicatorProps {
   level: ConfidenceLevel;
@@ -60,13 +61,14 @@ interface ConfidenceBadgeProps {
 }
 
 export function ConfidenceBadge({ level }: ConfidenceBadgeProps) {
+  const { colors } = useTheme();
   const styles_conf = getConfidenceStyles(level);
 
   if (level === 'high') {
     return (
-      <View style={[styles.badge, styles.badgeHigh]}>
-        <CheckCircle size={12} color="#00D1FF" />
-        <Text style={styles.badgeTextHigh}>AI confident</Text>
+      <View style={[styles.badge, { backgroundColor: colors.cyanDim }]}>
+        <CheckCircle size={12} color={colors.cyan} />
+        <Text style={[styles.badgeTextHigh, { color: colors.cyan }]}>AI confident</Text>
       </View>
     );
   }
@@ -141,9 +143,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  badgeHigh: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
-  },
   badgeMedium: {
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
   },
@@ -153,7 +152,6 @@ const styles = StyleSheet.create({
   badgeTextHigh: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#00D1FF',
   },
   badgeTextMedium: {
     fontSize: 11,

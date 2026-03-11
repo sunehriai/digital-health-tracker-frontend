@@ -38,7 +38,7 @@ import { useAlert } from '../context/AlertContext';
 import { useVault } from '../hooks/useVault';
 import { useGamification } from '../hooks/useGamification';
 import DateInput from '../components/DateInput';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackScreenProps } from '../navigation/types';
 import type { MedicalContact } from '../../domain/types';
 
@@ -63,6 +63,7 @@ import ScreenshotToast from '../components/ScreenshotToast';
 type PickerType = 'gender' | 'healthGoal' | 'bloodType' | 'relationship' | null;
 
 export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<'PersonalInfo'>) {
+  const { colors } = useTheme();
   const { user, updateProfile } = useAuth();
   const { showAlert } = useAlert();
   const { vault, loading: vaultLoading, updateVault } = useVault();
@@ -390,25 +391,25 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     icon: React.ReactNode,
     options?: { keyboardType?: 'default' | 'phone-pad' | 'number-pad'; error?: string }
   ) => (
-    <View style={[styles.fieldCard, options?.error && styles.fieldCardError]}>
+    <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, options?.error && { borderColor: colors.error }]}>
       <View style={styles.fieldIcon}>{icon}</View>
       <View style={styles.fieldContent}>
-        <Text style={styles.fieldLabel}>{label}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>{label}</Text>
         {isEditMode ? (
           <TextInput
             value={value}
             onChangeText={(text) => { onChange(text); markChanged(); }}
             placeholder={placeholder}
             placeholderTextColor={colors.textMuted}
-            style={styles.fieldInput}
+            style={[styles.fieldInput, { color: colors.textPrimary }]}
             keyboardType={options?.keyboardType || 'default'}
           />
         ) : (
-          <Text style={[styles.fieldValue, !value && styles.fieldPlaceholder]}>
+          <Text style={[styles.fieldValue, { color: colors.textPrimary }, !value && { color: colors.textMuted }]}>
             {value || '—'}
           </Text>
         )}
-        {options?.error && isEditMode && <Text style={styles.errorText}>{options.error}</Text>}
+        {options?.error && isEditMode && <Text style={[styles.errorText, { color: colors.error }]}>{options.error}</Text>}
       </View>
     </View>
   );
@@ -426,23 +427,23 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   ) => (
     <>
       <TouchableOpacity
-        style={[styles.fieldCard, error && isEditMode && styles.fieldCardError]}
+        style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, error && isEditMode && { borderColor: colors.error }]}
         activeOpacity={isEditMode ? 0.8 : 1}
         onPress={() => openPicker(pickerType)}
       >
         <View style={styles.fieldIcon}>{icon}</View>
         <View style={styles.fieldContent}>
-          <Text style={styles.fieldLabel}>{label}</Text>
-          <Text style={[styles.fieldValue, !value && styles.fieldPlaceholder]}>
+          <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>{label}</Text>
+          <Text style={[styles.fieldValue, { color: colors.textPrimary }, !value && { color: colors.textMuted }]}>
             {value || (isEditMode ? placeholder : '—')}
           </Text>
-          {error && isEditMode && <Text style={styles.errorText}>{error}</Text>}
+          {error && isEditMode && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
         </View>
         {isEditMode && <ChevronDown color={colors.textMuted} size={18} />}
       </TouchableOpacity>
 
       {activePicker === pickerType && isEditMode && (
-        <View style={styles.pickerDropdown}>
+        <View style={[styles.pickerDropdown, { backgroundColor: colors.bgElevated, borderColor: colors.cyan }]}>
           {options.map((opt) => (
             <TouchableOpacity
               key={opt}
@@ -453,7 +454,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                 closePicker();
               }}
             >
-              <Text style={[styles.pickerOptionText, value === opt && styles.pickerOptionTextSelected]}>
+              <Text style={[styles.pickerOptionText, { color: colors.textSecondary }, value === opt && { color: colors.cyan, fontWeight: '600' }]}>
                 {opt}
               </Text>
             </TouchableOpacity>
@@ -468,7 +469,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.cyan} size="large" />
-          <Text style={styles.loadingText}>Loading your details...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your details...</Text>
         </View>
       </SafeAreaView>
     );
@@ -481,21 +482,21 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
             <ChevronLeft color={colors.textSecondary} size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profile</Text>
           {isEditMode ? (
-            <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.saveBtn}>
+            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveBtn, { backgroundColor: colors.cyan }]}>
               <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
                 {saving ? 'Saving...' : 'Save'}
               </Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity onPress={() => setIsEditMode(true)} style={styles.editBtn}>
+            <TouchableOpacity onPress={() => setIsEditMode(true)} style={[styles.editBtn, { borderColor: colors.cyan }]}>
               <Edit3 color={colors.cyan} size={18} />
-              <Text style={styles.editText}>Edit</Text>
+              <Text style={[styles.editText, { color: colors.cyan }]}>Edit</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -509,20 +510,20 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           <View style={styles.photoSection}>
             <TouchableOpacity style={styles.photoContainer} onPress={handlePhotoTap} activeOpacity={0.8}>
               {profilePhoto ? (
-                <Image source={{ uri: profilePhoto }} style={styles.profilePhoto} />
+                <Image source={{ uri: profilePhoto }} style={[styles.profilePhoto, { borderColor: colors.cyan }]} />
               ) : (
                 <View style={styles.photoPlaceholder}>
                   <User color={colors.textMuted} size={40} />
                 </View>
               )}
               {isEditMode && (
-                <View style={styles.cameraBadge}>
+                <View style={[styles.cameraBadge, { backgroundColor: colors.cyan }]}>
                   <Camera color="#000" size={14} />
                 </View>
               )}
             </TouchableOpacity>
-            <Text style={styles.photoName}>{displayName || 'Add your name'}</Text>
-            {isEditMode && <Text style={styles.photoHint}>Tap photo to change</Text>}
+            <Text style={[styles.photoName, { color: colors.textPrimary }]}>{displayName || 'Add your name'}</Text>
+            {isEditMode && <Text style={[styles.photoHint, { color: colors.textMuted }]}>Tap photo to change</Text>}
           </View>
 
           {/* Photo Viewer Modal */}
@@ -533,7 +534,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
             onRequestClose={() => setShowPhotoViewer(false)}
           >
             <TouchableOpacity
-              style={styles.photoViewerOverlay}
+              style={[styles.photoViewerOverlay, { backgroundColor: colors.overlayHeavy }]}
               activeOpacity={1}
               onPress={() => setShowPhotoViewer(false)}
             >
@@ -544,7 +545,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           </RNModal>
 
           {/* IDENTIFICATION Section */}
-          <Text style={styles.sectionTitle}>IDENTIFICATION</Text>
+          <Text style={[styles.sectionTitle, { color: colors.cyan }]}>IDENTIFICATION</Text>
 
           {/* Full Name */}
           {renderField(
@@ -557,12 +558,12 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
           {/* Date of Birth */}
           {isEditMode ? (
-            <View style={styles.dateInputWrapper}>
+            <View style={[styles.dateInputWrapper, { backgroundColor: colors.bgElevated }]}>
               <View style={styles.fieldIcon}>
                 <Calendar color={colors.cyan} size={20} />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>DATE OF BIRTH</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>DATE OF BIRTH</Text>
                 <DateInput
                   value={dateOfBirth}
                   onChange={(date) => { setDateOfBirth(date); markChanged(); }}
@@ -571,13 +572,13 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
               </View>
             </View>
           ) : (
-            <View style={styles.fieldCard}>
+            <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
               <View style={styles.fieldIcon}>
                 <Calendar color={colors.cyan} size={20} />
               </View>
               <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>DATE OF BIRTH</Text>
-                <Text style={[styles.fieldValue, !dateOfBirth && styles.fieldPlaceholder]}>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>DATE OF BIRTH</Text>
+                <Text style={[styles.fieldValue, { color: colors.textPrimary }, !dateOfBirth && { color: colors.textMuted }]}>
                   {formatDisplayDate(dateOfBirth)}
                 </Text>
               </View>
@@ -585,7 +586,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* MEDICAL CONTEXT Section */}
-          <Text style={styles.sectionTitle}>MEDICAL CONTEXT</Text>
+          <Text style={[styles.sectionTitle, { color: colors.cyan }]}>MEDICAL CONTEXT</Text>
 
           {/* Gender */}
           {renderDropdown(
@@ -621,23 +622,23 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Weight */}
-          <View style={styles.fieldCard}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
             <View style={styles.fieldIcon}>
               <Scale color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>WEIGHT (lbs)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>WEIGHT (lbs)</Text>
               {isEditMode ? (
                 <TextInput
                   value={weight}
                   onChangeText={(text) => { setWeight(text); markChanged(); }}
                   placeholder="Enter weight"
                   placeholderTextColor={colors.textMuted}
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, { color: colors.textPrimary }]}
                   keyboardType="number-pad"
                 />
               ) : (
-                <Text style={[styles.fieldValue, !weight && styles.fieldPlaceholder]}>
+                <Text style={[styles.fieldValue, { color: colors.textPrimary }, !weight && { color: colors.textMuted }]}>
                   {weight ? `${weight} lbs` : '—'}
                 </Text>
               )}
@@ -654,17 +655,17 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Allergies */}
-          <View style={styles.fieldCard}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
             <View style={styles.fieldIcon}>
               <AlertCircle color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>ALLERGIES</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>ALLERGIES</Text>
               {allergies.length > 0 || isEditMode ? (
                 <View style={styles.chipsList}>
                   {allergies.map((allergy, index) => (
                     <View key={index} style={styles.allergyChip}>
-                      <Text style={styles.allergyText}>{allergy}</Text>
+                      <Text style={[styles.allergyText, { color: colors.error }]}>{allergy}</Text>
                       {isEditMode && (
                         <TouchableOpacity onPress={() => removeAllergy(index)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Trash2 color={colors.error} size={14} />
@@ -678,14 +679,14 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                       onChangeText={setNewAllergy}
                       placeholder="Type allergy..."
                       placeholderTextColor={colors.textMuted}
-                      style={styles.inlineChipInput}
+                      style={[styles.inlineChipInput, { color: colors.textPrimary }]}
                       onSubmitEditing={addAllergy}
                       blurOnSubmit={false}
                     />
                   )}
                 </View>
               ) : (
-                <Text style={styles.fieldPlaceholder}>None</Text>
+                <Text style={[styles.fieldPlaceholder, { color: colors.textMuted }]}>None</Text>
               )}
               {isEditMode && (
                 <View style={styles.suggestionsRow}>
@@ -704,17 +705,17 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           </View>
 
           {/* Chronic Conditions */}
-          <View style={styles.fieldCard}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
             <View style={styles.fieldIcon}>
               <Activity color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>CHRONIC CONDITIONS</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>CHRONIC CONDITIONS</Text>
               {conditions.length > 0 || isEditMode ? (
                 <View style={styles.chipsList}>
                   {conditions.map((condition, index) => (
                     <View key={index} style={styles.conditionChip}>
-                      <Text style={styles.conditionText}>{condition}</Text>
+                      <Text style={[styles.conditionText, { color: colors.warning }]}>{condition}</Text>
                       {isEditMode && (
                         <TouchableOpacity onPress={() => removeCondition(index)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                           <Trash2 color={colors.warning} size={14} />
@@ -728,14 +729,14 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                       onChangeText={setNewCondition}
                       placeholder="Type condition..."
                       placeholderTextColor={colors.textMuted}
-                      style={styles.inlineChipInput}
+                      style={[styles.inlineChipInput, { color: colors.textPrimary }]}
                       onSubmitEditing={addCondition}
                       blurOnSubmit={false}
                     />
                   )}
                 </View>
               ) : (
-                <Text style={styles.fieldPlaceholder}>None</Text>
+                <Text style={[styles.fieldPlaceholder, { color: colors.textMuted }]}>None</Text>
               )}
               {isEditMode && (
                 <View style={styles.suggestionsRow}>
@@ -755,8 +756,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
           {/* EMERGENCY CONTACT Section */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, styles.sectionTitleNoMargin]}>EMERGENCY CONTACT</Text>
-            <View style={styles.requiredBadge}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleNoMargin, { color: colors.cyan }]}>EMERGENCY CONTACT</Text>
+            <View style={[styles.requiredBadge, { backgroundColor: colors.cyan }]}>
               <Text style={styles.requiredText}>REQUIRED</Text>
             </View>
           </View>
@@ -784,32 +785,32 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Phone Number */}
-          <View style={[styles.fieldCard, errors.contactPhone && isEditMode && styles.fieldCardError]}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, errors.contactPhone && isEditMode && { borderColor: colors.error }]}>
             <View style={styles.fieldIcon}><Phone color={colors.cyan} size={20} /></View>
             <View style={styles.fieldContent}>
-              <Text style={styles.fieldLabel}>PHONE NUMBER</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>PHONE NUMBER</Text>
               {isEditMode ? (
                 <TextInput
                   value={contactPhone}
                   onChangeText={handlePhoneChange}
                   placeholder="(555) 987-6543"
                   placeholderTextColor={colors.textMuted}
-                  style={styles.fieldInput}
+                  style={[styles.fieldInput, { color: colors.textPrimary }]}
                   keyboardType="phone-pad"
                 />
               ) : (
-                <Text style={[styles.fieldValue, !contactPhone && styles.fieldPlaceholder]}>
+                <Text style={[styles.fieldValue, { color: colors.textPrimary }, !contactPhone && { color: colors.textMuted }]}>
                   {contactPhone || '—'}
                 </Text>
               )}
-              {errors.contactPhone && isEditMode && <Text style={styles.errorText}>{errors.contactPhone}</Text>}
+              {errors.contactPhone && isEditMode && <Text style={[styles.errorText, { color: colors.error }]}>{errors.contactPhone}</Text>}
             </View>
           </View>
 
           {/* Medical Requirement Notice */}
-          <View style={styles.noticeCard}>
-            <Text style={styles.noticeTitle}>Medical Requirement:</Text>
-            <Text style={styles.noticeText}>
+          <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
+            <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Medical Requirement:</Text>
+            <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
               Emergency contact information is required for App Store Health compliance and can be accessed by first responders in case of emergency.
             </Text>
           </View>
@@ -835,7 +836,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: colors.textSecondary,
     marginTop: 16,
     fontSize: 15,
   },
@@ -848,21 +848,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
     marginLeft: -8,
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
   saveBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: colors.cyan,
     borderRadius: 20,
   },
   saveText: {
@@ -881,10 +878,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   editText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -906,7 +901,6 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: colors.cyan,
   },
   photoPlaceholder: {
     width: 100,
@@ -925,27 +919,23 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: colors.cyan,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#080A0F',
   },
   photoName: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 12,
   },
   photoHint: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 4,
   },
 
   // Section
   sectionTitle: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -964,7 +954,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   requiredBadge: {
-    backgroundColor: colors.cyan,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -980,7 +969,6 @@ const styles = StyleSheet.create({
   fieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
@@ -988,7 +976,6 @@ const styles = StyleSheet.create({
     borderColor: '#1E2633',
   },
   fieldCardError: {
-    borderColor: colors.error,
   },
   fieldIcon: {
     width: 40,
@@ -1003,19 +990,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldLabel: {
-    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   fieldValue: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   fieldInput: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     padding: 0,
@@ -1024,24 +1008,20 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   } as any,
   fieldPlaceholder: {
-    color: colors.textMuted,
     fontSize: 16,
   },
   errorText: {
-    color: colors.error,
     fontSize: 11,
     marginTop: 4,
   },
 
   // Picker Dropdown
   pickerDropdown: {
-    backgroundColor: '#121721',
     borderRadius: 12,
     marginBottom: 10,
     marginTop: -6,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   pickerOption: {
     paddingVertical: 14,
@@ -1053,11 +1033,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   pickerOptionText: {
-    color: colors.textSecondary,
     fontSize: 15,
   },
   pickerOptionTextSelected: {
-    color: colors.cyan,
     fontWeight: '600',
   },
 
@@ -1080,7 +1058,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   allergyText: {
-    color: colors.error,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1096,14 +1073,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   conditionText: {
-    color: colors.warning,
     fontSize: 13,
     fontWeight: '600',
   },
 
   // Inline chip input (inside chipsList)
   inlineChipInput: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
     paddingHorizontal: 10,
@@ -1151,7 +1126,6 @@ const styles = StyleSheet.create({
   dateInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
@@ -1166,16 +1140,13 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 8,
     borderLeftWidth: 3,
-    borderLeftColor: colors.cyan,
   },
   noticeTitle: {
-    color: colors.cyan,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 4,
   },
   noticeText: {
-    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -1183,7 +1154,7 @@ const styles = StyleSheet.create({
   // Photo Viewer
   photoViewerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },

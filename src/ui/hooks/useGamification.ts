@@ -4,6 +4,7 @@ import { gamificationService } from '../../data/services/gamificationService';
 import { offlineCache } from '../../data/utils/offlineCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
 import { createLogger } from '../../utils/logger';
+import { logTierUp } from '../../data/utils/notificationDebugLog';
 
 const logger = createLogger('useGamification');
 const CACHE_KEY = 'gamification_status';
@@ -61,6 +62,7 @@ export function useGamificationProvider() {
         tier: data.current_tier,
         streak: data.streak_days,
       });
+      // Activity log: tier-up only (see refreshAndDetectTierUp)
     } catch (err) {
       setIsOnline(false);
       // Try loading from cache on network failure
@@ -109,6 +111,7 @@ export function useGamificationProvider() {
         tier: data.current_tier,
         streak: data.streak_days,
       });
+      // Activity log: tier-up only (see refreshAndDetectTierUp)
     } catch (err) {
       setIsOnline(false);
       // On refresh failure, keep existing state -- don't overwrite with error
@@ -148,6 +151,9 @@ export function useGamificationProvider() {
       newTier = data.current_tier;
       tierChanged = data.current_tier > prevTier;
       previousTierRef.current = data.current_tier;
+      if (tierChanged) {
+        logTierUp(data.current_tier, data.tier_name, data.total_xp);
+      }
 
       // D17 Layer 3: Tolerance threshold check
       if (estimatedXp !== undefined) {
@@ -155,6 +161,7 @@ export function useGamificationProvider() {
         xpDiscrepancy = Math.abs(actualXpAwarded - estimatedXp);
         showDiscrepancyToast = xpDiscrepancy > XP_DISCREPANCY_THRESHOLD;
         if (showDiscrepancyToast) {
+          // XP discrepancy — logger.warn below handles this
           logger.warn('XP discrepancy detected', {
             estimated: estimatedXp,
             actual: actualXpAwarded,

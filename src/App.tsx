@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, Image, Platform } from 'react-native';
+import { View, StyleSheet, Image, Platform, StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthContext, useAuthProvider } from './ui/hooks/useAuth';
 import { GamificationContext, useGamificationProvider } from './ui/hooks/useGamification';
 import { SecurityContext, useSecurityProvider } from './ui/hooks/useSecurity';
+import { AppPreferencesContext, useAppPreferencesProvider, useAppPreferences } from './ui/hooks/useAppPreferences';
+import { ThemeProvider, useTheme } from './ui/theme/ThemeContext';
 import { AIUploadProvider } from './data/contexts/AIUploadContext';
 import { AlertProvider } from './ui/context/AlertContext';
 import AppNavigator from './ui/navigation/AppNavigator';
@@ -18,7 +20,7 @@ import { useMedications } from './ui/hooks/useMedications';
 import { useNotificationPrefs } from './ui/hooks/useNotificationPrefs';
 import { useSecurity } from './ui/hooks/useSecurity';
 import { useAuth } from './ui/hooks/useAuth';
-import { colors } from './ui/theme/colors';
+import { runCacheCleanup } from './data/utils/cacheCleanup';
 import { createLogger } from './utils/logger';
 
 const logger = createLogger('App');
@@ -32,18 +34,20 @@ function NotificationBridge() {
   const { medications } = useMedications();
   const { prefs } = useNotificationPrefs();
 
-  console.log('[NOTIF-DEBUG][Bridge] render — meds:', medications.length,
-    'prefs:', prefs ? `loaded (advance=${prefs.advance_reminder_minutes}, enabled=${prefs.dose_reminders_enabled})` : 'null');
+  if (__DEV__) {
+    console.log('[NOTIF-DEBUG][Bridge] render — meds:', medications.length,
+      'prefs:', prefs ? `loaded (advance=${prefs.advance_reminder_minutes}, enabled=${prefs.dose_reminders_enabled})` : 'null');
+  }
 
   // Initialize notification permissions + Android channels on mount
   useEffect(() => {
-    console.log('[NOTIF-DEBUG][Bridge] Calling initNotifications()');
+    if (__DEV__) console.log('[NOTIF-DEBUG][Bridge] Calling initNotifications()');
     initNotifications()
       .then((token) => {
-        console.log('[NOTIF-DEBUG][Bridge] initNotifications SUCCESS, token:', token ? 'received' : 'null');
+        if (__DEV__) console.log('[NOTIF-DEBUG][Bridge] initNotifications SUCCESS, token:', token ? 'received' : 'null');
       })
       .catch((err) => {
-        console.log('[NOTIF-DEBUG][Bridge] initNotifications FAILED:', err);
+        if (__DEV__) console.log('[NOTIF-DEBUG][Bridge] initNotifications FAILED:', err);
         logger.warn('Failed to init notifications', { error: err });
       });
   }, []);
@@ -61,11 +65,18 @@ function NotificationBridge() {
 function AppShell() {
   const security = useSecurity();
   const auth = useAuth();
+  const { loading: prefsLoading } = useAppPreferences();
+  const { colors, isDark } = useTheme();
 
-  // While security settings are loading, show splash to prevent content flash
-  if (security.isLoading) {
+  // Run cache cleanup once on mount (fire-and-forget)
+  useEffect(() => {
+    runCacheCleanup().catch(() => {});
+  }, []);
+
+  // While security settings or preferences are loading, show splash to prevent content flash
+  if (security.isLoading || prefsLoading) {
     return (
-      <View style={styles.splash}>
+      <View style={[styles.splash, { backgroundColor: colors.bg }]}>
         <Image
           source={require('../assets/splash-icon.png')}
           style={styles.splashIcon}
@@ -77,6 +88,10 @@ function AppShell() {
 
   return (
     <>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
       <View
         style={{ flex: 1 }}
         onTouchStart={security.resetInactivityTimer}
@@ -108,6 +123,7 @@ function AppShell() {
 }
 
 export default function App() {
+  const appPreferences = useAppPreferencesProvider();
   const auth = useAuthProvider();
   const gamification = useGamificationProvider();
   const security = useSecurityProvider();
@@ -135,15 +151,19 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthContext.Provider value={auth}>
-          <GamificationContext.Provider value={gamification}>
-            <SecurityContext.Provider value={security}>
-              <AlertProvider>
-                <AppShell />
-              </AlertProvider>
-            </SecurityContext.Provider>
-          </GamificationContext.Provider>
-        </AuthContext.Provider>
+        <AppPreferencesContext.Provider value={appPreferences}>
+          <ThemeProvider>
+            <AuthContext.Provider value={auth}>
+              <GamificationContext.Provider value={gamification}>
+                <SecurityContext.Provider value={security}>
+                  <AlertProvider>
+                    <AppShell />
+                  </AlertProvider>
+                </SecurityContext.Provider>
+              </GamificationContext.Provider>
+            </AuthContext.Provider>
+          </ThemeProvider>
+        </AppPreferencesContext.Provider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -152,7 +172,6 @@ export default function App() {
 const styles = StyleSheet.create({
   splash: {
     flex: 1,
-    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },

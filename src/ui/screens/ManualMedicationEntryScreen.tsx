@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronDown, ChevronUp, Minus, Plus, UtensilsCrossed, AlertTriangle, AlertCircle, ArrowUp, ArrowDown, Sparkles } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { formatTime } from '../../domain/utils/dateTimeUtils';
 import TimeInput from '../components/TimeInput';
 import DateInput from '../components/DateInput';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -46,9 +48,11 @@ import ScreenshotToast from '../components/ScreenshotToast';
 
 
 export default function ManualMedicationEntryScreen({ navigation, route }: RootStackScreenProps<'ManualMedicationEntry'>) {
+  const { colors, isDark } = useTheme();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ManualMedicationEntry');
   const { refreshStatus } = useGamification();
   const { showAlert } = useAlert();
+  const { prefs: { timeFormat, defaultDoseTime } } = useAppPreferences();
   // Get mode from route params - 'ai' mode means we're editing AI-extracted data
   const mode = route.params?.mode || 'manual';
   const isAIMode = mode === 'ai';
@@ -108,9 +112,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
     getInitialValue(aiFormData?.isOngoing, MEDICATION_DEFAULTS.isOngoing)
   );
 
-  // Timing & Context
+  // Timing & Context — Step 31: use user's default dose time preference unless AI-populated
   const [timeOfDay, setTimeOfDay] = useState(() =>
-    getInitialValue(aiFormData?.timeOfDay, MEDICATION_DEFAULTS.timeOfDay)
+    getInitialValue(aiFormData?.timeOfDay, defaultDoseTime || MEDICATION_DEFAULTS.timeOfDay)
   );
   // Map meal relation string to index
   const getMealRelationIndex = (relation: string | undefined | null): number => {
@@ -139,13 +143,6 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
     return times;
   }, [timeOfDay, occurrence, doseIntervalHours]);
 
-  // Format time for display (12-hour format)
-  const formatTime12h = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h % 12 || 12;
-    return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
-  };
 
   // Update interval when occurrence changes
   useEffect(() => {
@@ -559,19 +556,19 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
   const decrementDose = () => setDoseSize((prev) => Math.max(1, prev - 1));
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
+          <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: `${colors.cyan}1A` }]}>
             <X color={colors.cyan} size={24} />
           </TouchableOpacity>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{isAIMode ? 'Review Details' : 'Manual Entry'}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{isAIMode ? 'Review Details' : 'Manual Entry'}</Text>
             {isAIMode && (
-              <View style={styles.aiModeBadge}>
-                <Sparkles size={12} color="#00D1FF" />
-                <Text style={styles.aiModeBadgeText}>AI-Assisted</Text>
+              <View style={[styles.aiModeBadge, { backgroundColor: `${colors.cyan}1A` }]}>
+                <Sparkles size={12} color={colors.cyan} />
+                <Text style={[styles.aiModeBadgeText, { color: colors.cyan }]}>AI-Assisted</Text>
               </View>
             )}
           </View>
@@ -583,8 +580,8 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           <View style={styles.warningsBanner}>
             {aiWarnings.map((warning, index) => (
               <View key={index} style={styles.warningRow}>
-                <AlertCircle size={14} color="#F59E0B" />
-                <Text style={styles.warningText}>{warning}</Text>
+                <AlertCircle size={14} color={colors.warning} />
+                <Text style={[styles.warningText, { color: colors.warning }]}>{warning}</Text>
               </View>
             ))}
           </View>
@@ -592,7 +589,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
         {/* MEDICATION NAME */}
         <View style={styles.labelWithConfidence}>
-          <Text style={styles.sectionLabel}>MEDICATION NAME</Text>
+          <Text style={[styles.sectionLabel, { color: colors.cyan }]}>MEDICATION NAME</Text>
           {getFieldConfidence('name') && (
             <ConfidenceBadge level={getFieldConfidence('name')!} />
           )}
@@ -600,37 +597,38 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         <TextInput
           style={[
             styles.input,
+            { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
             isAIMode && getFieldConfidence('name') === 'low' && styles.inputLowConfidence,
             isAIMode && getFieldConfidence('name') === 'medium' && styles.inputMediumConfidence,
           ]}
           value={name}
           onChangeText={setName}
           placeholder="Enter medication name"
-          placeholderTextColor="#64748B"
+          placeholderTextColor={colors.textMuted}
         />
 
         {/* Critical Toggle - Highly visible right after name */}
         <TouchableOpacity
-          style={[styles.criticalToggle, isCritical && styles.criticalToggleActive]}
+          style={[styles.criticalToggle, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }, isCritical && styles.criticalToggleActive]}
           onPress={() => setIsCritical(!isCritical)}
           activeOpacity={0.7}
         >
           <View style={styles.criticalToggleLeft}>
-            <View style={[styles.criticalIconBg, isCritical && styles.criticalIconBgActive]}>
-              <AlertTriangle color={isCritical ? "#FB7185" : "#64748B"} size={18} strokeWidth={2.5} />
+            <View style={[styles.criticalIconBg, { backgroundColor: colors.bgSubtle }, isCritical && styles.criticalIconBgActive]}>
+              <AlertTriangle color={isCritical ? "#FB7185" : colors.textMuted} size={18} strokeWidth={2.5} />
             </View>
             <View>
-              <Text style={[styles.criticalLabel, isCritical && styles.criticalLabelActive]}>Critical Medication</Text>
-              <Text style={styles.criticalHint}>Essential - never skip this one</Text>
+              <Text style={[styles.criticalLabel, { color: colors.textSecondary }, isCritical && styles.criticalLabelActive]}>Critical Medication</Text>
+              <Text style={[styles.criticalHint, { color: colors.textMuted }]}>Essential - never skip this one</Text>
             </View>
           </View>
-          <View style={[styles.toggleSwitch, isCritical && styles.toggleSwitchActive]}>
-            <View style={[styles.toggleKnob, isCritical && styles.toggleKnobActive]} />
+          <View style={[styles.toggleSwitch, { backgroundColor: isDark ? '#1E293B' : '#D1D5DB' }, isCritical && styles.toggleSwitchActive]}>
+            <View style={[styles.toggleKnob, { backgroundColor: colors.textMuted }, isCritical && styles.toggleKnobActive]} />
           </View>
         </TouchableOpacity>
 
         {/* SCHEDULE */}
-        <Text style={styles.sectionLabel}>SCHEDULE</Text>
+        <Text style={[styles.sectionLabel, { color: colors.cyan }]}>SCHEDULE</Text>
         {frequencyType === 'as_needed' ? (
           /* As-needed: Only show Start Date (full width) */
           <DateInput
@@ -662,13 +660,13 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         )}
 
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Ongoing Ritual</Text>
+          <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>Ongoing Ritual</Text>
           <Switch
             value={isOngoing}
             onValueChange={setIsOngoing}
-            trackColor={{ false: '#1E293B', true: colors.cyan }}
-            thumbColor={isOngoing ? '#FFFFFF' : '#94A3B8'}
-            ios_backgroundColor="#1E293B"
+            trackColor={{ false: isDark ? '#1E293B' : '#D1D5DB', true: colors.cyan }}
+            thumbColor={isOngoing ? '#FFFFFF' : colors.textSecondary}
+            ios_backgroundColor={isDark ? '#1E293B' : '#D1D5DB'}
           />
         </View>
 
@@ -682,7 +680,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               placeholder="Select end date"
             />
             {endDate && startDate && new Date(endDate) > new Date(startDate) && (
-              <Text style={styles.calculatedInfo}>
+              <Text style={[styles.calculatedInfo, { color: colors.cyan }]}>
                 Duration: {Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} days
               </Text>
             )}
@@ -690,18 +688,18 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         )}
 
         {/* FREQUENCY PATTERN */}
-        <Text style={styles.sectionLabel}>FREQUENCY PATTERN</Text>
+        <Text style={[styles.sectionLabel, { color: colors.cyan }]}>FREQUENCY PATTERN</Text>
         <View style={styles.frequencyGrid}>
           {FREQUENCY_TYPES.map((freq) => (
             <TouchableOpacity
               key={freq.value}
-              style={[styles.frequencyGridOption, frequencyType === freq.value && styles.frequencyGridOptionActive]}
+              style={[styles.frequencyGridOption, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }, frequencyType === freq.value && { backgroundColor: `${colors.cyan}1A`, borderColor: colors.cyan }]}
               onPress={() => setFrequencyType(freq.value as typeof frequencyType)}
             >
-              <View style={[styles.radioOuter, frequencyType === freq.value && styles.radioOuterActive]}>
-                {frequencyType === freq.value && <View style={styles.radioInner} />}
+              <View style={[styles.radioOuter, { borderColor: colors.textMuted }, frequencyType === freq.value && styles.radioOuterActive, frequencyType === freq.value && { borderColor: colors.cyan }]}>
+                {frequencyType === freq.value && <View style={[styles.radioInner, { backgroundColor: colors.cyan }]} />}
               </View>
-              <Text style={[styles.frequencyGridText, frequencyType === freq.value && styles.frequencyGridTextActive]}>
+              <Text style={[styles.frequencyGridText, { color: colors.textSecondary }, frequencyType === freq.value && styles.frequencyGridTextActive, frequencyType === freq.value && { color: colors.textPrimary }]}>
                 {freq.label}
               </Text>
             </TouchableOpacity>
@@ -710,15 +708,16 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
         {/* Day selector for "On specific days" */}
         {frequencyType === 'specific_days' && (
-          <View style={styles.daySelector}>
-            <Text style={styles.daySelectorLabel}>Select days:</Text>
+          <View style={[styles.daySelector, { backgroundColor: colors.bgDark, borderColor: `${colors.cyan}33` }]}>
+            <Text style={[styles.daySelectorLabel, { color: colors.textSecondary }]}>Select days:</Text>
             <View style={styles.daysRow}>
               {DAYS_OF_WEEK.map((day) => (
                 <TouchableOpacity
                   key={day.value}
                   style={[
                     styles.dayChip,
-                    selectedDays.includes(day.value) && styles.dayChipActive,
+                    { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle },
+                    selectedDays.includes(day.value) && { backgroundColor: `${colors.cyan}33`, borderColor: colors.cyan },
                   ]}
                   onPress={() => {
                     if (selectedDays.includes(day.value)) {
@@ -731,7 +730,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
                   <Text
                     style={[
                       styles.dayChipText,
+                      { color: colors.textMuted },
                       selectedDays.includes(day.value) && styles.dayChipTextActive,
+                      selectedDays.includes(day.value) && { color: colors.cyan },
                     ]}
                   >
                     {day.short}
@@ -740,7 +741,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               ))}
             </View>
             {selectedDays.length > 0 && (
-              <Text style={styles.selectedDaysInfo}>
+              <Text style={[styles.selectedDaysInfo, { color: colors.cyan }]}>
                 {selectedDays
                   .sort((a, b) => a - b)
                   .map((d) => DAYS_OF_WEEK.find((day) => day.value === d)?.full)
@@ -752,31 +753,31 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
         {/* Interval input for "Every X days" */}
         {frequencyType === 'interval' && (
-          <View style={styles.intervalSelector}>
-            <Text style={styles.intervalLabel}>Every</Text>
+          <View style={[styles.intervalSelector, { backgroundColor: colors.bgDark, borderColor: `${colors.cyan}33` }]}>
+            <Text style={[styles.intervalLabel, { color: colors.textPrimary }]}>Every</Text>
             <View style={styles.intervalStepper}>
               <TouchableOpacity
-                style={styles.intervalBtn}
+                style={[styles.intervalBtn, { backgroundColor: `${colors.cyan}26` }]}
                 onPress={() => setIntervalDays(Math.max(2, intervalDays - 1))}
               >
                 <Minus color={colors.cyan} size={16} strokeWidth={3} />
               </TouchableOpacity>
-              <Text style={styles.intervalValue}>{intervalDays}</Text>
+              <Text style={[styles.intervalValue, { color: colors.cyan }]}>{intervalDays}</Text>
               <TouchableOpacity
-                style={styles.intervalBtn}
+                style={[styles.intervalBtn, { backgroundColor: `${colors.cyan}26` }]}
                 onPress={() => setIntervalDays(intervalDays + 1)}
               >
                 <Plus color={colors.cyan} size={16} strokeWidth={3} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.intervalLabel}>days</Text>
+            <Text style={[styles.intervalLabel, { color: colors.textPrimary }]}>days</Text>
           </View>
         )}
 
         {/* Info message for "As needed" */}
         {frequencyType === 'as_needed' && (
-          <View style={styles.asNeededInfo}>
-            <Text style={styles.asNeededText}>
+          <View style={[styles.asNeededInfo]}>
+            <Text style={[styles.asNeededText, { color: colors.textSecondary }]}>
               This medication will be available to log anytime without scheduled reminders.
             </Text>
           </View>
@@ -785,21 +786,24 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         {/* DAILY OCCURRENCE - Only show for Daily or Specific Days */}
         {(frequencyType === 'daily' || frequencyType === 'specific_days') && (
           <>
-            <Text style={styles.sectionLabel}>DAILY OCCURRENCE</Text>
+            <Text style={[styles.sectionLabel, { color: colors.cyan }]}>DAILY OCCURRENCE</Text>
             <View style={styles.occurrenceRow}>
               {OCCURRENCE_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt.value}
                   style={[
                     styles.occurrenceChip,
-                    occurrence === opt.value && styles.occurrenceChipActive,
+                    { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                    occurrence === opt.value && { backgroundColor: `${colors.cyan}26`, borderColor: colors.cyan },
                   ]}
                   onPress={() => setOccurrence(opt.value as typeof occurrence)}
                 >
                   <Text
                     style={[
                       styles.occurrenceText,
+                      { color: colors.textSecondary },
                       occurrence === opt.value && styles.occurrenceTextActive,
+                      occurrence === opt.value && { color: colors.cyan },
                     ]}
                   >
                     {opt.label}
@@ -810,48 +814,51 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
             {/* Interval Slider - Only show for Twice or Thrice */}
             {occurrence !== 'once' && (
-              <View style={styles.intervalSliderContainer}>
-                <Text style={styles.intervalSliderLabel}>
-                  Interval: Every <Text style={styles.intervalValue}>{doseIntervalHours}</Text> hours
+              <View style={[styles.intervalSliderContainer, { backgroundColor: colors.bgDark, borderColor: `${colors.cyan}33` }]}>
+                <Text style={[styles.intervalSliderLabel, { color: colors.textPrimary }]}>
+                  Interval: Every <Text style={[styles.intervalValue, { color: colors.cyan }]}>{doseIntervalHours}</Text> hours
                 </Text>
                 <View style={styles.intervalSliderRow}>
-                  <Text style={styles.intervalMinMax}>4h</Text>
+                  <Text style={[styles.intervalMinMax, { color: colors.textMuted }]}>4h</Text>
                   <View style={styles.sliderTrack}>
                     {[4, 6, 8, 10, 12].map((val) => (
                       <TouchableOpacity
                         key={val}
                         style={[
                           styles.sliderDot,
-                          doseIntervalHours === val && styles.sliderDotActive,
+                          { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle },
+                          doseIntervalHours === val && { backgroundColor: `${colors.cyan}33`, borderColor: colors.cyan },
                         ]}
                         onPress={() => setDoseIntervalHours(val)}
                       >
                         <Text style={[
                           styles.sliderDotLabel,
+                          { color: colors.textMuted },
                           doseIntervalHours === val && styles.sliderDotLabelActive,
+                          doseIntervalHours === val && { color: colors.cyan },
                         ]}>
                           {val}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.intervalMinMax}>12h</Text>
+                  <Text style={[styles.intervalMinMax, { color: colors.textMuted }]}>12h</Text>
                 </View>
               </View>
             )}
 
             {/* Calculated Doses Display - Only show for Twice/Thrice */}
             {occurrence !== 'once' && calculatedDoseTimes.length > 0 && (
-              <View style={styles.calculatedDosesContainer}>
-                <Text style={styles.calculatedDosesLabel}>SCHEDULED DOSES</Text>
+              <View style={[styles.calculatedDosesContainer, { backgroundColor: `${colors.cyan}14`, borderColor: `${colors.cyan}33` }]}>
+                <Text style={[styles.calculatedDosesLabel, { color: colors.cyan }]}>SCHEDULED DOSES</Text>
                 <View style={styles.calculatedDosesList}>
                   {calculatedDoseTimes.map((time, index) => (
-                    <View key={index} style={styles.calculatedDoseItem}>
-                      <View style={styles.doseNumberBadge}>
-                        <Text style={styles.doseNumberText}>{index + 1}</Text>
+                    <View key={index} style={[styles.calculatedDoseItem, { backgroundColor: `${colors.cyan}1A` }]}>
+                      <View style={[styles.doseNumberBadge, { backgroundColor: colors.cyan }]}>
+                        <Text style={[styles.doseNumberText, { color: isDark ? '#0A0A0B' : '#FFFFFF' }]}>{index + 1}</Text>
                       </View>
-                      <Text style={styles.calculatedDoseTime}>
-                        {formatTime12h(time)}
+                      <Text style={[styles.calculatedDoseTime, { color: colors.textPrimary }]}>
+                        {formatTime(time, timeFormat)}
                       </Text>
                     </View>
                   ))}
@@ -862,32 +869,32 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
         )}
 
         {/* VOLUME TRACKING */}
-        <Text style={styles.sectionLabel}>VOLUME TRACKING</Text>
-        <View style={styles.dosePerIntakeRow}>
-          <Text style={styles.stepperLabelSmall}>Dose per intake</Text>
+        <Text style={[styles.sectionLabel, { color: colors.cyan }]}>VOLUME TRACKING</Text>
+        <View style={[styles.dosePerIntakeRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.stepperLabelSmall, { color: colors.textPrimary }]}>Dose per intake</Text>
           <TouchableOpacity
-            style={styles.dosePickerButton}
+            style={[styles.dosePickerButton, { backgroundColor: `${colors.cyan}1A` }]}
             onPress={() => setShowDosePicker(true)}
           >
-            <Text style={styles.dosePickerButtonText}>{doseSize}</Text>
+            <Text style={[styles.dosePickerButtonText, { color: colors.cyan }]}>{doseSize}</Text>
             <ChevronDown color={colors.cyan} size={16} />
           </TouchableOpacity>
         </View>
 
         {/* Dose Picker Modal */}
         {showDosePicker && (
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerHeader}>
+          <View style={[styles.pickerModal, { backgroundColor: colors.bgDark, borderColor: `${colors.cyan}4D` }]}>
+            <View style={[styles.pickerHeader, { borderBottomColor: colors.borderSubtle }]}>
               <TouchableOpacity onPress={() => setShowDosePicker(false)}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
+                <Text style={[styles.pickerCancel, { color: colors.textMuted }]}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.pickerTitle}>Dose per intake</Text>
+              <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Dose per intake</Text>
               <TouchableOpacity onPress={() => setShowDosePicker(false)}>
-                <Text style={styles.pickerDone}>Done</Text>
+                <Text style={[styles.pickerDone, { color: colors.cyan }]}>Done</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.wheelPickerContainer}>
-              <View style={styles.wheelPickerHighlight} />
+              <View style={[styles.wheelPickerHighlight, { backgroundColor: `${colors.cyan}1A`, borderColor: `${colors.cyan}4D` }]} />
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 snapToInterval={50}
@@ -907,7 +914,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
                     <Text
                       style={[
                         styles.wheelPickerText,
+                        { color: colors.textMuted },
                         doseSize === num && styles.wheelPickerTextActive,
+                        doseSize === num && { color: colors.cyan },
                       ]}
                     >
                       {num}
@@ -917,7 +926,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               </ScrollView>
             </View>
             <TextInput
-              style={styles.pickerDirectInput}
+              style={[styles.pickerDirectInput, { color: colors.textPrimary, backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
               value={doseInputText}
               onFocus={() => setDoseInputText(doseSize.toString())}
               onChangeText={(text) => {
@@ -945,7 +954,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               }}
               keyboardType="number-pad"
               placeholder={`Enter value (1-${maxDoseSize})`}
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               maxLength={2}
             />
           </View>
@@ -956,41 +965,41 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           {DOSE_UNITS.map((unit) => (
             <TouchableOpacity
               key={unit.value}
-              style={[styles.unitChip, doseUnit === unit.value && styles.unitChipActive]}
+              style={[styles.unitChip, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }, doseUnit === unit.value && { backgroundColor: `${colors.cyan}26`, borderColor: colors.cyan }]}
               onPress={() => setDoseUnit(unit.value as typeof doseUnit)}
             >
-              <Text style={[styles.unitChipText, doseUnit === unit.value && styles.unitChipTextActive]}>
+              <Text style={[styles.unitChipText, { color: colors.textSecondary }, doseUnit === unit.value && styles.unitChipTextActive, doseUnit === unit.value && { color: colors.cyan }]}>
                 {unit.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.dosePerIntakeRow}>
-          <Text style={styles.stepperLabelSmall}>Inventory in stock</Text>
+        <View style={[styles.dosePerIntakeRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.stepperLabelSmall, { color: colors.textPrimary }]}>Inventory in stock</Text>
           <TouchableOpacity
-            style={styles.dosePickerButton}
+            style={[styles.dosePickerButton, { backgroundColor: `${colors.cyan}1A` }]}
             onPress={() => setShowInventoryPicker(true)}
           >
-            <Text style={styles.dosePickerButtonText}>{inventoryQuantity}</Text>
+            <Text style={[styles.dosePickerButtonText, { color: colors.cyan }]}>{inventoryQuantity}</Text>
             <ChevronDown color={colors.cyan} size={16} />
           </TouchableOpacity>
         </View>
 
         {/* Inventory Picker Modal */}
         {showInventoryPicker && (
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerHeader}>
+          <View style={[styles.pickerModal, { backgroundColor: colors.bgDark, borderColor: `${colors.cyan}4D` }]}>
+            <View style={[styles.pickerHeader, { borderBottomColor: colors.borderSubtle }]}>
               <TouchableOpacity onPress={() => setShowInventoryPicker(false)}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
+                <Text style={[styles.pickerCancel, { color: colors.textMuted }]}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.pickerTitle}>Inventory in stock</Text>
+              <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Inventory in stock</Text>
               <TouchableOpacity onPress={() => setShowInventoryPicker(false)}>
-                <Text style={styles.pickerDone}>Done</Text>
+                <Text style={[styles.pickerDone, { color: colors.cyan }]}>Done</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.wheelPickerContainer}>
-              <View style={styles.wheelPickerHighlight} />
+              <View style={[styles.wheelPickerHighlight, { backgroundColor: `${colors.cyan}1A`, borderColor: `${colors.cyan}4D` }]} />
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 snapToInterval={50}
@@ -1010,7 +1019,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
                     <Text
                       style={[
                         styles.wheelPickerText,
+                        { color: colors.textMuted },
                         inventoryQuantity === num && styles.wheelPickerTextActive,
+                        inventoryQuantity === num && { color: colors.cyan },
                       ]}
                     >
                       {num}
@@ -1020,7 +1031,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               </ScrollView>
             </View>
             <TextInput
-              style={styles.pickerDirectInput}
+              style={[styles.pickerDirectInput, { color: colors.textPrimary, backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
               value={inventoryInputText}
               onFocus={() => setInventoryInputText(inventoryQuantity.toString())}
               onChangeText={(text) => {
@@ -1044,7 +1055,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               }}
               keyboardType="number-pad"
               placeholder="Enter quantity"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               maxLength={4}
             />
           </View>
@@ -1064,7 +1075,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               expiryWarning.type === 'error' && styles.expiryError,
             ]}>
               <AlertCircle
-                color={expiryWarning.type === 'error' ? '#EF4444' : '#F59E0B'}
+                color={expiryWarning.type === 'error' ? colors.error : colors.warning}
                 size={16}
               />
               <Text style={[
@@ -1077,22 +1088,22 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           )}
         </View>
 
-        <Text style={styles.fieldLabel}>Meal Relation</Text>
+        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Meal Relation</Text>
         <View style={styles.chipGroup}>
           {MEAL_RELATIONS.map((m, index) => (
             <TouchableOpacity
               key={m}
-              style={[styles.mealChip, mealRelationIndex === index && styles.chipActive]}
+              style={[styles.mealChip, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }, mealRelationIndex === index && { backgroundColor: `${colors.cyan}26`, borderColor: colors.cyan }]}
               onPress={() => setMealRelationIndex(index)}
             >
               {index > 0 && (
                 <UtensilsCrossed
-                  color={mealRelationIndex === index ? colors.cyan : '#64748B'}
+                  color={mealRelationIndex === index ? colors.cyan : colors.textMuted}
                   size={14}
                   strokeWidth={2}
                 />
               )}
-              <Text style={[styles.chipText, mealRelationIndex === index && styles.chipTextActive]}>
+              <Text style={[styles.chipText, { color: colors.textSecondary }, mealRelationIndex === index && styles.chipTextActive, mealRelationIndex === index && { color: colors.cyan }]}>
                 {m}
               </Text>
             </TouchableOpacity>
@@ -1101,10 +1112,10 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
         {/* MEDICAL CONTEXT (KNOWLEDGE BASE) - Collapsible */}
         <TouchableOpacity
-          style={styles.collapsibleHeader}
+          style={[styles.collapsibleHeader, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
           onPress={() => setMedicalContextExpanded(!medicalContextExpanded)}
         >
-          <Text style={styles.collapsibleTitle}>MEDICAL CONTEXT (KNOWLEDGE BASE)</Text>
+          <Text style={[styles.collapsibleTitle, { color: colors.cyan }]}>MEDICAL CONTEXT (KNOWLEDGE BASE)</Text>
           {medicalContextExpanded ? (
             <ChevronUp color={colors.cyan} size={20} />
           ) : (
@@ -1114,86 +1125,86 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
         {medicalContextExpanded && (
           <View style={styles.collapsibleContent}>
-            <Text style={styles.fieldLabel}>Strength/Unit</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Strength/Unit</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={strength}
               onChangeText={setStrength}
               placeholder="e.g., 20mg"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>Indication (Health Goal)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Indication (Health Goal)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={indication}
               onChangeText={setIndication}
               placeholder="e.g., Longevity, Heart Health"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>Special Instructions</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Special Instructions</Text>
             <TextInput
-              style={[styles.input, styles.multilineInput]}
+              style={[styles.input, styles.multilineInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={specialInstructions}
               onChangeText={setSpecialInstructions}
               placeholder="Take with water, avoid alcohol..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={3}
             />
 
-            <Text style={styles.fieldLabel}>Specific Allergies</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Specific Allergies</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={allergies}
               onChangeText={setAllergies}
               placeholder="Sulfa drugs, penicillin..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>Doctor Name</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Doctor Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={doctorName}
               onChangeText={setDoctorName}
               placeholder="Dr. Smith"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>Pharmacy Name</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Pharmacy Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={pharmacyName}
               onChangeText={setPharmacyName}
               placeholder="CVS Pharmacy"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>Brand Name</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Brand Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={brandName}
               onChangeText={setBrandName}
               placeholder="Generic / Brand name"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
           </View>
         )}
 
         {/* Save Button - "ADD TO CABINET" for as-needed, "INITIALIZE RITUAL" for others */}
         <TouchableOpacity
-          style={[styles.initializeBtn, (!name.trim() || isSaving) && styles.initializeBtnDisabled]}
+          style={[styles.initializeBtn, { backgroundColor: colors.cyan }, (!name.trim() || isSaving) && styles.initializeBtnDisabled]}
           onPress={frequencyType === 'as_needed' ? handleDirectSave : handleSave}
           disabled={!name.trim() || isSaving}
         >
           {isSaving ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={styles.initializeBtnText}>Saving...</Text>
+              <ActivityIndicator size="small" color={isDark ? '#FFFFFF' : '#0A0A0B'} />
+              <Text style={[styles.initializeBtnText, { color: isDark ? '#0A0A0B' : '#FFFFFF' }]}>Saving...</Text>
             </View>
           ) : (
-            <Text style={styles.initializeBtnText}>
+            <Text style={[styles.initializeBtnText, { color: isDark ? '#0A0A0B' : '#FFFFFF' }]}>
               {frequencyType === 'as_needed' ? 'ADD TO CABINET' : 'INITIALIZE RITUAL'}
             </Text>
           )}
@@ -1205,7 +1216,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0A0A0B' },
+  safe: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
 
   // Header
@@ -1220,12 +1231,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -1236,7 +1245,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1245,7 +1253,6 @@ const styles = StyleSheet.create({
   aiModeBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#00D1FF',
   },
   warningsBanner: {
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -1262,7 +1269,6 @@ const styles = StyleSheet.create({
   warningText: {
     flex: 1,
     fontSize: 13,
-    color: '#F59E0B',
     lineHeight: 18,
   },
   labelWithConfidence: {
@@ -1275,7 +1281,6 @@ const styles = StyleSheet.create({
 
   // Section Labels
   sectionLabel: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
@@ -1283,7 +1288,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   fieldLabel: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 8,
@@ -1300,7 +1304,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   calculatedInfo: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 8,
@@ -1308,12 +1311,9 @@ const styles = StyleSheet.create({
 
   // Inputs
   input: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
-    color: colors.textPrimary,
     fontSize: 15,
   },
   multilineInput: {
@@ -1343,54 +1343,42 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     gap: 8,
   },
   frequencyGridOptionActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
-    borderColor: colors.cyan,
   },
   radioOuter: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#64748B',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioOuterActive: {
-    borderColor: colors.cyan,
   },
   radioInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.cyan,
   },
   frequencyGridText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
   frequencyGridTextActive: {
-    color: colors.textPrimary,
   },
 
   // Day Selector (for specific days)
   daySelector: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   daySelectorLabel: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 12,
@@ -1404,25 +1392,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
   dayChipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.2)',
-    borderColor: colors.cyan,
   },
   dayChipText: {
-    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
   },
   dayChipTextActive: {
-    color: colors.cyan,
   },
   selectedDaysInfo: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '500',
     marginTop: 12,
@@ -1437,13 +1418,10 @@ const styles = StyleSheet.create({
     gap: 16,
     marginTop: 16,
     padding: 16,
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   intervalLabel: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -1456,12 +1434,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   intervalValue: {
-    color: colors.cyan,
     fontSize: 24,
     fontWeight: '700',
     minWidth: 40,
@@ -1478,7 +1454,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(251, 113, 133, 0.2)',
   },
   asNeededText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
@@ -1495,35 +1470,26 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
   occurrenceChipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
   },
   occurrenceText: {
-    color: '#94A3B8',
     fontSize: 14,
     fontWeight: '600',
   },
   occurrenceTextActive: {
-    color: colors.cyan,
   },
 
   // Interval Slider
   intervalSliderContainer: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   intervalSliderLabel: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
@@ -1535,7 +1501,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   intervalMinMax: {
-    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
     width: 28,
@@ -1551,36 +1516,27 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sliderDotActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.2)',
-    borderColor: colors.cyan,
   },
   sliderDotLabel: {
-    color: '#64748B',
     fontSize: 12,
     fontWeight: '700',
   },
   sliderDotLabelActive: {
-    color: colors.cyan,
   },
 
   // Calculated Doses Display
   calculatedDosesContainer: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   calculatedDosesLabel: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1595,7 +1551,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
@@ -1604,17 +1559,14 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.cyan,
     justifyContent: 'center',
     alignItems: 'center',
   },
   doseNumberText: {
-    color: '#0A0A0B',
     fontSize: 12,
     fontWeight: '700',
   },
   calculatedDoseTime: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1629,21 +1581,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   chipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
   },
   chipText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: colors.cyan,
   },
   mealChip: {
     flexDirection: 'row',
@@ -1652,9 +1598,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   // Toggle
@@ -1666,16 +1610,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   toggleLabel: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '500',
   },
 
   // Stepper
   stepperContainer: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1684,12 +1625,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   stepperLabel: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '500',
   },
   stepperLabelSmall: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -1702,19 +1641,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepperValue: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
     minWidth: 30,
     textAlign: 'center',
   },
   stepperValueSmall: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     minWidth: 30,
@@ -1723,9 +1659,7 @@ const styles = StyleSheet.create({
 
   // Dose per intake row
   dosePerIntakeRow: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1737,22 +1671,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
   dosePickerButtonText: {
-    color: colors.cyan,
     fontSize: 16,
     fontWeight: '700',
   },
 
   // Wheel Picker Modal
   pickerModal: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 16,
     marginTop: 8,
     overflow: 'hidden',
@@ -1764,20 +1694,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   pickerCancel: {
-    color: '#64748B',
     fontSize: 14,
     fontWeight: '500',
   },
   pickerTitle: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   pickerDone: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1792,11 +1718,9 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     height: 50,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     borderRadius: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   wheelPickerContent: {
     paddingVertical: 50,
@@ -1807,32 +1731,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wheelPickerText: {
-    color: '#64748B',
     fontSize: 22,
     fontWeight: '500',
   },
   wheelPickerTextActive: {
-    color: colors.cyan,
     fontSize: 24,
     fontWeight: '700',
   },
   pickerDirectInput: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: colors.textPrimary,
     fontSize: 14,
     textAlign: 'center',
   },
 
   // Inventory stepper value input
   stepperValueInput: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
     minWidth: 40,
@@ -1840,7 +1758,6 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   unitLabel: {
-    color: '#64748B',
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 4,
@@ -1851,15 +1768,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
     marginTop: 24,
   },
   collapsibleTitle: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1870,7 +1784,6 @@ const styles = StyleSheet.create({
 
   // Initialize Button
   initializeBtn: {
-    backgroundColor: colors.cyan,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
@@ -1880,7 +1793,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   initializeBtnText: {
-    color: '#0A0A0B',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1891,12 +1803,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     padding: 14,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   criticalToggleActive: {
     borderColor: 'rgba(251, 113, 133, 0.4)',
@@ -1912,7 +1822,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1920,7 +1829,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(251, 113, 133, 0.15)',
   },
   criticalLabel: {
-    color: '#94A3B8',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1928,7 +1836,6 @@ const styles = StyleSheet.create({
     color: '#FB7185',
   },
   criticalHint: {
-    color: '#64748B',
     fontSize: 11,
     marginTop: 2,
   },
@@ -1936,7 +1843,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1E293B',
     padding: 2,
     justifyContent: 'center',
   },
@@ -1947,7 +1853,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#64748B',
   },
   toggleKnobActive: {
     backgroundColor: '#FB7185',
@@ -1965,26 +1870,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   unitChipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
   },
   unitChipText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },
   unitChipTextActive: {
-    color: colors.cyan,
   },
 
   // Inventory Hint
   inventoryHint: {
-    color: '#64748B',
     fontSize: 11,
     marginTop: 6,
     fontStyle: 'italic',
@@ -2003,10 +1901,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   expiryWarningText: {
-    color: '#F59E0B',
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+    color: '#F59E0B',
   },
   expiryError: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',

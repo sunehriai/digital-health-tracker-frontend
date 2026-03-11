@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/typography';
 
 interface ModalProps {
@@ -28,6 +28,7 @@ interface ModalProps {
  * Native: Uses the standard React Native <Modal>.
  */
 export default function Modal({ visible, onClose, title, children }: ModalProps) {
+  const { colors } = useTheme();
   console.log(`[Modal] render — platform=${Platform.OS}, visible=${visible}, title="${title || '(none)'}"`);
 
   if (Platform.OS === 'web') {
@@ -35,10 +36,10 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
 
     const modalContent = (
       <div style={portalStyle}>
-        <Pressable style={webStyles.backdrop} onPress={onClose} />
-        <View style={webStyles.sheet}>
+        <Pressable style={[webStyles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
+        <View style={[webStyles.sheet, { backgroundColor: colors.bgCard }]}>
           <View style={styles.header}>
-            {title && <Text style={styles.title}>{title}</Text>}
+            {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <X color={colors.textSecondary} size={20} />
             </TouchableOpacity>
@@ -56,10 +57,10 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
 
   return (
     <RNModal visible={visible} animationType="slide" transparent statusBarTranslucent>
-      <View style={styles.overlay}>
-        <View style={styles.content}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.content, { backgroundColor: colors.bgCard }]}>
           <View style={styles.header}>
-            {title && <Text style={styles.title}>{title}</Text>}
+            {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <X color={colors.textSecondary} size={20} />
             </TouchableOpacity>
@@ -88,11 +89,9 @@ const portalStyle: React.CSSProperties = {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   content: {
-    backgroundColor: colors.bgCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -106,7 +105,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.textPrimary,
     flex: 1,
   },
   closeButton: {
@@ -121,10 +119,8 @@ const webStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
   },
   sheet: {
-    backgroundColor: colors.bgCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,

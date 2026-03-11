@@ -6,6 +6,7 @@ import type {
   NotificationPreferencesUpdate,
   MedicationNotificationOverride,
 } from '../../domain/types';
+import { logPrefsUpdated } from '../../data/utils/notificationDebugLog';
 
 const STORAGE_KEY = '@vision_notification_prefs';
 const PENDING_SYNC_KEY = '@vision_notification_prefs_pending';
@@ -64,6 +65,7 @@ export function useNotificationPrefs() {
       if (cached) {
         const parsed = JSON.parse(cached);
         console.log('[NOTIF-DEBUG][Prefs] Cache hit — dose_reminders_enabled:', parsed.dose_reminders_enabled, 'advance_minutes:', parsed.advance_reminder_minutes);
+
         setPrefs(parsed);
         setLoading(false);
       } else {
@@ -109,12 +111,14 @@ export function useNotificationPrefs() {
 
       const serverPrefs = await notificationPreferencesService.get();
       console.log('[NOTIF-DEBUG][Prefs] Backend sync OK — dose_reminders_enabled:', serverPrefs.dose_reminders_enabled, 'advance_minutes:', serverPrefs.advance_reminder_minutes);
+
       if (isMounted.current) {
         setPrefs(serverPrefs);
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(serverPrefs));
       }
     } catch (err) {
       console.log('[NOTIF-DEBUG][Prefs] Backend sync FAILED:', err);
+
       // Offline — use cache or defaults
       if (!prefs && isMounted.current) {
         console.log('[NOTIF-DEBUG][Prefs] Using DEFAULTS (offline, no cache)');
@@ -196,6 +200,7 @@ export function useNotificationPrefs() {
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         return updated;
       });
+      logPrefsUpdated(String(field), value);
       scheduleDebouncedSave({ [field]: value } as NotificationPreferencesUpdate);
     },
     [],

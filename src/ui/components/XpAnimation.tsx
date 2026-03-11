@@ -13,7 +13,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,8 +22,9 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import { colors } from '../theme/colors';
+import { haptics } from '../../data/utils/haptics';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 
 interface XpAnimationProps {
   /** Estimated XP to display (from xpCalculator) */
@@ -37,6 +38,8 @@ interface XpAnimationProps {
 }
 
 export default function XpAnimation({ xpAmount, onComplete, trigger, isBoosted = false }: XpAnimationProps) {
+  const { colors } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -46,11 +49,17 @@ export default function XpAnimation({ xpAmount, onComplete, trigger, isBoosted =
       translateY.value = 0;
       opacity.value = 0;
 
-      // Haptic Light Impact on trigger
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-          // Silently fail on unsupported devices
-        });
+      // Haptic Light Impact on trigger (respects haptic preference)
+      haptics.light();
+
+      if (reducedMotion) {
+        // Reduced motion: show at full opacity for 500ms, then dismiss
+        opacity.value = 1;
+        const timer = setTimeout(() => {
+          opacity.value = 0;
+          onComplete?.();
+        }, 500);
+        return () => clearTimeout(timer);
       }
 
       // Fade in quickly
@@ -89,32 +98,21 @@ export default function XpAnimation({ xpAmount, onComplete, trigger, isBoosted =
   const label = isBoosted ? `+${xpAmount} XP (2x Boost!)` : `+${xpAmount} XP`;
 
   return (
-    <Animated.Text style={[isBoosted ? styles.xpTextBoosted : styles.xpText, animatedStyle]}>
+    <Animated.Text style={[
+      styles.xpTextBase,
+      { color: isBoosted ? '#FFD700' : colors.cyan, textShadowColor: isBoosted ? 'rgba(255, 215, 0, 0.5)' : 'rgba(0, 209, 255, 0.5)' },
+      animatedStyle,
+    ]}>
       {label}
     </Animated.Text>
   );
 }
 
 const styles = StyleSheet.create({
-  xpText: {
-    color: colors.cyan,
+  xpTextBase: {
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 209, 255, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
-    position: 'absolute',
-    alignSelf: 'center',
-    top: -8,
-    zIndex: 10,
-  },
-  xpTextBoosted: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(255, 215, 0, 0.5)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
     position: 'absolute',

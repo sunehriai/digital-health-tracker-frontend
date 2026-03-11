@@ -17,7 +17,7 @@ import {
 import Animated, { FadeIn, FadeInUp, FadeOut } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Zap } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 const STORAGE_KEY = 'lastBoostModalShown';
 const AUTO_DISMISS_MS = 10_000;
@@ -61,6 +61,7 @@ export default function WelcomeBackModal({
   boostHoursRemaining,
   onDismiss,
 }: WelcomeBackModalProps) {
+  const { colors } = useTheme();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-dismiss after 10 seconds
@@ -85,7 +86,7 @@ export default function WelcomeBackModal({
     >
       {/* Backdrop */}
       <TouchableOpacity
-        style={styles.backdrop}
+        style={[styles.backdrop, { backgroundColor: colors.overlayHeavy }]}
         activeOpacity={1}
         onPress={onDismiss}
       >
@@ -93,7 +94,7 @@ export default function WelcomeBackModal({
         <Animated.View
           entering={FadeInUp.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={styles.sheet}
+          style={[styles.sheet, { backgroundColor: colors.bgElevated }]}
           onStartShouldSetResponder={() => true}
         >
           {/* Gold glow circle with 2x */}
@@ -105,7 +106,7 @@ export default function WelcomeBackModal({
           </View>
 
           <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Your comeback boost is active. All XP earned today is doubled!
           </Text>
 
@@ -129,11 +130,10 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.bgElevated,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface CircularProgressProps {
   size?: number;
@@ -16,8 +16,10 @@ export default function CircularProgress({
   strokeWidth = 6,
   progress,
   label,
-  color = colors.cyan,
+  color,
 }: CircularProgressProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.cyan;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (circumference * Math.min(progress, 100)) / 100;
@@ -37,7 +39,7 @@ export default function CircularProgress({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={resolvedColor}
           strokeWidth={strokeWidth}
           fill="transparent"
           strokeDasharray={`${circumference}`}
@@ -47,8 +49,8 @@ export default function CircularProgress({
         />
       </Svg>
       <View style={styles.labelContainer}>
-        <Text style={[styles.value, { color }]}>{Math.round(progress)}%</Text>
-        {label && <Text style={styles.label}>{label}</Text>}
+        <Text style={[styles.value, { color: resolvedColor }]}>{Math.round(progress)}%</Text>
+        {label && <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>}
       </View>
     </View>
   );
@@ -62,5 +64,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   value: { fontSize: 16, fontWeight: '700' },
-  label: { color: colors.textMuted, fontSize: 9, fontWeight: '600', marginTop: 1 },
+  label: { fontSize: 9, fontWeight: '600', marginTop: 1 },
 });

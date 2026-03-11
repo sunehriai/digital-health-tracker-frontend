@@ -20,11 +20,12 @@ import { useMedications } from '../hooks/useMedications';
 import { feedService } from '../../data/services/feedService';
 import { medicationService } from '../../data/services/medicationService';
 import { doseStatusCache } from '../../data/utils/doseStatusCache';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/typography';
 import type { Medication } from '../../domain/types';
 import type { RootStackParamList } from '../navigation/types';
-import { formatTime12h, getNextDoseInfoString, formatOccurrence } from '../../domain/utils';
+import { formatTime, getNextDoseInfoString, formatOccurrence } from '../../domain/utils';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import {
   INVENTORY_CONFIG,
   STOCK_THRESHOLDS,
@@ -41,7 +42,7 @@ const SWIPE_THRESHOLD = 80;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // Pulsing card wrapper for low-stock medications
-function PulsingCard({ children, isLowStock }: { children: React.ReactNode; isLowStock: boolean }) {
+function PulsingCard({ children, isLowStock, borderSubtle }: { children: React.ReactNode; isLowStock: boolean; borderSubtle: string }) {
   const pulseOpacity = useSharedValue(0.3);
 
   React.useEffect(() => {
@@ -60,7 +61,7 @@ function PulsingCard({ children, isLowStock }: { children: React.ReactNode; isLo
   }, [isLowStock]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    borderColor: isLowStock ? `rgba(251, 146, 60, ${pulseOpacity.value})` : 'rgba(255, 255, 255, 0.08)',
+    borderColor: isLowStock ? `rgba(251, 146, 60, ${pulseOpacity.value})` : borderSubtle,
     shadowColor: isLowStock ? '#FB923C' : 'transparent',
     shadowOpacity: isLowStock ? pulseOpacity.value * 0.5 : 0,
     shadowRadius: isLowStock ? 8 : 0,
@@ -78,6 +79,8 @@ export default function CabinetScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Cabinet');
   const { showAlert } = useAlert();
+  const { prefs: { timeFormat } } = useAppPreferences();
+  const { colors, isDark, shadow } = useTheme();
   const {
     activeMedications,
     archivedMedications,
@@ -484,7 +487,8 @@ export default function CabinetScreen() {
       <TouchableOpacity
         style={[
           styles.medCard,
-          med.is_paused && styles.medCardPaused,
+          { backgroundColor: colors.bgSubtle, borderColor: 'rgba(45,212,191,0.2)' },
+          med.is_paused && [styles.medCardPaused, { borderColor: colors.borderSubtle }],
           isSelectMode && isSelected && styles.medCardSelected,
         ]}
         onPress={() => handleMedicationPress(med)}
@@ -507,16 +511,16 @@ export default function CabinetScreen() {
               {isSelected ? (
                 <CheckSquare color="#2DD4BF" size={22} strokeWidth={2.5} />
               ) : (
-                <Square color="#64748B" size={22} strokeWidth={2} />
+                <Square color={colors.textMuted} size={22} strokeWidth={2} />
               )}
             </TouchableOpacity>
           )}
           <View style={styles.medIcon}>
-            <Pill color={med.is_paused ? "#64748B" : "#2DD4BF"} size={24} strokeWidth={3} />
+            <Pill color={med.is_paused ? colors.textMuted : "#2DD4BF"} size={24} strokeWidth={3} />
           </View>
           <View style={styles.medNameSection}>
             <View style={styles.medNameRow}>
-              <Text style={styles.medName} numberOfLines={1}>{med.name}</Text>
+              <Text style={[styles.medName, { color: colors.textPrimary }]} numberOfLines={1}>{med.name}</Text>
               {med.is_critical && (
                 <View style={styles.criticalBadge}>
                   <AlertTriangle color="#FB7185" size={12} strokeWidth={3} />
@@ -528,19 +532,19 @@ export default function CabinetScreen() {
                 </View>
               )}
             </View>
-            {med.strength && <Text style={styles.medStrength}>{med.strength}</Text>}
+            {med.strength && <Text style={[styles.medStrength, { color: colors.textMuted }]}>{med.strength}</Text>}
           </View>
           {/* Swipe hint */}
           {!isSelectMode && (
             <View style={styles.swipeHint}>
-              <ChevronLeft color="#475569" size={14} strokeWidth={2} />
+              <ChevronLeft color={colors.textMuted} size={14} strokeWidth={2} />
             </View>
           )}
         </View>
 
         {/* Slim stock bar */}
         <View style={styles.stockRow}>
-          <View style={styles.stockBarBg}>
+          <View style={[styles.stockBarBg, { backgroundColor: colors.bgInput }]}>
             <View style={[styles.stockBarFill, { width: `${Math.min(stockPct, 100)}%`, backgroundColor: accentColor }]} />
           </View>
           <Text style={[styles.stockCount, { color: accentColor }]}>{INVENTORY_CONFIG.formatStockDisplay(med.current_stock, med.initial_stock, med.dose_unit)}</Text>
@@ -549,11 +553,11 @@ export default function CabinetScreen() {
         {/* Footer: Next dose or paused */}
         <View style={styles.footerRow}>
           {med.is_paused ? (
-            <Text style={styles.pausedText}>PAUSED</Text>
+            <Text style={[styles.pausedText, { color: colors.textSecondary }]}>PAUSED</Text>
           ) : (
             <View style={styles.nextDoseRow}>
               <Clock color="#2DD4BF" size={14} strokeWidth={3} />
-              <Text style={styles.nextDoseText}>{getNextDoseInfoString(med, takenTodayIds.has(med.id) ? new Set([0]) : new Set())}</Text>
+              <Text style={styles.nextDoseText}>{getNextDoseInfoString(med, takenTodayIds.has(med.id) ? new Set([0]) : new Set(), timeFormat)}</Text>
             </View>
           )}
           <View style={styles.footerActions}>
@@ -580,7 +584,7 @@ export default function CabinetScreen() {
 
     return (
       <Animated.View key={med.id} entering={FadeInDown.duration(300)} exiting={FadeOut.duration(200)} layout={Layout.springify()}>
-        <PulsingCard isLowStock={isVeryLowStock}>
+        <PulsingCard isLowStock={isVeryLowStock} borderSubtle={colors.borderSubtle}>
           <SwipeableCard
             onPause={() => handlePause(med.id)}
             onResume={() => handleResume(med.id)}
@@ -595,7 +599,7 @@ export default function CabinetScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, isSelectMode && styles.contentWithBottomBar]}
@@ -607,10 +611,10 @@ export default function CabinetScreen() {
             {isSelectMode ? (
               <>
                 <TouchableOpacity style={styles.cancelSelectBtn} onPress={exitSelectMode}>
-                  <X color="#94A3B8" size={20} strokeWidth={2.5} />
-                  <Text style={styles.cancelSelectText}>Cancel</Text>
+                  <X color={colors.textSecondary} size={20} strokeWidth={2.5} />
+                  <Text style={[styles.cancelSelectText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
-                <Text style={styles.selectedCount}>
+                <Text style={[styles.selectedCount, { color: colors.textPrimary }]}>
                   {selectedIds.size} selected
                 </Text>
                 <TouchableOpacity style={styles.selectAllBtn} onPress={selectAll}>
@@ -620,14 +624,14 @@ export default function CabinetScreen() {
             ) : (
               <>
                 <View>
-                  <Text style={styles.title}>Cabinet</Text>
-                  <Text style={styles.subtitle}>Manage your medication regimen</Text>
+                  <Text style={[styles.title, { color: colors.textPrimary }]}>Cabinet</Text>
+                  <Text style={[styles.subtitle, { color: colors.textMuted }]}>Manage your medication regimen</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.archiveIconBtn}
                   onPress={() => navigation.navigate('ArchivedRituals' as any)}
                 >
-                  <Archive color="#64748B" size={22} strokeWidth={2} />
+                  <Archive color={colors.textMuted} size={22} strokeWidth={2} />
                 </TouchableOpacity>
               </>
             )}
@@ -635,18 +639,18 @@ export default function CabinetScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Search color="#64748B" size={18} strokeWidth={2} />
+          <View style={[styles.searchInputWrapper, { backgroundColor: colors.bgInput }]}>
+            <Search color={colors.textMuted} size={18} strokeWidth={2} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.textPrimary }]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search medications..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-                <X color="#64748B" size={16} strokeWidth={2} />
+                <X color={colors.textMuted} size={16} strokeWidth={2} />
               </TouchableOpacity>
             )}
           </View>
@@ -664,10 +668,18 @@ export default function CabinetScreen() {
             ] as const).map((filter) => (
               <TouchableOpacity
                 key={filter.key}
-                style={[styles.filterChip, activeFilter === filter.key && styles.filterChipActive]}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: colors.bgInput, borderColor: colors.borderSubtle },
+                  activeFilter === filter.key && styles.filterChipActive,
+                ]}
                 onPress={() => setActiveFilter(filter.key)}
               >
-                <Text style={[styles.filterChipText, activeFilter === filter.key && styles.filterChipTextActive]}>
+                <Text style={[
+                  styles.filterChipText,
+                  { color: colors.textSecondary },
+                  activeFilter === filter.key && styles.filterChipTextActive,
+                ]}>
                   {filter.label}
                 </Text>
               </TouchableOpacity>
@@ -679,7 +691,7 @@ export default function CabinetScreen() {
         <GestureHandlerRootView style={styles.medList}>
           {filteredActiveMedications.map(renderActiveMed)}
           {filteredActiveMedications.length === 0 && !loading && (
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               {searchQuery || activeFilter !== 'all'
                 ? 'No medications match your search or filter.'
                 : 'No active medications. Add one to get started.'}
@@ -692,11 +704,11 @@ export default function CabinetScreen() {
       {isSelectMode && selectedIds.size > 0 && (
         <Animated.View
           entering={FadeInDown.duration(200)}
-          style={styles.bottomActionBar}
+          style={[styles.bottomActionBar, { backgroundColor: colors.bgElevated, borderTopColor: colors.borderSubtle }]}
         >
           <TouchableOpacity style={styles.bottomAction} onPress={handleBulkPause}>
-            <Pause color="#64748B" size={20} strokeWidth={2.5} />
-            <Text style={styles.bottomActionText}>Pause</Text>
+            <Pause color={colors.textMuted} size={20} strokeWidth={2.5} />
+            <Text style={[styles.bottomActionText, { color: colors.textSecondary }]}>Pause</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.bottomAction} onPress={handleBulkResume}>
             <Play color="#2DD4BF" size={20} strokeWidth={2.5} />
@@ -716,11 +728,11 @@ export default function CabinetScreen() {
         animationType="fade"
         onRequestClose={() => setRefillModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Log Refill</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bgElevated, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Log Refill</Text>
             {selectedMedForRefill && (
-              <Text style={styles.modalSubtitle}>
+              <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>
                 {INVENTORY_CONFIG.formatRefillSubtitle(selectedMedForRefill.name, selectedMedForRefill.current_stock, selectedMedForRefill.dose_unit)}
               </Text>
             )}
@@ -750,14 +762,14 @@ export default function CabinetScreen() {
 
             {/* Custom input */}
             <View style={styles.customInputRow}>
-              <Text style={styles.customInputLabel}>Or enter custom:</Text>
+              <Text style={[styles.customInputLabel, { color: colors.textSecondary }]}>Or enter custom:</Text>
               <TextInput
-                style={styles.customInput}
+                style={[styles.customInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                 value={refillAmount}
                 onChangeText={setRefillAmount}
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
@@ -777,10 +789,10 @@ export default function CabinetScreen() {
             {/* Actions */}
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
                 onPress={() => setRefillModalVisible(false)}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -790,7 +802,7 @@ export default function CabinetScreen() {
                 onPress={handleConfirmRefill}
                 disabled={!refillAmount || refillLoading}
               >
-                <Text style={styles.modalConfirmText}>
+                <Text style={[styles.modalConfirmText, { color: colors.bgDark }]}>
                   {refillLoading ? 'Saving...' : 'Confirm Refill'}
                 </Text>
               </TouchableOpacity>
@@ -804,15 +816,15 @@ export default function CabinetScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0F172A' },
+  safe: { flex: 1 },
   scrollView: {
     flex: 1,
   },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
   contentWithBottomBar: { paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700' },
-  subtitle: { color: '#64748B', fontSize: 14, marginTop: 4 },
+  title: { fontSize: 28, fontWeight: '700' },
+  subtitle: { fontSize: 14, marginTop: 4 },
 
   // Archive icon button
   archiveIconBtn: {
@@ -824,8 +836,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingVertical: 8, paddingHorizontal: 12,
   },
-  cancelSelectText: { color: '#94A3B8', fontSize: 15, fontWeight: '600' },
-  selectedCount: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
+  cancelSelectText: { fontSize: 15, fontWeight: '600' },
+  selectedCount: { fontSize: 17, fontWeight: '700' },
   selectAllBtn: {
     paddingVertical: 8, paddingHorizontal: 12,
   },
@@ -839,7 +851,6 @@ const styles = StyleSheet.create({
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -847,7 +858,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '500',
     padding: 0,
@@ -869,16 +879,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   filterChipActive: {
     backgroundColor: 'rgba(45, 212, 191, 0.2)',
     borderColor: '#2DD4BF',
   },
   filterChipText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -920,15 +927,12 @@ const styles = StyleSheet.create({
   },
   // Med card
   medCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1.5,
-    borderColor: 'rgba(45,212,191,0.2)',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   medCardPaused: {
-    borderColor: 'rgba(255,255,255,0.1)',
     opacity: 0.6,
   },
   medCardSelected: {
@@ -959,7 +963,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   medName: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     flexShrink: 1,
@@ -984,7 +987,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   medStrength: {
-    color: '#64748B',
     fontSize: 12,
     marginTop: 1,
   },
@@ -1003,7 +1005,6 @@ const styles = StyleSheet.create({
   stockBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: '#1E293B',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -1035,7 +1036,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pausedText: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -1076,7 +1076,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 14, textAlign: 'center', paddingVertical: 40 },
 
   // Bottom action bar
   bottomActionBar: {
@@ -1084,9 +1084,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1E293B',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 12,
@@ -1099,7 +1097,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   bottomActionText: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1107,29 +1104,24 @@ const styles = StyleSheet.create({
   // Refill Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#1E293B',
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalTitle: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 4,
   },
   modalSubtitle: {
-    color: '#64748B',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
@@ -1167,21 +1159,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   customInputLabel: {
-    color: '#94A3B8',
     fontSize: 14,
   },
   customInput: {
     flex: 1,
-    backgroundColor: '#0F172A',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   previewRow: {
     backgroundColor: 'rgba(45, 212, 191, 0.1)',
@@ -1203,12 +1191,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   modalCancelText: {
-    color: '#94A3B8',
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
@@ -1223,7 +1208,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   modalConfirmText: {
-    color: '#0F172A',
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',

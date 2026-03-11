@@ -1,16 +1,22 @@
 import { Platform } from 'react-native';
 
-// Default to localhost for dev; override via environment or config
-// 10.0.2.2 is Android emulator's localhost, use 127.0.0.1 for web/iOS
-const getDefaultApiBase = () => {
+// Web always uses localhost; native platforms use EXPO_PUBLIC_API_URL
+// (set to LAN IP for physical device, or falls back to emulator defaults).
+const getApiBase = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8000';
+  }
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  // Emulator defaults
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:8000';
   }
-  // For web and iOS, use localhost directly
   return 'http://localhost:8000';
 };
 
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL || getDefaultApiBase();
+export const API_BASE = getApiBase();
 
 export const ENDPOINTS = {
   // Auth / Profile
@@ -61,6 +67,12 @@ export const ENDPOINTS = {
 
   // Export
   EXPORT_HEALTH_REPORT: '/export/health-report',
+
+  // Adherence
+  ADHERENCE_WEEKLY: '/adherence/weekly',
+
+  // Debug (dev-only)
+  DEBUG_LOG: '/debug/log',
 
   // Health
   HEALTH: '/health',

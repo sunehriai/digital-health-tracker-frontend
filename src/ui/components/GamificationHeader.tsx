@@ -19,7 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
 const BADGE_SIZE = 36;
@@ -41,6 +41,7 @@ function formatBoostCountdown(hoursLeft: number): string {
 
 export default function GamificationHeader() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { colors } = useTheme();
   const {
     totalXp,
     currentTier,
@@ -119,32 +120,32 @@ export default function GamificationHeader() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
         <View style={styles.placeholder} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
       <View style={styles.middle}>
         <View style={styles.xpRow}>
-          <Text style={styles.tierLabel}>{tierName}</Text>
+          <Text style={[styles.tierLabel, { color: colors.textPrimary }]}>{tierName}</Text>
           {xpToNextTier !== null && nextTierName ? (
-            <Text style={styles.xpText}>
+            <Text style={[styles.xpText, { color: colors.textSecondary }]}>
               {xpToNextTier < 20
                 ? `Final Dose to ${nextTierName}!`
                 : `${isOnline ? '' : '~'}${xpToNextTier} XP to ${nextTierName}`}
             </Text>
           ) : (
-            <Text style={styles.xpText}>
+            <Text style={[styles.xpText, { color: colors.textSecondary }]}>
               {isOnline ? '' : '~'}{totalXp.toLocaleString()} XP — {tierName}
             </Text>
           )}
         </View>
 
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPercent * 100}%` }]} />
+        <View style={[styles.progressTrack, { backgroundColor: colors.bgSubtle }]}>
+          <View style={[styles.progressFill, { width: `${progressPercent * 100}%`, backgroundColor: colors.cyan }]} />
         </View>
       </View>
 
@@ -177,10 +178,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: colors.bgCard,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
     gap: 12,
   },
   placeholder: {
@@ -206,24 +205,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tierLabel: {
-    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   xpText: {
-    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
   progressTrack: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.cyan,
     borderRadius: 2,
   },
   right: {

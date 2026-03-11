@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface BadgeProps {
   label: string;
@@ -8,15 +8,17 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const variantColors = {
-  cyan: { bg: colors.cyanDim, text: colors.cyan },
-  success: { bg: 'rgba(34, 197, 94, 0.15)', text: colors.success },
-  warning: { bg: 'rgba(245, 158, 11, 0.15)', text: colors.warning },
-  error: { bg: 'rgba(239, 68, 68, 0.15)', text: colors.error },
-  muted: { bg: colors.bgElevated, text: colors.textMuted },
-};
-
 export default function Badge({ label, variant = 'cyan', style }: BadgeProps) {
+  const { colors } = useTheme();
+
+  const variantColors = {
+    cyan: { bg: colors.cyanDim, text: colors.cyan },
+    success: { bg: 'rgba(34, 197, 94, 0.15)', text: colors.success },
+    warning: { bg: 'rgba(245, 158, 11, 0.15)', text: colors.warning },
+    error: { bg: 'rgba(239, 68, 68, 0.15)', text: colors.error },
+    muted: { bg: colors.bgElevated, text: colors.textMuted },
+  };
+
   const { bg, text } = variantColors[variant];
   return (
     <View style={[styles.badge, { backgroundColor: bg }, style]}>

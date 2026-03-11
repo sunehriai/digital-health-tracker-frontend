@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-nativ
 import { Clock, CheckCircle2, Plus, Utensils, ChevronDown, ChevronUp, AlertCircle, AlertTriangle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { haptics } from '../../data/utils/haptics';
 import { formatMedName } from '../../domain/utils';
 import type { RootStackParamList } from '../navigation/types';
@@ -46,6 +46,7 @@ export default function HeroSection({
   onCriticalMissPress,
 }: HeroSectionProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { colors, isDark } = useTheme();
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFutureMessage, setShowFutureMessage] = useState(false);
   const [futureDate, setFutureDate] = useState<string>('');
@@ -112,24 +113,24 @@ export default function HeroSection({
   if (!hasNextDose) {
     return (
       <View style={styles.container}>
-        <View style={[styles.card, styles.cardEmpty]}>
+        <View style={[styles.card, styles.cardEmpty, { borderColor: colors.borderSubtle, backgroundColor: colors.bgSubtle }]}>
           <View style={styles.labelRow}>
             <Clock color={colors.textMuted} size={18} strokeWidth={2.5} />
-            <Text style={[styles.labelText, styles.labelTextMuted]}>NEXT DOSE</Text>
+            <Text style={[styles.labelText, { color: colors.cyan }, { color: colors.textMuted }]}>NEXT DOSE</Text>
           </View>
 
           <View style={styles.centerContent}>
-            <Text style={styles.emptyTitle}>No upcoming doses</Text>
-            <Text style={styles.emptySubtitle}>Add a medication to get started</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No upcoming doses</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>Add a medication to get started</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, { backgroundColor: colors.cyan }]}
             onPress={() => navigation.navigate('AddMedication')}
             activeOpacity={0.8}
           >
             <Plus color={colors.bg} size={16} strokeWidth={2.5} />
-            <Text style={styles.addButtonText}>ADD MEDICATION</Text>
+            <Text style={[styles.addButtonText, { color: colors.bg }]}>ADD MEDICATION</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -138,7 +139,7 @@ export default function HeroSection({
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
+      <View style={[styles.card, { borderColor: colors.cyanGlow, backgroundColor: 'rgba(0, 209, 255, 0.04)' }]}>
         {/* Critical Miss Badge - Always visible when there's a critical miss */}
         {criticalMissedRitual && (
           <TouchableOpacity
@@ -150,8 +151,8 @@ export default function HeroSection({
             activeOpacity={0.8}
           >
             <View style={styles.criticalMissBadge}>
-              <AlertTriangle color="#FFFFFF" size={12} strokeWidth={2.5} />
-              <Text style={styles.criticalMissText}>CRITICAL MISS</Text>
+              <AlertTriangle color={colors.textPrimary} size={12} strokeWidth={2.5} />
+              <Text style={[styles.criticalMissText, { color: colors.textPrimary }]}>CRITICAL MISS</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -159,10 +160,10 @@ export default function HeroSection({
         {/* Label with date */}
         <View style={styles.labelRow}>
           <Clock color={colors.cyan} size={18} strokeWidth={2.5} />
-          <Text style={styles.labelText}>NEXT DOSE</Text>
+          <Text style={[styles.labelText, { color: colors.cyan }]}>NEXT DOSE</Text>
           {dateDisplay && (
             <View style={[styles.dateBadge, !isTodayDose && styles.dateBadgeFuture]}>
-              <Text style={[styles.dateText, !isTodayDose && styles.dateTextFuture]}>
+              <Text style={[styles.dateText, { color: colors.cyan }, !isTodayDose && styles.dateTextFuture]}>
                 {dateDisplay}
               </Text>
             </View>
@@ -174,7 +175,7 @@ export default function HeroSection({
           {/* Medication name with expand toggle for multiple meds */}
           {isMultipleMeds ? (
             <Pressable style={styles.medNameRow} onPress={() => setExpanded(!expanded)}>
-              <Text style={styles.medName} numberOfLines={1}>{displayName}</Text>
+              <Text style={[styles.medName, { color: colors.textPrimary }]} numberOfLines={1}>{displayName}</Text>
               {expanded ? (
                 <ChevronUp color={colors.textMuted} size={18} strokeWidth={2.5} />
               ) : (
@@ -182,16 +183,16 @@ export default function HeroSection({
               )}
             </Pressable>
           ) : (
-            <Text style={styles.medName} numberOfLines={1}>{displayName}</Text>
+            <Text style={[styles.medName, { color: colors.textPrimary }]} numberOfLines={1}>{displayName}</Text>
           )}
 
           {/* Expanded list of medications */}
           {isMultipleMeds && expanded && (
-            <View style={styles.medicationList}>
+            <View style={[styles.medicationList, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.06)' }]}>
               {medications?.map((med) => (
                 <View key={med.id} style={styles.medicationListItem}>
-                  <Text style={styles.medicationListName}>{formatMedName(med.name, 'hero')}</Text>
-                  <Text style={styles.medicationListDose}>{med.doseInfo}</Text>
+                  <Text style={[styles.medicationListName, { color: colors.textPrimary }]}>{formatMedName(med.name, 'hero')}</Text>
+                  <Text style={[styles.medicationListDose, { color: colors.textMuted }]}>{med.doseInfo}</Text>
                 </View>
               ))}
             </View>
@@ -199,15 +200,15 @@ export default function HeroSection({
 
           {/* Time and dose on same line */}
           <View style={styles.timeRow}>
-            <Text style={styles.timeText}>{scheduledTime}</Text>
-            {displayDoseInfo && <Text style={styles.doseText}>• {displayDoseInfo}</Text>}
+            <Text style={[styles.timeText, { color: colors.cyan }]}>{scheduledTime}</Text>
+            {displayDoseInfo && <Text style={[styles.doseText, { color: colors.textMuted }]}>• {displayDoseInfo}</Text>}
           </View>
 
           {/* Meal timing (only for single medication) */}
           {displayMealInfo && (
             <View style={styles.mealBadge}>
               <Utensils color={colors.cyan} size={10} strokeWidth={2.5} />
-              <Text style={styles.mealText}>{displayMealInfo}</Text>
+              <Text style={[styles.mealText, { color: colors.cyan }]}>{displayMealInfo}</Text>
             </View>
           )}
         </View>
@@ -227,23 +228,23 @@ export default function HeroSection({
             <Text style={styles.futureText}>Scheduled for {futureDate}</Text>
           </View>
         ) : showSuccess ? (
-          <View style={styles.successButton}>
+          <View style={[styles.successButton, { backgroundColor: colors.cyanDim, borderColor: colors.cyan }]}>
             <CheckCircle2 color={colors.cyan} size={18} strokeWidth={2.5} />
-            <Text style={styles.successText}>Taken</Text>
+            <Text style={[styles.successText, { color: colors.cyan }]}>Taken</Text>
           </View>
         ) : !isTodayDose ? (
-          <View style={styles.takeButtonDisabled}>
-            <Text style={styles.takeButtonTextDisabled}>
+          <View style={[styles.takeButtonDisabled, { backgroundColor: colors.bgSubtle }]}>
+            <Text style={[styles.takeButtonTextDisabled, { color: colors.textMuted }]}>
               AVAILABLE {dateDisplay?.toUpperCase() || 'LATER'}
             </Text>
           </View>
         ) : disabled ? (
-          <View style={[styles.takeButton, styles.takeButtonLoading]}>
-            <Text style={[styles.takeButtonText, styles.takeButtonTextLoading]}>LOGGING...</Text>
+          <View style={[styles.takeButton, styles.takeButtonLoading, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}>
+            <Text style={[styles.takeButtonText, styles.takeButtonTextLoading, { color: colors.bg }]}>LOGGING...</Text>
           </View>
         ) : (
-          <TouchableOpacity style={styles.takeButton} onPress={handleTakeNow} activeOpacity={0.8}>
-            <Text style={styles.takeButtonText}>
+          <TouchableOpacity style={[styles.takeButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} onPress={handleTakeNow} activeOpacity={0.8}>
+            <Text style={[styles.takeButtonText, { color: colors.bg }]}>
               {isMultipleMeds ? `TAKE ALL ${medCount}` : 'TAKE NOW'}
             </Text>
           </TouchableOpacity>
@@ -259,8 +260,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.cyanGlow,
-    backgroundColor: 'rgba(0, 209, 255, 0.04)',
     minHeight: 150,
     justifyContent: 'space-between',
   },
@@ -287,25 +286,18 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   criticalMissText: {
-    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   cardEmpty: {
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   labelText: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-  },
-  labelTextMuted: {
-    color: colors.textMuted,
   },
   dateBadge: {
     marginLeft: 'auto',
@@ -318,7 +310,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   dateText: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -334,13 +325,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   medName: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   medicationList: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 8,
     marginBottom: 8,
@@ -352,13 +341,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   medicationListName: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
   medicationListDose: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -369,13 +356,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   timeText: {
-    color: colors.cyan,
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   doseText: {
-    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -390,23 +375,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   mealText: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '600',
   },
   takeButton: {
-    backgroundColor: colors.cyan,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 6,
   },
   takeButtonText: {
-    color: colors.bg,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -418,7 +399,6 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   successButton: {
-    backgroundColor: colors.cyanDim,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -426,10 +406,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   successText: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -450,13 +428,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   takeButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
   },
   takeButtonTextDisabled: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -475,17 +451,14 @@ const styles = StyleSheet.create({
   },
   // Empty state styles
   emptyTitle: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 2,
   },
   emptySubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
   addButton: {
-    backgroundColor: colors.cyan,
     borderRadius: 10,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -494,7 +467,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   addButtonText: {
-    color: colors.bg,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,

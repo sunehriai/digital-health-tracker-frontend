@@ -1,6 +1,7 @@
+// Force-dark: This screen always uses dark theme regardless of user preference
 import React from 'react';
 import { View, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { darkColors } from '../theme/ThemeContext';
 
 /**
  * Full-screen overlay shown on iOS app switcher to hide sensitive content.
@@ -21,7 +22,7 @@ export default function PrivacyOverlay() {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bg,
+    backgroundColor: darkColors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9998,

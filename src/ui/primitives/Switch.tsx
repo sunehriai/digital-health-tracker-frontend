@@ -1,6 +1,6 @@
 import React from 'react';
 import { Switch as RNSwitch, View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/typography';
 
 interface SwitchProps {
@@ -11,9 +11,10 @@ interface SwitchProps {
 }
 
 export default function Switch({ label, value, onValueChange, style }: SwitchProps) {
+  const { colors } = useTheme();
   return (
     <View style={[styles.container, style]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
       <RNSwitch
         value={value}
         onValueChange={onValueChange}
@@ -33,7 +34,6 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.body,
-    color: colors.textPrimary,
     flex: 1,
   },
 });

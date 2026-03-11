@@ -13,11 +13,12 @@ import { ArrowLeft, X, Clock, Pencil, Plus, Minus, Trash2, Zap } from 'lucide-re
 import { useMedications } from '../hooks/useMedications';
 import { useAlert } from '../context/AlertContext';
 import { useGamification } from '../hooks/useGamification';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackScreenProps } from '../navigation/types';
 import TimeInput from '../components/TimeInput';
 import DateInput from '../components/DateInput';
-import { formatTime12h } from '../../domain/utils';
+import { formatTime } from '../../domain/utils';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import { createLogger } from '../../utils/logger';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
@@ -55,6 +56,7 @@ const DAYS_OF_WEEK = [
 
 export default function RitualPreviewScreen({ navigation, route }: RootStackScreenProps<'RitualPreview'>) {
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('RitualPreview');
+  const { prefs: { timeFormat } } = useAppPreferences();
   const {
     name,
     strength,
@@ -88,6 +90,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
   const { createMedication } = useMedications();
   const { showAlert } = useAlert();
   const { refreshStatus } = useGamification();
+  const { colors, isDark } = useTheme();
   const [saving, setSaving] = useState(false);
 
   // Alarms state - initialize from doseTimes array (supports multiple doses per day)
@@ -338,7 +341,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
 
       const messageContent = (
         <>
-          <Text style={{ color: '#A0A0A8', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
             {insightText
               ? `${name} added!\n\n${insightText}`
               : `${name} has been added to your cabinet.`}
@@ -373,16 +376,16 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.cyanDim }]}>
             <ArrowLeft color={colors.cyan} size={24} />
           </TouchableOpacity>
           <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Ritual Preview</Text>
-            <Text style={styles.medicationName}>{name}</Text>
+            <Text style={[styles.headerTitle, { color: colors.cyan }]}>Ritual Preview</Text>
+            <Text style={[styles.medicationName, { color: colors.textPrimary }]}>{name}</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
@@ -390,46 +393,46 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
         {/* Medication Info */}
         {(strength || indication) && (
           <View style={styles.metaRow}>
-            {strength && <Text style={styles.strengthText}>{strength}</Text>}
-            {indication && <Text style={styles.indicationText}>{indication}</Text>}
+            {strength && <Text style={[styles.strengthText, { color: colors.cyan }]}>{strength}</Text>}
+            {indication && <Text style={[styles.indicationText, { color: colors.textSecondary }]}>{indication}</Text>}
           </View>
         )}
 
         {/* DAILY SCHEDULE */}
-        <Text style={styles.sectionLabel}>DAILY SCHEDULE</Text>
+        <Text style={[styles.sectionLabel, { color: colors.cyan }]}>DAILY SCHEDULE</Text>
 
         {alarms.map((alarm) => (
-          <View key={alarm.id} style={styles.scheduleCard}>
+          <View key={alarm.id} style={[styles.scheduleCard, { backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }]}>
             <View style={styles.scheduleRow}>
-              <View style={styles.clockIcon}>
+              <View style={[styles.clockIcon, { backgroundColor: colors.cyanDim }]}>
                 <Clock color={colors.cyan} size={20} strokeWidth={2} />
               </View>
               <View style={styles.scheduleInfo}>
                 <View style={styles.timeRow}>
-                  <Text style={styles.timeText}>{formatTime12h(alarm.time)}</Text>
+                  <Text style={[styles.timeText, { color: colors.textPrimary }]}>{formatTime(alarm.time, timeFormat)}</Text>
                   <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(alarm)}>
                     <Pencil color={colors.cyan} size={14} strokeWidth={2} />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.frequencyContext}>{formatFrequency(alarm.frequency, alarm.customDays)}</Text>
-                <Text style={styles.dateContext}>
+                <Text style={[styles.frequencyContext, { color: colors.cyan }]}>{formatFrequency(alarm.frequency, alarm.customDays)}</Text>
+                <Text style={[styles.dateContext, { color: colors.textMuted }]}>
                   {formatDate(alarm.startDate)}{alarm.endDate ? ` - ${formatDate(alarm.endDate)}` : ' - Ongoing'}
                 </Text>
               </View>
               <View style={styles.alarmActions}>
                 <View style={styles.doseStepper}>
                   <TouchableOpacity
-                    style={styles.stepperBtn}
+                    style={[styles.stepperBtn, { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
                     onPress={() => updateAlarmDose(alarm.id, -1)}
                   >
-                    <Minus color="#64748B" size={14} strokeWidth={3} />
+                    <Minus color={colors.textMuted} size={14} strokeWidth={3} />
                   </TouchableOpacity>
-                  <Text style={styles.doseValue}>{alarm.doseSize}</Text>
+                  <Text style={[styles.doseValue, { color: colors.textPrimary }]}>{alarm.doseSize}</Text>
                   <TouchableOpacity
-                    style={styles.stepperBtn}
+                    style={[styles.stepperBtn, { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
                     onPress={() => updateAlarmDose(alarm.id, 1)}
                   >
-                    <Plus color="#64748B" size={14} strokeWidth={3} />
+                    <Plus color={colors.textMuted} size={14} strokeWidth={3} />
                   </TouchableOpacity>
                 </View>
                 {alarms.length > 1 && (
@@ -446,48 +449,48 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
         ))}
 
         {/* Add Another Time */}
-        <TouchableOpacity style={styles.addTimeBtn} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addTimeBtn, { backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }]} onPress={openAddModal}>
           <Plus color={colors.cyan} size={18} strokeWidth={2} />
-          <Text style={styles.addTimeText}>Add Another Time</Text>
+          <Text style={[styles.addTimeText, { color: colors.cyan }]}>Add Another Time</Text>
         </TouchableOpacity>
 
         {/* Info text */}
         <View style={styles.infoRow}>
-          <View style={styles.infoDot} />
-          <Text style={styles.infoText}>Alarms auto-spaced for maximum absorption.</Text>
+          <View style={[styles.infoDot, { backgroundColor: colors.cyan }]} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>Alarms auto-spaced for maximum absorption.</Text>
         </View>
 
         {/* Stats Card */}
-        <View style={styles.statsCard}>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Initial Stock</Text>
-            <Text style={styles.statValue}>{initialStock} <Text style={styles.statUnit}>{doseUnit}</Text></Text>
+        <View style={[styles.statsCard, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+          <View style={[styles.statRow, { borderBottomColor: colors.bgSubtle }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Initial Stock</Text>
+            <Text style={[styles.statValue, { color: colors.cyan }]}>{initialStock} <Text style={[styles.statUnit, { color: colors.cyan }]}>{doseUnit}</Text></Text>
           </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Daily Dose</Text>
-            <Text style={styles.statValue}>{totalDailyDose} <Text style={styles.statUnit}>{doseUnit}</Text></Text>
+          <View style={[styles.statRow, { borderBottomColor: colors.bgSubtle }]}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Daily Dose</Text>
+            <Text style={[styles.statValue, { color: colors.cyan }]}>{totalDailyDose} <Text style={[styles.statUnit, { color: colors.cyan }]}>{doseUnit}</Text></Text>
           </View>
           <View style={[styles.statRow, styles.statRowLast]}>
-            <Text style={styles.statLabelBold}>Estimated Duration</Text>
-            <Text style={styles.statValue}>{estimatedDuration} <Text style={styles.statUnit}>days</Text></Text>
+            <Text style={[styles.statLabelBold, { color: colors.textPrimary }]}>Estimated Duration</Text>
+            <Text style={[styles.statValue, { color: colors.cyan }]}>{estimatedDuration} <Text style={[styles.statUnit, { color: colors.cyan }]}>days</Text></Text>
           </View>
         </View>
       </ScrollView>
 
       {/* Start Button */}
-      <View style={styles.bottomContainer}>
+      <View style={[styles.bottomContainer, { backgroundColor: colors.bg, borderTopColor: colors.bgSubtle }]}>
         <TouchableOpacity
-          style={[styles.startBtn, saving && styles.startBtnDisabled]}
+          style={[styles.startBtn, { backgroundColor: colors.cyan }, saving && styles.startBtnDisabled]}
           onPress={handleStartStreak}
           disabled={saving}
         >
           {saving ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={styles.startBtnText}>Saving...</Text>
+              <ActivityIndicator size="small" color={colors.bg} />
+              <Text style={[styles.startBtnText, { color: colors.bg }]}>Saving...</Text>
             </View>
           ) : (
-            <Text style={styles.startBtnText}>START VITALITY STREAK</Text>
+            <Text style={[styles.startBtnText, { color: colors.bg }]}>START VITALITY STREAK</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -499,11 +502,11 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
         animationType="slide"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
           <ScrollView style={styles.modalScrollView}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                   {editingAlarm ? 'Edit Alarm' : 'Add Alarm'}
                 </Text>
                 <TouchableOpacity onPress={() => setEditModalVisible(false)}>
@@ -520,12 +523,12 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
 
               {/* End Date Toggle */}
               <View style={styles.endDateToggle}>
-                <Text style={styles.modalLabel}>End Date</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>End Date</Text>
                 <TouchableOpacity
-                  style={[styles.ongoingToggle, editIsOngoing && styles.ongoingToggleActive]}
+                  style={[styles.ongoingToggle, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }, editIsOngoing && [styles.ongoingToggleActive, { borderColor: colors.cyan, backgroundColor: colors.cyanDim }]]}
                   onPress={() => setEditIsOngoing(!editIsOngoing)}
                 >
-                  <Text style={[styles.ongoingToggleText, editIsOngoing && styles.ongoingToggleTextActive]}>
+                  <Text style={[styles.ongoingToggleText, { color: colors.textSecondary }, editIsOngoing && { color: colors.cyan }]}>
                     Ongoing
                   </Text>
                 </TouchableOpacity>
@@ -549,21 +552,23 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
               />
 
               {/* Frequency */}
-              <Text style={styles.modalLabel}>Frequency</Text>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Frequency</Text>
               <View style={styles.frequencyGrid}>
                 {FREQUENCY_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
                       styles.frequencyOption,
-                      editFrequency === option.value && styles.frequencyOptionActive,
+                      { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                      editFrequency === option.value && [styles.frequencyOptionActive, { borderColor: colors.cyan, backgroundColor: colors.cyanDim }],
                     ]}
                     onPress={() => setEditFrequency(option.value)}
                   >
                     <Text
                       style={[
                         styles.frequencyOptionText,
-                        editFrequency === option.value && styles.frequencyOptionTextActive,
+                        { color: colors.textSecondary },
+                        editFrequency === option.value && { color: colors.cyan },
                       ]}
                     >
                       {option.label}
@@ -580,7 +585,8 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
                       key={day.value}
                       style={[
                         styles.dayBtn,
-                        editSelectedDays.includes(day.value) && styles.dayBtnActive,
+                        { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                        editSelectedDays.includes(day.value) && [styles.dayBtnActive, { borderColor: colors.cyan, backgroundColor: colors.cyanDim }],
                       ]}
                       onPress={() => {
                         if (editSelectedDays.includes(day.value)) {
@@ -593,7 +599,8 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
                       <Text
                         style={[
                           styles.dayBtnText,
-                          editSelectedDays.includes(day.value) && styles.dayBtnTextActive,
+                          { color: colors.textSecondary },
+                          editSelectedDays.includes(day.value) && { color: colors.cyan },
                         ]}
                       >
                         {day.short}
@@ -606,38 +613,38 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
               {/* Interval selector */}
               {editFrequency === 'interval' && (
                 <View style={styles.intervalSelector}>
-                  <Text style={styles.intervalLabel}>Every</Text>
+                  <Text style={[styles.intervalLabel, { color: colors.textSecondary }]}>Every</Text>
                   <View style={styles.intervalStepper}>
                     <TouchableOpacity
-                      style={styles.intervalBtn}
+                      style={[styles.intervalBtn, { backgroundColor: colors.cyanDim }]}
                       onPress={() => setEditIntervalDays(Math.max(2, editIntervalDays - 1))}
                     >
                       <Minus color={colors.cyan} size={16} />
                     </TouchableOpacity>
-                    <Text style={styles.intervalValue}>{editIntervalDays}</Text>
+                    <Text style={[styles.intervalValue, { color: colors.textPrimary }]}>{editIntervalDays}</Text>
                     <TouchableOpacity
-                      style={styles.intervalBtn}
+                      style={[styles.intervalBtn, { backgroundColor: colors.cyanDim }]}
                       onPress={() => setEditIntervalDays(editIntervalDays + 1)}
                     >
                       <Plus color={colors.cyan} size={16} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.intervalLabel}>days</Text>
+                  <Text style={[styles.intervalLabel, { color: colors.textSecondary }]}>days</Text>
                 </View>
               )}
 
               {/* Dose Size */}
-              <Text style={styles.modalLabel}>Dose Size</Text>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Dose Size</Text>
               <View style={styles.modalStepperContainer}>
                 <TouchableOpacity
-                  style={styles.modalStepperBtn}
+                  style={[styles.modalStepperBtn, { backgroundColor: colors.cyanDim }]}
                   onPress={() => setEditDoseSize(Math.max(1, editDoseSize - 1))}
                 >
                   <Minus color={colors.cyan} size={18} strokeWidth={3} />
                 </TouchableOpacity>
-                <Text style={styles.modalStepperValue}>{editDoseSize}</Text>
+                <Text style={[styles.modalStepperValue, { color: colors.textPrimary }]}>{editDoseSize}</Text>
                 <TouchableOpacity
-                  style={styles.modalStepperBtn}
+                  style={[styles.modalStepperBtn, { backgroundColor: colors.cyanDim }]}
                   onPress={() => setEditDoseSize(editDoseSize + 1)}
                 >
                   <Plus color={colors.cyan} size={18} strokeWidth={3} />
@@ -645,8 +652,8 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
               </View>
 
               {/* Save Button */}
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={saveAlarm}>
-                <Text style={styles.modalSaveBtnText}>
+              <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: colors.cyan }]} onPress={saveAlarm}>
+                <Text style={[styles.modalSaveBtnText, { color: colors.bg }]}>
                   {editingAlarm ? 'Save Changes' : 'Add Alarm'}
                 </Text>
               </TouchableOpacity>
@@ -660,7 +667,7 @@ export default function RitualPreviewScreen({ navigation, route }: RootStackScre
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0A0A0B' },
+  safe: { flex: 1 },
   scrollView: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 100 },
 
@@ -675,7 +682,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -684,13 +690,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   headerTitle: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
   },
   medicationName: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
@@ -703,18 +707,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   strengthText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
   indicationText: {
-    color: '#94A3B8',
     fontSize: 14,
   },
 
   // Section label
   sectionLabel: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
@@ -723,9 +724,7 @@ const styles = StyleSheet.create({
 
   // Schedule card
   scheduleCard: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -738,7 +737,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -752,7 +750,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timeText: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -760,13 +757,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   frequencyContext: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   dateContext: {
-    color: '#64748B',
     fontSize: 11,
     marginTop: 2,
   },
@@ -784,14 +779,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   doseValue: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     minWidth: 20,
@@ -807,15 +799,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 12,
     paddingVertical: 14,
     marginBottom: 20,
   },
   addTimeText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -831,18 +820,14 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.cyan,
   },
   infoText: {
-    color: '#94A3B8',
     fontSize: 13,
   },
 
   // Stats card
   statsCard: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
     padding: 20,
   },
@@ -852,27 +837,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: 'transparent',
   },
   statRowLast: {
     borderBottomWidth: 0,
   },
   statLabel: {
-    color: '#94A3B8',
     fontSize: 14,
   },
   statLabelBold: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   statValue: {
-    color: colors.cyan,
     fontSize: 16,
     fontWeight: '700',
   },
   statUnit: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -883,15 +864,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0A0A0B',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   startBtn: {
-    backgroundColor: colors.cyan,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
@@ -900,7 +878,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   startBtnText: {
-    color: '#0A0A0B',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -909,14 +886,12 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalScrollView: {
     maxHeight: '90%',
   },
   modalContent: {
-    backgroundColor: '#0A0A0B',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -929,24 +904,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitle: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
   modalLabel: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 16,
   },
   modalInput: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -955,20 +925,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
   },
   datePickerText: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   datePickerInput: {
     flex: 1,
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     padding: 0,
@@ -984,23 +950,15 @@ const styles = StyleSheet.create({
     width: '48%',
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
-  frequencyOptionActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
-  },
+  frequencyOptionActive: {},
   frequencyOptionText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },
-  frequencyOptionTextActive: {
-    color: colors.cyan,
-  },
+  frequencyOptionTextActive: {},
 
   // Day selector
   daySelector: {
@@ -1012,24 +970,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dayBtnActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.2)',
-    borderColor: colors.cyan,
-  },
+  dayBtnActive: {},
   dayBtnText: {
-    color: '#94A3B8',
     fontSize: 11,
     fontWeight: '600',
   },
-  dayBtnTextActive: {
-    color: colors.cyan,
-  },
+  dayBtnTextActive: {},
 
   // Interval selector
   intervalSelector: {
@@ -1041,7 +991,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   intervalLabel: {
-    color: '#94A3B8',
     fontSize: 14,
   },
   intervalStepper: {
@@ -1053,12 +1002,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   intervalValue: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
     minWidth: 30,
@@ -1076,22 +1023,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  ongoingToggleActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
-  },
+  ongoingToggleActive: {},
   ongoingToggleText: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
   },
-  ongoingToggleTextActive: {
-    color: colors.cyan,
-  },
+  ongoingToggleTextActive: {},
   modalStepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1103,26 +1042,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalStepperValue: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
     minWidth: 50,
     textAlign: 'center',
   },
   modalSaveBtn: {
-    backgroundColor: colors.cyan,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 24,
   },
   modalSaveBtnText: {
-    color: '#0A0A0B',
     fontSize: 15,
     fontWeight: '700',
   },

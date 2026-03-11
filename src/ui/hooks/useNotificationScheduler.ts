@@ -4,6 +4,7 @@ import { rescheduleAll, registerNotificationActionHandler } from '../../data/uti
 import { medicationEvents } from '../../data/utils/medicationEvents';
 import { registerToken } from '../../data/services/pushService';
 import type { Medication, NotificationPreferences } from '../../domain/types';
+// Activity log calls are in notifications.ts (rescheduleAll) — no direct calls needed here
 
 const DEBOUNCE_MS = 1500;
 
@@ -31,6 +32,7 @@ export function useNotificationScheduler(
   const pushTokenRegistered = useRef(false);
 
   nlog('Hook rendered — meds:', medications.length, 'prefs:', prefs ? 'loaded' : 'null');
+
 
   // Keep refs in sync
   useEffect(() => {
@@ -119,6 +121,7 @@ export function useNotificationScheduler(
          'dose_reminders_enabled:', prefs?.dose_reminders_enabled);
     if (prefs && medications.length > 0) {
       nlog('Triggering initial rescheduleAll()');
+
       rescheduleAll(medications, prefs).catch((err) => {
         nlog('Initial rescheduleAll ERROR:', err);
       });

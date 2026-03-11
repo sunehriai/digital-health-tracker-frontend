@@ -1,3 +1,4 @@
+// Force-dark: This screen always uses dark theme regardless of user preference
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -5,7 +6,7 @@ import { useSecurity } from '../hooks/useSecurity';
 import { useAuth } from '../hooks/useAuth';
 import { biometrics } from '../../data/utils/biometrics';
 import { haptics } from '../../data/utils/haptics';
-import { colors } from '../theme/colors';
+import { darkColors } from '../theme/ThemeContext';
 
 export default function LockScreen() {
   const security = useSecurity();
@@ -91,7 +92,7 @@ export default function LockScreen() {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bg,
+    backgroundColor: darkColors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
@@ -106,18 +107,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   appName: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 14,
     marginBottom: 48,
   },
   unlockButton: {
-    backgroundColor: colors.cyan,
+    backgroundColor: darkColors.cyan,
     paddingHorizontal: 40,
     paddingVertical: 16,
     borderRadius: 14,
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   signOutText: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 14,
   },
 });

@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Shield, CheckCircle, X } from 'lucide-react-native';
 import { AI_UPLOAD_COPY } from '../../../domain/medicationConfig';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface AIConsentModalProps {
   visible: boolean;
@@ -25,6 +26,8 @@ interface AIConsentModalProps {
 }
 
 export function AIConsentModal({ visible, onAgree, onDecline }: AIConsentModalProps) {
+  const { colors, isDark } = useTheme();
+
   return (
     <Modal
       visible={visible}
@@ -32,47 +35,53 @@ export function AIConsentModal({ visible, onAgree, onDecline }: AIConsentModalPr
       animationType="fade"
       onRequestClose={onDecline}
     >
-      <Pressable style={styles.overlay} onPress={onDecline}>
-        <Pressable style={styles.container} onPress={e => e.stopPropagation()}>
+      <Pressable style={[styles.overlay, { backgroundColor: colors.overlayHeavy }]} onPress={onDecline}>
+        <Pressable
+          style={[styles.container, { backgroundColor: colors.bgElevated, borderColor: colors.cyanDim }]}
+          onPress={e => e.stopPropagation()}
+        >
           {/* Close button */}
           <TouchableOpacity style={styles.closeButton} onPress={onDecline}>
-            <X size={24} color="rgba(255, 255, 255, 0.5)" />
+            <X size={24} color={colors.textMuted} />
           </TouchableOpacity>
 
           {/* Icon */}
           <View style={styles.iconContainer}>
             <LinearGradient
-              colors={['rgba(0, 209, 255, 0.2)', 'rgba(0, 209, 255, 0.05)']}
-              style={styles.iconGradient}
+              colors={[colors.cyanGlow, colors.cyanDim]}
+              style={[styles.iconGradient, { borderColor: colors.cyanDim }]}
             >
-              <Camera size={32} color="#00D1FF" />
+              <Camera size={32} color={colors.cyan} />
             </LinearGradient>
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>{AI_UPLOAD_COPY.CONSENT_TITLE}</Text>
-          <Text style={styles.subtitle}>{AI_UPLOAD_COPY.CONSENT_SUBTITLE}</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{AI_UPLOAD_COPY.CONSENT_TITLE}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{AI_UPLOAD_COPY.CONSENT_SUBTITLE}</Text>
 
           {/* Bullets */}
           <View style={styles.bulletsContainer}>
             <BulletPoint
-              icon={<Shield size={18} color="#00D1FF" />}
+              icon={<Shield size={18} color={colors.cyan} />}
               text={AI_UPLOAD_COPY.CONSENT_BULLET_1}
+              colors={colors}
             />
             <BulletPoint
-              icon={<Camera size={18} color="#00D1FF" />}
+              icon={<Camera size={18} color={colors.cyan} />}
               text={AI_UPLOAD_COPY.CONSENT_BULLET_2}
+              colors={colors}
             />
             <BulletPoint
-              icon={<CheckCircle size={18} color="#00D1FF" />}
+              icon={<CheckCircle size={18} color={colors.cyan} />}
               text={AI_UPLOAD_COPY.CONSENT_BULLET_3}
+              colors={colors}
             />
           </View>
 
           {/* Buttons */}
           <TouchableOpacity onPress={onAgree} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00D1FF', '#0099CC']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.agreeButton}
@@ -82,7 +91,7 @@ export function AIConsentModal({ visible, onAgree, onDecline }: AIConsentModalPr
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.declineButton} onPress={onDecline}>
-            <Text style={styles.declineButtonText}>{AI_UPLOAD_COPY.CONSENT_CANCEL}</Text>
+            <Text style={[styles.declineButtonText, { color: colors.textMuted }]}>{AI_UPLOAD_COPY.CONSENT_CANCEL}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -93,13 +102,14 @@ export function AIConsentModal({ visible, onAgree, onDecline }: AIConsentModalPr
 interface BulletPointProps {
   icon: React.ReactNode;
   text: string;
+  colors: ReturnType<typeof useTheme>['colors'];
 }
 
-function BulletPoint({ icon, text }: BulletPointProps) {
+function BulletPoint({ icon, text, colors }: BulletPointProps) {
   return (
     <View style={styles.bulletRow}>
-      <View style={styles.bulletIcon}>{icon}</View>
-      <Text style={styles.bulletText}>{text}</Text>
+      <View style={[styles.bulletIcon, { backgroundColor: colors.cyanDim }]}>{icon}</View>
+      <Text style={[styles.bulletText, { color: colors.textSecondary }]}>{text}</Text>
     </View>
   );
 }
@@ -107,20 +117,17 @@ function BulletPoint({ icon, text }: BulletPointProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   container: {
-    backgroundColor: '#1A1A2E',
     borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 360,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   closeButton: {
     position: 'absolute',
@@ -139,18 +146,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
@@ -169,14 +173,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   bulletText: {
     flex: 1,
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
     lineHeight: 20,
   },
   agreeButton: {
@@ -198,6 +200,5 @@ const styles = StyleSheet.create({
   },
   declineButtonText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
   },
 });

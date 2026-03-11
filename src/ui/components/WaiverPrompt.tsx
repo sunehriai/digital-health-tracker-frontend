@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, Modal, Image, TouchableOpacity, ActivityIndicat
 import { Shield } from 'lucide-react-native';
 import { WAIVER_BADGE_ASSET } from '../../domain/constants/tierAssets';
 import { gamificationService } from '../../data/services/gamificationService';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface WaiverPromptProps {
   visible: boolean;
@@ -25,6 +25,7 @@ export default function WaiverPrompt({
   onBadgeUsed,
   onDismiss,
 }: WaiverPromptProps) {
+  const { colors } = useTheme();
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +44,14 @@ export default function WaiverPrompt({
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlayHeavy }]}>
+        <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
           <View style={styles.iconContainer}>
             <Image source={WAIVER_BADGE_ASSET} style={styles.badgeImage} resizeMode="contain" />
           </View>
 
-          <Text style={styles.title}>Protect Your Streak?</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Protect Your Streak?</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             You missed doses yesterday. Use a Waiver Badge to protect your{' '}
             <Text style={styles.streakHighlight}>{streakDays}-day streak</Text>.
           </Text>
@@ -62,11 +63,11 @@ export default function WaiverPrompt({
             </Text>
           </View>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.dismissBtn} onPress={onDismiss} activeOpacity={0.7} disabled={activating}>
-              <Text style={styles.dismissText}>Let it go</Text>
+            <TouchableOpacity style={[styles.dismissBtn, { borderColor: colors.borderSubtle }]} onPress={onDismiss} activeOpacity={0.7} disabled={activating}>
+              <Text style={[styles.dismissText, { color: colors.textSecondary }]}>Let it go</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -87,9 +88,9 @@ export default function WaiverPrompt({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   card: {
-    backgroundColor: colors.bgCard, borderRadius: 24, padding: 28, alignItems: 'center',
+    borderRadius: 24, padding: 28, alignItems: 'center',
     width: '100%', maxWidth: 360, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.2)',
   },
   iconContainer: {
@@ -97,8 +98,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginBottom: 20,
   },
   badgeImage: { width: 56, height: 56 },
-  title: { color: colors.textPrimary, fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
-  subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 16 },
   streakHighlight: { color: '#F59E0B', fontWeight: '700' },
   badgeCountRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -106,13 +107,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6, borderRadius: 12, marginBottom: 20,
   },
   badgeCountText: { color: '#FFD700', fontSize: 13, fontWeight: '600' },
-  errorText: { color: colors.error, fontSize: 12, marginBottom: 12, textAlign: 'center' },
+  errorText: { fontSize: 12, marginBottom: 12, textAlign: 'center' },
   buttonRow: { flexDirection: 'row', gap: 12, width: '100%' },
   dismissBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center',
+    alignItems: 'center',
   },
-  dismissText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  dismissText: { fontSize: 14, fontWeight: '600' },
   useBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#FFD700', alignItems: 'center' },
   useBtnDisabled: { opacity: 0.6 },
   useText: { color: '#000', fontSize: 14, fontWeight: '700' },

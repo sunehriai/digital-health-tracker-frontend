@@ -10,7 +10,7 @@ import VictorySyncAnimation from '../components/VictorySyncAnimation';
 import ActionCenterCard from '../components/ActionCenterCard';
 import RitualsCarousel, { RitualsCarouselRef } from '../components/RitualsCarousel';
 import TipOfTheDay from '../components/TipOfTheDay';
-import VitalityScoreCard from '../components/VitalityScoreCard';
+import AdherenceCard from '../components/AdherenceCard';
 import GamificationHeader from '../components/GamificationHeader';
 import XpAnimation from '../components/XpAnimation';
 import TierCelebration from '../components/TierCelebration';
@@ -19,7 +19,8 @@ import WelcomeBackModal, { shouldShowWelcomeBack, markWelcomeBackShown } from '.
 import { useMedications } from '../hooks/useMedications';
 import { useAlert } from '../context/AlertContext';
 import { useGamification } from '../hooks/useGamification';
-import { colors } from '../theme/colors';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useTheme } from '../theme/ThemeContext';
 import { typography } from '../theme/typography';
 import { doseStatusCache } from '../../data/utils/doseStatusCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
@@ -29,7 +30,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { Medication, DoseTimeSlot, RevertableDose } from '../../domain/types';
 import {
   getNextDoseTime,
-  formatTimeAMPM,
+  formatTime,
   formatDoseDate,
   formatMealRelation,
   isToday,
@@ -51,12 +52,15 @@ import { ENDPOINTS } from '../../data/api/endpoints';
 import ScreenshotToast from '../components/ScreenshotToast';
 import DoseToast from '../components/DoseToast';
 import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
+import { logEndOfDay } from '../../data/utils/notificationDebugLog';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { showAlert } = useAlert();
   const { activeMedications, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Home');
+  const { prefs: { timeFormat } } = useAppPreferences();
+  const { colors } = useTheme();
 
   // Step 40: Gamification hook for XP estimation, tier detection, waiver, etc.
   const {
@@ -109,6 +113,9 @@ export default function HomeScreen() {
 
   // N-22/BP-022: Track boost label per foreground session
   const [hasShownBoostLabel, setHasShownBoostLabel] = useState(false);
+
+  // Bug #4 fix: Tick counter to force Action Center recalculation at grace period boundary
+  const [actionCenterTick, setActionCenterTick] = useState(0);
 
   // Dose toast state (peppy messages on successful dose)
   const [doseToast, setDoseToast] = useState<{ visible: boolean; title: string; body: string }>({
@@ -250,10 +257,10 @@ export default function HomeScreen() {
   const todaysRituals = useMemo(() => {
     console.log('[Rituals] ===== RECALCULATING (v' + stateVersion + ') =====');
     console.log('[Rituals] takenTodayArray:', takenTodayArray);
-    const result = buildTodaysRituals(activeMedications, takenTodayIds);
+    const result = buildTodaysRituals(activeMedications, takenTodayIds, timeFormat);
     console.log('[Rituals] result:', result.map(r => `${r.name}: ${r.status}`));
     return result;
-  }, [activeMedications, takenTodayArray, takenTodayIds, stateVersion]);
+  }, [activeMedications, takenTodayArray, takenTodayIds, stateVersion, timeFormat]);
 
   // Check if all today's rituals are complete
   const allRitualsComplete = useMemo(() => {
@@ -290,7 +297,7 @@ export default function HomeScreen() {
       if (medsAtSameTime.length > 0) {
         const slot: DoseTimeSlot = {
           doseTime: activeTime,
-          timeDisplay: formatTimeAMPM(activeTime),
+          timeDisplay: formatTime(activeTime, timeFormat),
           dateDisplay: formatDoseDate(activeTime),
           isTodayDose: true,
           medications: medsAtSameTime.map((med) => ({
@@ -343,7 +350,7 @@ export default function HomeScreen() {
 
     const slot: DoseTimeSlot = {
       doseTime: earliest.doseTime,
-      timeDisplay: formatTimeAMPM(earliest.doseTime),
+      timeDisplay: formatTime(earliest.doseTime, timeFormat),
       dateDisplay: formatDoseDate(earliest.doseTime),
       isTodayDose: false,
       medications: earliest.medications.map((med) => ({
@@ -372,8 +379,8 @@ export default function HomeScreen() {
 
   // Calculate tomorrow's dose slot (memoized for performance)
   const tomorrowSlot = useMemo(
-    () => getTomorrowsDoses(activeMedications),
-    [activeMedications]
+    () => getTomorrowsDoses(activeMedications, timeFormat),
+    [activeMedications, timeFormat]
   );
 
   // D9: Replace calculateDailyPoints() with gamification XP
@@ -385,7 +392,7 @@ export default function HomeScreen() {
   // Action Center (Recovery State) calculations
   const showActionCenter = useMemo(
     () => shouldShowActionCenter(todaysRituals, ritualStats),
-    [todaysRituals, ritualStats]
+    [todaysRituals, ritualStats, actionCenterTick]
   );
 
   const oldestMissedRitual = useMemo(
@@ -397,6 +404,31 @@ export default function HomeScreen() {
     () => (oldestMissedRitual ? getActionCenterInsight(oldestMissedRitual.name) : ''),
     [oldestMissedRitual]
   );
+
+  // Bug #4 fix: Timer to trigger Action Center at exact grace period expiry
+  useEffect(() => {
+    if (showActionCenter) return; // Already showing
+    if (todaysRituals.length === 0) return;
+
+    // Find last scheduled time from rituals
+    const sorted = [...todaysRituals].sort(
+      (a, b) => b.scheduledTime.getTime() - a.scheduledTime.getTime()
+    );
+    const lastTime = sorted[0]?.scheduledTime;
+    if (!lastTime) return;
+
+    const graceEnd = lastTime.getTime() + 60 * 60 * 1000; // 60 min
+    const now = Date.now();
+    const msUntilGrace = graceEnd - now;
+
+    if (msUntilGrace <= 0) return; // Already past
+
+    const timer = setTimeout(() => {
+      setActionCenterTick(prev => prev + 1);
+    }, msUntilGrace);
+
+    return () => clearTimeout(timer);
+  }, [todaysRituals, showActionCenter]);
 
   // Track ActionCenter state for animation transition detection
   useEffect(() => {
@@ -422,6 +454,7 @@ export default function HomeScreen() {
       }
       daySettledFired.current = true;
       AsyncStorage.setItem(key, '1').catch(() => {});
+      logEndOfDay(ritualStats.completed, ritualStats.total);
       apiClient
         .request(ENDPOINTS.DAY_SETTLED, {
           method: 'POST',
@@ -864,13 +897,13 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Vision</Text>
-            <Text style={styles.date}>{today}</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Vision</Text>
+            <Text style={[styles.date, { color: colors.textMuted }]}>{today}</Text>
           </View>
           <TouchableOpacity
             style={styles.tierBadgeBtn}
@@ -962,14 +995,14 @@ export default function HomeScreen() {
               disabled={isLoggingDose}
             />
           )}
-          {allRitualsComplete && <VitalityScoreCard />}
+          {allRitualsComplete && <AdherenceCard streakDays={streakDays} currentTier={currentTier} />}
           <TipOfTheDay />
         </View>
       </ScrollView>
 
       {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate('AddMedication')}
       >
@@ -1012,15 +1045,14 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 24 },
-  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '700' },
-  date: { ...typography.bodySmall, color: colors.textMuted, marginTop: 2 },
+  title: { fontSize: 28, fontWeight: '700' },
+  date: { ...typography.bodySmall, marginTop: 2 },
   tierBadgeBtn: { alignItems: 'center', gap: 4 },
   tierBadgeImg: { width: 80, height: 80 },
-  tierBadgeName: { color: colors.cyan, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
   gamificationHeaderWrap: { position: 'relative', marginBottom: 16 },
   grid: { gap: 16 },
   fab: {
@@ -1030,10 +1062,8 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.cyan,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,

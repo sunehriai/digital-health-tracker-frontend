@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Text, View, StyleSheet, Animated, Dimensions } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -16,6 +16,7 @@ interface DoseToastProps {
  * Slides down from top, holds for 3.5s, then fades out.
  */
 export default function DoseToast({ visible, title, body, onDismiss }: DoseToastProps) {
+  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-40)).current;
   const scale = useRef(new Animated.Value(0.9)).current;
@@ -74,10 +75,10 @@ export default function DoseToast({ visible, title, body, onDismiss }: DoseToast
         { opacity, transform: [{ translateY }, { scale }] },
       ]}
     >
-      <View style={styles.glowBorder}>
+      <View style={[styles.glowBorder, { shadowColor: colors.cyan, backgroundColor: colors.bgElevated }]}>
         <View style={styles.inner}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.body}>{body}</Text>
+          <Text style={[styles.title, { color: colors.cyan }]}>{title}</Text>
+          <Text style={[styles.body, { color: colors.textPrimary }]}>{body}</Text>
         </View>
       </View>
     </Animated.View>
@@ -98,8 +99,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(0, 209, 255, 0.4)',
-    backgroundColor: '#2A3A4E',
-    shadowColor: colors.cyan,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -112,7 +112,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: colors.cyan,
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 4,
@@ -120,7 +119,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   body: {
-    color: '#FFFFFF',
+    color: 'transparent',
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',

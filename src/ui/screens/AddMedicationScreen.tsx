@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable, Dimensions } from 'react-native';
 import { X, Camera, PenLine, Sparkles } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { useAIUpload } from '../../data/contexts/AIUploadContext';
 import type { RootStackScreenProps } from '../navigation/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AddMedicationScreen({ navigation }: RootStackScreenProps<'AddMedication'>) {
+  const { colors, isDark } = useTheme();
   const { startUpload } = useAIUpload();
 
   const handleAIScan = () => {
@@ -18,51 +19,51 @@ export default function AddMedicationScreen({ navigation }: RootStackScreenProps
   return (
     <View style={styles.container}>
       {/* Backdrop - tap to dismiss */}
-      <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} />
+      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => navigation.goBack()} />
 
       {/* Bottom Sheet Content */}
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
         {/* Handle bar */}
         <View style={styles.handleContainer}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }]} />
         </View>
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Add Medication</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Add Medication</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
             <X color={colors.textSecondary} size={24} />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.subtitle}>How would you like to add your medication?</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>How would you like to add your medication?</Text>
 
         {/* AI Scan option */}
-        <TouchableOpacity style={styles.optionCard} activeOpacity={0.7} onPress={handleAIScan}>
+        <TouchableOpacity style={[styles.optionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.7} onPress={handleAIScan}>
           <View style={[styles.optionIcon, styles.optionIconAI]}>
             <Sparkles color={colors.cyan} size={28} strokeWidth={2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.optionTitle}>AI Scan</Text>
-            <Text style={styles.optionDesc}>Take a photo to auto-fill medication details</Text>
+            <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>AI Scan</Text>
+            <Text style={[styles.optionDesc, { color: colors.textMuted }]}>Take a photo to auto-fill medication details</Text>
           </View>
-          <View style={styles.aiBadge}>
-            <Text style={styles.aiBadgeText}>NEW</Text>
+          <View style={[styles.aiBadge, { backgroundColor: colors.cyan }]}>
+            <Text style={[styles.aiBadgeText, { color: colors.bg }]}>NEW</Text>
           </View>
         </TouchableOpacity>
 
         {/* Manual option */}
         <TouchableOpacity
-          style={styles.optionCard}
+          style={[styles.optionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           activeOpacity={0.7}
           onPress={() => navigation.replace('ManualMedicationEntry', {})}
         >
-          <View style={styles.optionIcon}>
+          <View style={[styles.optionIcon, { backgroundColor: colors.cyanDim }]}>
             <PenLine color={colors.cyan} size={28} strokeWidth={2} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.optionTitle}>Add to Cabinet</Text>
-            <Text style={styles.optionDesc}>Enter medication details by hand</Text>
+            <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Add to Cabinet</Text>
+            <Text style={[styles.optionDesc, { color: colors.textMuted }]}>Enter medication details by hand</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -78,11 +79,11 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'transparent',
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.5,
-    backgroundColor: '#0A0A0B',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'transparent',
     borderRadius: 2,
   },
   headerRow: {
@@ -106,7 +107,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   title: {
-    color: colors.textPrimary,
     fontSize: 24,
     fontWeight: '700',
   },
@@ -114,7 +114,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   subtitle: {
-    color: colors.textSecondary,
     fontSize: 15,
     marginBottom: 32,
   },
@@ -124,10 +123,8 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 20,
     marginBottom: 16,
-    backgroundColor: colors.bgCard,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   optionIcon: {
     width: 56,
@@ -135,23 +132,19 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.cyanDim,
   },
   optionTitle: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   optionDesc: {
-    color: colors.textMuted,
     fontSize: 13,
   },
   optionIconAI: {
     backgroundColor: 'rgba(0, 209, 255, 0.15)',
   },
   aiBadge: {
-    backgroundColor: colors.cyan,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -159,7 +152,6 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#0A0A0B',
     letterSpacing: 0.5,
   },
 });

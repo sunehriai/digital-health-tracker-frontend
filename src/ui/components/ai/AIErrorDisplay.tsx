@@ -10,6 +10,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AlertTriangle, XCircle, RefreshCw, Edit3 } from 'lucide-react-native';
 import { isHardError, isSoftError } from '../../../data/services/aiService';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface AIErrorDisplayProps {
   message: string;
@@ -24,6 +25,7 @@ export function AIErrorDisplay({
   onRetry,
   onManualEntry,
 }: AIErrorDisplayProps) {
+  const { colors, isDark } = useTheme();
   const isHard = isHardError(errorCode);
   const isSoft = isSoftError(errorCode);
 
@@ -39,10 +41,10 @@ export function AIErrorDisplay({
       </View>
 
       {/* Message */}
-      <Text style={styles.title}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>
         {isHard ? 'Unable to Scan' : 'Scan Issue'}
       </Text>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
 
       {/* Actions */}
       <View style={styles.actions}>
@@ -50,7 +52,7 @@ export function AIErrorDisplay({
         {isSoft && (
           <TouchableOpacity onPress={onManualEntry} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00D1FF', '#0099CC']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryButton}
@@ -65,7 +67,7 @@ export function AIErrorDisplay({
         {isHard && (
           <TouchableOpacity onPress={onRetry} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00D1FF', '#0099CC']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryButton}
@@ -78,24 +80,24 @@ export function AIErrorDisplay({
 
         {/* Secondary action */}
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, { borderColor: colors.cyanDim }]}
           onPress={isSoft || isHard ? (isSoft ? onRetry : onManualEntry) : onRetry}
           activeOpacity={0.7}
         >
           {isSoft ? (
             <>
-              <RefreshCw size={18} color="#00D1FF" />
-              <Text style={styles.secondaryButtonText}>Try Again</Text>
+              <RefreshCw size={18} color={colors.cyan} />
+              <Text style={[styles.secondaryButtonText, { color: colors.cyan }]}>Try Again</Text>
             </>
           ) : isHard ? (
             <>
-              <Edit3 size={18} color="#00D1FF" />
-              <Text style={styles.secondaryButtonText}>Enter Manually Instead</Text>
+              <Edit3 size={18} color={colors.cyan} />
+              <Text style={[styles.secondaryButtonText, { color: colors.cyan }]}>Enter Manually Instead</Text>
             </>
           ) : (
             <>
-              <Edit3 size={18} color="#00D1FF" />
-              <Text style={styles.secondaryButtonText}>Enter Manually Instead</Text>
+              <Edit3 size={18} color={colors.cyan} />
+              <Text style={[styles.secondaryButtonText, { color: colors.cyan }]}>Enter Manually Instead</Text>
             </>
           )}
         </TouchableOpacity>
@@ -143,13 +145,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -180,12 +180,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#00D1FF',
   },
   inlineContainer: {
     flexDirection: 'row',

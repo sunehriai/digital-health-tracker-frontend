@@ -4,7 +4,8 @@
  */
 
 import type { Medication, RitualChip, RitualStatus } from '../types';
-import { formatTimeAMPM, applyTimeToDate, getStartOfToday } from './dateTimeUtils';
+import { formatTime, applyTimeToDate, getStartOfToday } from './dateTimeUtils';
+import type { TimeFormat } from './dateTimeUtils';
 import {
   isDoseScheduledForToday,
   getTodayDoseTime,
@@ -41,7 +42,8 @@ export function calculateRitualStatus(
  */
 export function buildTodaysRituals(
   medications: Medication[],
-  takenTodayIds: Set<string>
+  takenTodayIds: Set<string>,
+  timeFormat: TimeFormat = '12h'
 ): RitualChip[] {
   const now = new Date();
   const today = getStartOfToday();
@@ -76,7 +78,7 @@ export function buildTodaysRituals(
         doseIndex,
         name: displayName,
         doseInfo: formatDoseSize(med.dose_size),
-        timeDisplay: formatTimeAMPM(scheduledTime),
+        timeDisplay: formatTime(scheduledTime, timeFormat),
         scheduledTime,
         mealInfo: formatMealRelation(med.meal_relation),
         status,

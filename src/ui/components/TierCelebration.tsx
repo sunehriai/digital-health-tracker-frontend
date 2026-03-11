@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, Modal } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -19,9 +19,10 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '../../data/utils/haptics';
 import { TIER_ASSETS, TIER_NAMES } from '../../domain/constants/tierAssets';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 
 interface TierCelebrationProps {
   /** Whether to show the celebration */
@@ -33,15 +34,16 @@ interface TierCelebrationProps {
 }
 
 // Confetti particle positions (pre-computed for visual scatter)
+// color field uses 'cyan' as a sentinel replaced at render time with colors.cyan
 const CONFETTI_PARTICLES = [
   { left: '12%', top: '18%', color: '#FFD700', delay: 100, rotate: '15deg' },
-  { left: '75%', top: '15%', color: '#00D1FF', delay: 200, rotate: '-20deg' },
+  { left: '75%', top: '15%', color: 'cyan', delay: 200, rotate: '-20deg' },
   { left: '25%', top: '72%', color: '#FF4500', delay: 150, rotate: '45deg' },
   { left: '80%', top: '68%', color: '#22C55E', delay: 250, rotate: '-35deg' },
   { left: '50%', top: '10%', color: '#F59E0B', delay: 50, rotate: '30deg' },
   { left: '10%', top: '45%', color: '#A855F7', delay: 300, rotate: '-10deg' },
   { left: '88%', top: '40%', color: '#EC4899', delay: 180, rotate: '60deg' },
-  { left: '35%', top: '82%', color: '#00D1FF', delay: 120, rotate: '-45deg' },
+  { left: '35%', top: '82%', color: 'cyan', delay: 120, rotate: '-45deg' },
 ];
 
 function ConfettiParticle({
@@ -100,6 +102,8 @@ function ConfettiParticle({
 }
 
 export default function TierCelebration({ visible, newTier, onComplete }: TierCelebrationProps) {
+  const { colors } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const badgeScale = useSharedValue(0);
   const badgeOpacity = useSharedValue(0);
   const glowScale = useSharedValue(0.5);
@@ -117,9 +121,27 @@ export default function TierCelebration({ visible, newTier, onComplete }: TierCe
 
   useEffect(() => {
     if (visible) {
-      // Haptic success pattern
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // Haptic success pattern (respects haptic preference)
+      haptics.success();
+
+      if (reducedMotion) {
+        // Reduced motion: show everything immediately, no animations
+        overlayOpacity.value = 1;
+        badgeScale.value = 1;
+        badgeOpacity.value = 1;
+        textOpacity.value = 1;
+        textTranslateY.value = 0;
+
+        // Auto-dismiss after 3 seconds with simple fade-out
+        const timer = setTimeout(() => {
+          overlayOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
+            if (finished) {
+              runOnJS(handleDismiss)();
+            }
+          });
+        }, 3000);
+
+        return () => clearTimeout(timer);
       }
 
       // Overlay fade in
@@ -205,14 +227,14 @@ export default function TierCelebration({ visible, newTier, onComplete }: TierCe
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-      <Animated.View style={[styles.overlay, overlayStyle]}>
-        {/* Confetti particles */}
-        {CONFETTI_PARTICLES.map((p, i) => (
-          <ConfettiParticle key={i} {...p} />
+      <Animated.View style={[styles.overlay, { backgroundColor: colors.overlayHeavy }, overlayStyle]}>
+        {/* Confetti particles (skip when reducedMotion) */}
+        {!reducedMotion && CONFETTI_PARTICLES.map((p, i) => (
+          <ConfettiParticle key={i} {...p} color={p.color === 'cyan' ? colors.cyan : p.color} />
         ))}
 
         {/* Glow ring */}
-        <Animated.View style={[styles.glowRing, glowStyle]} />
+        <Animated.View style={[styles.glowRing, { borderColor: colors.cyan, shadowColor: colors.cyan }, glowStyle]} />
 
         {/* Badge */}
         <Animated.View style={[styles.badgeContainer, badgeStyle]}>
@@ -221,8 +243,8 @@ export default function TierCelebration({ visible, newTier, onComplete }: TierCe
 
         {/* Text */}
         <Animated.View style={[styles.textContainer, textStyle]}>
-          <Text style={styles.congratsText}>Tier Up!</Text>
-          <Text style={styles.tierText}>You've reached {tierName}!</Text>
+          <Text style={[styles.congratsText, { color: colors.cyan }]}>Tier Up!</Text>
+          <Text style={[styles.tierText, { color: colors.textPrimary }]}>You've reached {tierName}!</Text>
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -232,7 +254,7 @@ export default function TierCelebration({ visible, newTier, onComplete }: TierCe
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -243,8 +265,6 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: 'transparent',
     borderWidth: 3,
-    borderColor: colors.cyan,
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 30,
@@ -266,14 +286,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   congratsText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
   tierText: {
-    color: colors.textPrimary,
     fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',

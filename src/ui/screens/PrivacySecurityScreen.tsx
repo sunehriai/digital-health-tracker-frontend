@@ -22,7 +22,7 @@ import {
   Lock,
   Info,
 } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 import { biometrics } from '../../data/utils/biometrics';
 import { useSecurity } from '../hooks/useSecurity';
@@ -42,6 +42,7 @@ const AUTO_LOCK_OPTIONS = [
 const PRIVACY_POLICY_URL = 'https://vision-health.app/privacy'; // Replace with actual URL
 
 export default function PrivacySecurityScreen({ navigation }: RootStackScreenProps<'PrivacySecurity'>) {
+  const { colors } = useTheme();
   const security = useSecurity();
   const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('PrivacySecurity');
@@ -119,31 +120,31 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
     : 'Face ID / Biometric Lock';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft color={colors.textSecondary} size={24} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Privacy & Security</Text>
-          <Text style={styles.headerSubtitle}>Protect your health data</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy & Security</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Protect your health data</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* AUTHENTICATION Section */}
-        <Text style={styles.sectionTitle}>AUTHENTICATION</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>AUTHENTICATION</Text>
 
         {/* Biometric Lock */}
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Fingerprint color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>{biometricLabel}</Text>
-            <Text style={styles.settingSubtitle}>Secure app access with biometrics</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>{biometricLabel}</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Secure app access with biometrics</Text>
           </View>
           <Switch
             value={security.biometricEnabled}
@@ -155,21 +156,21 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
 
         {/* Auto-Lock (disabled when biometric lock is OFF) */}
         <TouchableOpacity
-          style={[styles.settingCard, !security.biometricEnabled && styles.settingCardDisabled]}
+          style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, !security.biometricEnabled && styles.settingCardDisabled]}
           activeOpacity={security.biometricEnabled ? 0.8 : 1}
           onPress={() => security.biometricEnabled && setShowAutoLockPicker(!showAutoLockPicker)}
         >
-          <View style={[styles.settingIcon, !security.biometricEnabled && { opacity: 0.4 }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }, !security.biometricEnabled && { opacity: 0.4 }]}>
             <Clock color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, !security.biometricEnabled && { opacity: 0.4 }]}>Auto-Lock</Text>
-            <Text style={styles.settingSubtitle}>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }, !security.biometricEnabled && { opacity: 0.4 }]}>Auto-Lock</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>
               {security.biometricEnabled ? 'Lock after inactivity' : 'Enable biometric lock first'}
             </Text>
           </View>
           <View style={styles.settingValue}>
-            <Text style={[styles.settingValueText, !security.biometricEnabled && { opacity: 0.4 }]}>
+            <Text style={[styles.settingValueText, { color: colors.cyan }, !security.biometricEnabled && { opacity: 0.4 }]}>
               {getAutoLockLabel()}
             </Text>
             <ChevronDown color={colors.textMuted} size={18} />
@@ -177,12 +178,13 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
         </TouchableOpacity>
 
         {showAutoLockPicker && (
-          <View style={styles.pickerDropdown}>
+          <View style={[styles.pickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
             {AUTO_LOCK_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.pickerOption,
+                  { borderBottomColor: colors.border },
                   security.autoLockTimeout === option.value && styles.pickerOptionSelected,
                 ]}
                 onPress={() => handleAutoLockChange(option.value)}
@@ -190,7 +192,8 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
                 <Text
                   style={[
                     styles.pickerOptionText,
-                    security.autoLockTimeout === option.value && styles.pickerOptionTextSelected,
+                    { color: colors.textSecondary },
+                    security.autoLockTimeout === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
                   ]}
                 >
                   {option.label}
@@ -201,58 +204,58 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
         )}
 
         {/* DATA MANAGEMENT Section */}
-        <Text style={styles.sectionTitle}>DATA MANAGEMENT</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>DATA MANAGEMENT</Text>
 
         {/* Export Health Data */}
-        <TouchableOpacity style={styles.settingCard} activeOpacity={0.8} onPress={handleExportData}>
-          <View style={styles.settingIcon}>
+        <TouchableOpacity style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.8} onPress={handleExportData}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Download color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Export Health Data</Text>
-            <Text style={styles.settingSubtitle}>Generate PDF summary</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Export Health Data</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Generate PDF summary</Text>
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
 
         {/* Privacy Policy */}
-        <TouchableOpacity style={styles.settingCard} activeOpacity={0.8} onPress={handlePrivacyPolicy}>
-          <View style={styles.settingIcon}>
+        <TouchableOpacity style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.8} onPress={handlePrivacyPolicy}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <FileText color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Privacy Policy</Text>
-            <Text style={styles.settingSubtitle}>Review our data practices</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Privacy Policy</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Review our data practices</Text>
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
 
         {/* ADDITIONAL SECURITY Section */}
-        <Text style={styles.sectionTitle}>ADDITIONAL SECURITY</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>ADDITIONAL SECURITY</Text>
 
         {/* Data Encryption - Info only, no interaction */}
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Shield color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Data Encryption</Text>
-            <Text style={styles.settingSubtitle}>AES-256 encryption enabled</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Data Encryption</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>AES-256 encryption enabled</Text>
           </View>
           <View style={styles.statusBadge}>
             <Lock color={colors.success} size={14} />
-            <Text style={styles.statusText}>Active</Text>
+            <Text style={[styles.statusText, { color: colors.success }]}>Active</Text>
           </View>
         </View>
 
         {/* Screen Security - Toggle */}
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Eye color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Screen Security</Text>
-            <Text style={styles.settingSubtitle}>Block screenshots & app switcher</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Screen Security</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Block screenshots & app switcher</Text>
           </View>
           <Switch
             value={security.screenSecurityEnabled}
@@ -264,8 +267,8 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
 
         {/* Screen Security Granularity (visible only when security is ON) */}
         {security.screenSecurityEnabled && (
-          <View style={styles.granularityCard}>
-            <Text style={styles.granularityLabel}>Protected screens</Text>
+          <View style={[styles.granularityCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Text style={[styles.granularityLabel, { color: colors.textMuted }]}>Protected screens</Text>
             <TouchableOpacity
               style={[
                 styles.granularityOption,
@@ -273,14 +276,14 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
               ]}
               onPress={() => security.setScreenSecurityGranularity('sensitive_only')}
             >
-              <View style={styles.radioOuter}>
+              <View style={[styles.radioOuter, { borderColor: colors.cyan }]}>
                 {security.screenSecurityGranularity === 'sensitive_only' && (
-                  <View style={styles.radioInner} />
+                  <View style={[styles.radioInner, { backgroundColor: colors.cyan }]} />
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.granularityOptionText}>Sensitive screens only</Text>
-                <Text style={styles.granularityOptionSub}>Emergency Vault, medications, personal info (7 screens)</Text>
+                <Text style={[styles.granularityOptionText, { color: colors.textPrimary }]}>Sensitive screens only</Text>
+                <Text style={[styles.granularityOptionSub, { color: colors.textMuted }]}>Emergency Vault, medications, personal info (7 screens)</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity
@@ -290,26 +293,26 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
               ]}
               onPress={() => security.setScreenSecurityGranularity('all')}
             >
-              <View style={styles.radioOuter}>
+              <View style={[styles.radioOuter, { borderColor: colors.cyan }]}>
                 {security.screenSecurityGranularity === 'all' && (
-                  <View style={styles.radioInner} />
+                  <View style={[styles.radioInner, { backgroundColor: colors.cyan }]} />
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.granularityOptionText}>All screens</Text>
-                <Text style={styles.granularityOptionSub}>Includes Home, Cabinet, Alerts, and more (11 screens)</Text>
+                <Text style={[styles.granularityOptionText, { color: colors.textPrimary }]}>All screens</Text>
+                <Text style={[styles.granularityOptionSub, { color: colors.textMuted }]}>Includes Home, Cabinet, Alerts, and more (11 screens)</Text>
               </View>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Health Data Protection Notice */}
-        <View style={styles.noticeCard}>
+        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
           <View style={styles.noticeHeader}>
             <Info color={colors.cyan} size={18} />
-            <Text style={styles.noticeTitle}>Health Data Protection</Text>
+            <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Health Data Protection</Text>
           </View>
-          <Text style={styles.noticeText}>
+          <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
             Your health data is protected with industry-standard AES-256 encryption. Vision complies
             with App Store Health guidelines and does not share your data with third parties. You can
             export your complete medication history at any time.
@@ -325,7 +328,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
 
@@ -337,7 +340,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
@@ -347,19 +349,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
 
   // Section
   sectionTitle: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -371,12 +370,10 @@ const styles = StyleSheet.create({
   settingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   settingCardDisabled: {
     opacity: 0.6,
@@ -385,7 +382,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -394,13 +390,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   settingSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
   settingValue: {
@@ -409,7 +403,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   settingValueText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -425,51 +418,42 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusText: {
-    color: colors.success,
     fontSize: 12,
     fontWeight: '600',
   },
 
   // Picker Dropdown
   pickerDropdown: {
-    backgroundColor: '#121721',
     borderRadius: 12,
     marginBottom: 10,
     marginTop: -6,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   pickerOption: {
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2633',
   },
   pickerOptionSelected: {
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   pickerOptionText: {
-    color: colors.textSecondary,
     fontSize: 15,
   },
   pickerOptionTextSelected: {
-    color: colors.cyan,
     fontWeight: '600',
   },
 
   // Granularity Card
   granularityCard: {
-    backgroundColor: '#121721',
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
     marginTop: -6,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   granularityLabel: {
-    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -484,12 +468,10 @@ const styles = StyleSheet.create({
   },
   granularityOptionSelected: {},
   granularityOptionText: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
   granularityOptionSub: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -498,7 +480,6 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.cyan,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 1,
@@ -507,7 +488,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.cyan,
   },
 
   // Danger Card
@@ -531,13 +511,11 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   dangerTitle: {
-    color: colors.error,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   dangerSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
 
@@ -548,7 +526,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 20,
     borderLeftWidth: 3,
-    borderLeftColor: colors.cyan,
   },
   noticeHeader: {
     flexDirection: 'row',
@@ -557,12 +534,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noticeTitle: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '700',
   },
   noticeText: {
-    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
   },

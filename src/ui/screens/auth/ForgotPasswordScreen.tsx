@@ -4,11 +4,12 @@ import { authService } from '../../../data/services/authService';
 import { useAlert } from '../../context/AlertContext';
 import Button from '../../primitives/Button';
 import Input from '../../primitives/Input';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/typography';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 export default function ForgotPasswordScreen({ navigation }: RootStackScreenProps<'ForgotPassword'>) {
+  const { colors } = useTheme();
   const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,10 +32,10 @@ export default function ForgotPasswordScreen({ navigation }: RootStackScreenProp
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Reset Password</Text>
-        <Text style={styles.subtitle}>Enter your email to receive a reset link</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Reset Password</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter your email to receive a reset link</Text>
       </View>
 
       <Input
@@ -65,10 +66,10 @@ export default function ForgotPasswordScreen({ navigation }: RootStackScreenProp
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24, paddingTop: 80 },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 80 },
   header: { alignItems: 'center', marginBottom: 48 },
-  title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.bodySmall, color: colors.textSecondary, marginTop: 4, textAlign: 'center' },
+  title: { ...typography.h1 },
+  subtitle: { ...typography.bodySmall, marginTop: 4, textAlign: 'center' },
   field: { marginBottom: 16 },
   button: { marginTop: 8, marginBottom: 16 },
 });

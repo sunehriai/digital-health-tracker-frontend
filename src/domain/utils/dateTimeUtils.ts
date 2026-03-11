@@ -3,27 +3,53 @@
  * All time-related formatting and comparison logic lives here.
  */
 
+export type TimeFormat = '12h' | '24h';
+
 /**
- * Format 24h time string to 12h AM/PM format.
- * @param time24 - Time in "HH:MM" format (e.g., "14:30")
- * @returns Formatted string (e.g., "2:30 PM")
+ * Master time formatting function. All time display in the app should use this.
+ *
+ * Accepts either a "HH:MM" string or a Date object.
+ * Returns formatted time string based on the user's time format preference.
+ *
+ * @param time - Time in "HH:MM" 24h format, or a Date object
+ * @param format - '12h' or '24h'
+ * @returns Formatted string (e.g., "2:30 PM" or "14:30")
  */
-export function formatTime12h(time24: string): string {
-  const [hours, minutes] = time24.split(':').map(Number);
+export function formatTime(time: string | Date, format: TimeFormat): string {
+  let hours: number;
+  let minutes: number;
+
+  if (time instanceof Date) {
+    hours = time.getHours();
+    minutes = time.getMinutes();
+  } else {
+    const parts = (time || '00:00').split(':').map(Number);
+    hours = parts[0] ?? 0;
+    minutes = parts[1] ?? 0;
+  }
+
+  if (format === '24h') {
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }
+
+  // 12h format
   const period = hours >= 12 ? 'PM' : 'AM';
   const hour12 = hours % 12 || 12;
   return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
 /**
- * Format a Date object to 12h AM/PM format.
+ * @deprecated Use formatTime(time24, '12h') instead. Kept for backward compat during migration.
+ */
+export function formatTime12h(time24: string): string {
+  return formatTime(time24, '12h');
+}
+
+/**
+ * @deprecated Use formatTime(date, '12h') instead. Kept for backward compat during migration.
  */
 export function formatTimeAMPM(date: Date): string {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hour12 = hours % 12 || 12;
-  return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  return formatTime(date, '12h');
 }
 
 /**

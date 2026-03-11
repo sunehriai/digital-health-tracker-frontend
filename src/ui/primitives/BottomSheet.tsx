@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import GorhomBottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface BottomSheetProps {
   title?: string;
@@ -15,6 +15,7 @@ export default React.forwardRef<GorhomBottomSheet, BottomSheetProps>(function Bo
   { title, snapPoints: customSnapPoints, children, onClose },
   ref,
 ) {
+  const { colors } = useTheme();
   const snapPoints = useMemo(() => customSnapPoints || ['40%', '70%'], [customSnapPoints]);
 
   const renderBackdrop = useCallback(
@@ -32,11 +33,11 @@ export default React.forwardRef<GorhomBottomSheet, BottomSheetProps>(function Bo
       enablePanDownToClose
       backdropComponent={renderBackdrop}
       onChange={(index) => { if (index === -1) onClose?.(); }}
-      backgroundStyle={styles.background}
-      handleIndicatorStyle={styles.indicator}
+      backgroundStyle={[styles.background, { backgroundColor: colors.bgCard }]}
+      handleIndicatorStyle={[styles.indicator, { backgroundColor: colors.textMuted }]}
     >
       <BottomSheetView style={styles.content}>
-        {title && <Text style={styles.title}>{title}</Text>}
+        {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
         {children}
       </BottomSheetView>
     </GorhomBottomSheet>
@@ -45,11 +46,10 @@ export default React.forwardRef<GorhomBottomSheet, BottomSheetProps>(function Bo
 
 const styles = StyleSheet.create({
   background: {
-    backgroundColor: colors.bgCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
-  indicator: { backgroundColor: colors.textMuted, width: 40 },
+  indicator: { width: 40 },
   content: { padding: 20 },
-  title: { color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginBottom: 16 },
+  title: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
 });

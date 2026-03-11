@@ -1,3 +1,4 @@
+// Force-dark: This screen always uses dark theme regardless of user preference
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { useVault } from '../hooks/useVault';
 import { useAlert } from '../context/AlertContext';
 import Button from '../primitives/Button';
 import Input from '../primitives/Input';
-import { colors } from '../theme/colors';
+import { darkColors } from '../theme/ThemeContext';
 import type { RootStackScreenProps } from '../navigation/types';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
@@ -116,7 +117,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <ChevronLeft color={colors.textSecondary} size={24} />
+              <ChevronLeft color={darkColors.textSecondary} size={24} />
               <Text style={styles.backText}>Back</Text>
             </TouchableOpacity>
           </View>
@@ -171,7 +172,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
             <View key={index} style={styles.chipRow}>
               <Text style={styles.chipText}>{allergy}</Text>
               <TouchableOpacity onPress={() => removeAllergy(index)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Trash2 color={colors.error} size={18} />
+                <Trash2 color={darkColors.error} size={18} />
               </TouchableOpacity>
             </View>
           ))}
@@ -185,7 +186,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
               onSubmitEditing={addAllergy}
             />
             <TouchableOpacity style={styles.addBtn} onPress={addAllergy}>
-              <Plus color={colors.cyan} size={20} />
+              <Plus color={darkColors.cyan} size={20} />
             </TouchableOpacity>
           </View>
 
@@ -199,7 +200,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
             <View key={index} style={styles.chipRow}>
               <Text style={styles.chipText}>{condition}</Text>
               <TouchableOpacity onPress={() => removeCondition(index)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Trash2 color={colors.error} size={18} />
+                <Trash2 color={darkColors.error} size={18} />
               </TouchableOpacity>
             </View>
           ))}
@@ -213,7 +214,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
               onSubmitEditing={addCondition}
             />
             <TouchableOpacity style={styles.addBtn} onPress={addCondition}>
-              <Plus color={colors.cyan} size={20} />
+              <Plus color={darkColors.cyan} size={20} />
             </TouchableOpacity>
           </View>
 
@@ -232,7 +233,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
                 </Text>
               </View>
               <TouchableOpacity onPress={() => removeContact(index)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Trash2 color={colors.error} size={18} />
+                <Trash2 color={darkColors.error} size={18} />
               </TouchableOpacity>
             </View>
           ))}
@@ -263,7 +264,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
               />
             </View>
             <TouchableOpacity style={styles.addContactBtn} onPress={addContact}>
-              <Plus color={colors.cyan} size={18} />
+              <Plus color={darkColors.cyan} size={18} />
               <Text style={styles.addContactText}>Add Contact</Text>
             </TouchableOpacity>
           </View>
@@ -283,7 +284,7 @@ export default function EditEmergencyVaultScreen({ navigation }: RootStackScreen
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1, backgroundColor: darkColors.bg },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
 
@@ -300,12 +301,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   backText: {
-    color: colors.textSecondary,
+    color: darkColors.textSecondary,
     fontSize: 14,
     marginLeft: 2,
   },
   title: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 24,
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
 
   // Section
   sectionTitle: {
-    color: colors.cyan,
+    color: darkColors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -321,14 +322,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionSubtitle: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 13,
     marginBottom: 16,
   },
 
   // Field Label
   fieldLabel: {
-    color: colors.textSecondary,
+    color: darkColors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 10,
@@ -346,20 +347,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgElevated,
+    borderColor: darkColors.border,
+    backgroundColor: darkColors.bgElevated,
   },
   bloodTypeChipSelected: {
-    borderColor: colors.cyan,
-    backgroundColor: colors.cyanDim,
+    borderColor: darkColors.cyan,
+    backgroundColor: darkColors.cyanDim,
   },
   bloodTypeText: {
-    color: colors.textSecondary,
+    color: darkColors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   bloodTypeTextSelected: {
-    color: colors.cyan,
+    color: darkColors.cyan,
   },
 
   // Row
@@ -380,10 +381,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     marginBottom: 8,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: darkColors.bgElevated,
   },
   chipText: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 15,
   },
 
@@ -400,7 +401,7 @@ const styles = StyleSheet.create({
   addBtn: {
     padding: 14,
     borderRadius: 10,
-    backgroundColor: colors.cyanDim,
+    backgroundColor: darkColors.cyanDim,
     marginBottom: 0,
   },
 
@@ -413,19 +414,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     marginBottom: 8,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: darkColors.bgElevated,
   },
   contactInfo: {
     flex: 1,
   },
   contactName: {
-    color: colors.textPrimary,
+    color: darkColors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   contactDetails: {
-    color: colors.textMuted,
+    color: darkColors.textMuted,
     fontSize: 13,
   },
 
@@ -433,9 +434,9 @@ const styles = StyleSheet.create({
   newContactCard: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: colors.bgElevated,
+    backgroundColor: darkColors.bgElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: darkColors.border,
     borderStyle: 'dashed',
   },
   contactField: {
@@ -449,10 +450,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 8,
     borderRadius: 8,
-    backgroundColor: colors.cyanDim,
+    backgroundColor: darkColors.cyanDim,
   },
   addContactText: {
-    color: colors.cyan,
+    color: darkColors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },

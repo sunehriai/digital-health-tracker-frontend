@@ -7,6 +7,17 @@ const logger = createLogger('ApiClient');
 // TODO: Re-enable Firebase token — temporarily disabled for development
 const DEV_SKIP_AUTH = true;
 
+/** Step 38: Dev-only API base override for environment switching. */
+let apiBaseOverride: string | null = null;
+
+export function setApiBase(url: string | null): void {
+  if (!__DEV__) {
+    console.warn('setApiBase disabled in production');
+    return;
+  }
+  apiBaseOverride = url;
+}
+
 /**
  * R19: Structured error for deactivated accounts.
  * Thrown when backend returns 403 with code "ACCOUNT_DEACTIVATED".
@@ -58,7 +69,7 @@ class ApiClient {
         ...options.headers,
       };
 
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await fetch(`${apiBaseOverride ?? API_BASE}${endpoint}`, {
         ...options,
         headers,
       });

@@ -17,6 +17,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, ImagePlus, X, Check } from 'lucide-react-native';
 import { ImageInfo } from '../../../domain/utils/imageValidation';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface ImageCaptureZoneProps {
   label: string;
@@ -37,22 +38,24 @@ export function ImageCaptureZone({
   isLoading = false,
   error = null,
 }: ImageCaptureZoneProps) {
+  const { colors } = useTheme();
   const hasImage = image !== null;
 
   return (
     <View style={styles.container}>
       {/* Label */}
       <View style={styles.labelRow}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
         {isRequired && <Text style={styles.required}>*</Text>}
-        {!isRequired && <Text style={styles.optional}>(optional)</Text>}
+        {!isRequired && <Text style={[styles.optional, { color: colors.textMuted }]}>(optional)</Text>}
       </View>
 
       {/* Capture Zone */}
       <TouchableOpacity
         style={[
           styles.captureZone,
-          hasImage && styles.captureZoneWithImage,
+          { borderColor: colors.cyanDim, backgroundColor: colors.bgSubtle },
+          hasImage && { borderStyle: 'solid' as const, borderColor: colors.cyan },
           error && styles.captureZoneError,
         ]}
         onPress={onCapture}
@@ -61,39 +64,39 @@ export function ImageCaptureZone({
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00D1FF" />
-            <Text style={styles.loadingText}>Processing...</Text>
+            <ActivityIndicator size="large" color={colors.cyan} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Processing...</Text>
           </View>
         ) : hasImage ? (
           <View style={styles.previewContainer}>
             <Image source={{ uri: image.uri }} style={styles.preview} />
             <View style={styles.previewOverlay}>
-              <View style={styles.checkBadge}>
-                <Check size={16} color="#00D1FF" />
+              <View style={[styles.checkBadge, { backgroundColor: colors.overlay, borderColor: colors.cyan }]}>
+                <Check size={16} color={colors.cyan} />
               </View>
             </View>
             <TouchableOpacity
-              style={styles.removeButton}
+              style={[styles.removeButton, { backgroundColor: colors.overlay }]}
               onPress={(e) => {
                 e.stopPropagation();
                 onRemove();
               }}
             >
-              <X size={18} color="#FFFFFF" />
+              <X size={18} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         ) : (
           <LinearGradient
-            colors={['rgba(0, 209, 255, 0.05)', 'rgba(0, 209, 255, 0.02)']}
+            colors={[colors.cyanDim, 'transparent']}
             style={styles.emptyContent}
           >
-            <View style={styles.iconContainer}>
-              <Camera size={28} color="#00D1FF" />
+            <View style={[styles.iconContainer, { backgroundColor: colors.cyanDim }]}>
+              <Camera size={28} color={colors.cyan} />
             </View>
-            <Text style={styles.tapText}>Tap to capture</Text>
+            <Text style={[styles.tapText, { color: colors.textPrimary }]}>Tap to capture</Text>
             <View style={styles.optionsRow}>
-              <ImagePlus size={14} color="rgba(255, 255, 255, 0.4)" />
-              <Text style={styles.optionText}>or select from gallery</Text>
+              <ImagePlus size={14} color={colors.textMuted} />
+              <Text style={[styles.optionText, { color: colors.textMuted }]}>or select from gallery</Text>
             </View>
           </LinearGradient>
         )}
@@ -118,7 +121,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   required: {
     fontSize: 14,
@@ -126,7 +128,6 @@ const styles = StyleSheet.create({
   },
   optional: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.4)',
     marginLeft: 4,
   },
   captureZone: {
@@ -134,13 +135,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     overflow: 'hidden',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  captureZoneWithImage: {
-    borderStyle: 'solid',
-    borderColor: 'rgba(0, 209, 255, 0.5)',
   },
   captureZoneError: {
     borderColor: 'rgba(239, 68, 68, 0.5)',
@@ -153,7 +148,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
   previewContainer: {
     flex: 1,
@@ -173,11 +167,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.5)',
   },
   removeButton: {
     position: 'absolute',
@@ -186,7 +178,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -200,7 +191,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -208,7 +198,6 @@ const styles = StyleSheet.create({
   tapText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#FFFFFF',
   },
   optionsRow: {
     flexDirection: 'row',
@@ -217,7 +206,6 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.4)',
   },
   errorText: {
     fontSize: 12,

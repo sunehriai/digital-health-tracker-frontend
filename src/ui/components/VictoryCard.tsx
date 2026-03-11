@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Sparkles, Zap, Clock, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useTheme } from '../theme/ThemeContext';
 import { formatMedName } from '../../domain/utils';
+import { logVictoryCard } from '../../data/utils/notificationDebugLog';
 import type { DoseTimeSlot } from '../../domain/types';
 
 interface VictoryCardProps {
@@ -25,42 +27,52 @@ export default function VictoryCard({
   comebackBoostActive = false,
   boostHoursRemaining = 0,
 }: VictoryCardProps) {
+  const { colors } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const [showTomorrowDoses, setShowTomorrowDoses] = useState(false);
+
+  // Log once on mount (useRef guards against React Strict Mode double-invoke)
+  const logged = React.useRef(false);
+  React.useEffect(() => {
+    if (logged.current) return;
+    logged.current = true;
+    logVictoryCard(points, completedCount, totalCount);
+  }, []);
 
   const toggleTomorrowDoses = () => {
     setShowTomorrowDoses((prev) => !prev);
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Sparkles color={colors.cyan} size={18} strokeWidth={2.5} />
-        <Text style={styles.headerText}>VITALITY SYNC COMPLETE</Text>
+        <Text style={[styles.headerText, { color: colors.cyan }]}>VITALITY SYNC COMPLETE</Text>
       </View>
 
       {/* Circular Glow Background with Badge and Points */}
       <Animated.View
-        entering={FadeInDown.delay(100).duration(300)}
+        entering={reducedMotion ? undefined : FadeInDown.delay(100).duration(300)}
         style={styles.glowContainer}
       >
         {/* Outer glow circle */}
-        <View style={styles.outerGlow}>
+        <View style={[styles.outerGlow, { shadowColor: colors.cyan }]}>
           {/* Circular Badge with Zap Icon */}
           <View style={styles.circularBadge}>
             <Zap color={colors.cyan} size={28} strokeWidth={2.5} fill={colors.cyan} />
           </View>
 
           {/* Points Display */}
-          <Text style={styles.pointsValue}>{points}</Text>
-          <Text style={styles.pointsLabel}>VITALITY</Text>
+          <Text style={[styles.pointsValue, { color: colors.textPrimary, textShadowColor: colors.cyan }]}>{points}</Text>
+          <Text style={[styles.pointsLabel, { color: colors.cyan }]}>VITALITY</Text>
         </View>
       </Animated.View>
 
       {/* Doses Recorded */}
       <Animated.Text
-        entering={FadeInDown.delay(300).duration(300)}
-        style={styles.dosesRecorded}
+        entering={reducedMotion ? undefined : FadeInDown.delay(300).duration(300)}
+        style={[styles.dosesRecorded, { color: colors.textMuted }]}
       >
         {completedCount}/{totalCount} doses recorded
       </Animated.Text>
@@ -68,7 +80,7 @@ export default function VictoryCard({
       {/* Comeback Boost Callout */}
       {comebackBoostActive && boostHoursRemaining > 0 && (
         <Animated.Text
-          entering={FadeInDown.delay(350).duration(300)}
+          entering={reducedMotion ? undefined : FadeInDown.delay(350).duration(300)}
           style={styles.boostCallout}
         >
           Comeback boost active — today's XP was doubled! {boostHoursRemaining}h left.
@@ -77,16 +89,16 @@ export default function VictoryCard({
 
       {/* Insight Text */}
       <Animated.Text
-        entering={FadeInDown.delay(400).duration(300)}
-        style={styles.insightText}
+        entering={reducedMotion ? undefined : FadeInDown.delay(400).duration(300)}
+        style={[styles.insightText, { color: colors.textSecondary }]}
       >
         {insightText}
       </Animated.Text>
 
       {/* Next Dose Section */}
       <Animated.View
-        entering={FadeInDown.delay(500).duration(300)}
-        style={styles.nextDoseSection}
+        entering={reducedMotion ? undefined : FadeInDown.delay(500).duration(300)}
+        style={[styles.nextDoseSection, { borderTopColor: colors.borderSubtle }]}
       >
         <TouchableOpacity
           style={styles.nextDoseToggle}
@@ -94,7 +106,7 @@ export default function VictoryCard({
           activeOpacity={0.7}
         >
           <Clock color={colors.textMuted} size={14} strokeWidth={2} />
-          <Text style={styles.nextDoseLabel}>Next Dose</Text>
+          <Text style={[styles.nextDoseLabel, { color: colors.textMuted }]}>Next Dose</Text>
           {showTomorrowDoses ? (
             <ChevronUp color={colors.textMuted} size={14} />
           ) : (
@@ -104,23 +116,23 @@ export default function VictoryCard({
 
         {showTomorrowDoses && tomorrowSlot && (
           <Animated.View
-            entering={FadeInDown.duration(200)}
+            entering={reducedMotion ? undefined : FadeInDown.duration(200)}
             style={styles.tomorrowDetails}
           >
-            <Text style={styles.tomorrowTime}>
+            <Text style={[styles.tomorrowTime, { color: colors.textSecondary }]}>
               {tomorrowSlot.timeDisplay} Tomorrow
             </Text>
             {tomorrowSlot.medications.map(({ medication, doseInfo }) => (
-              <View key={medication.id} style={styles.tomorrowMed}>
-                <Text style={styles.tomorrowMedName}>{formatMedName(medication.name, 'card')}</Text>
-                <Text style={styles.tomorrowMedDose}>{doseInfo}</Text>
+              <View key={medication.id} style={[styles.tomorrowMed, { backgroundColor: colors.bgSubtle }]}>
+                <Text style={[styles.tomorrowMedName, { color: colors.textPrimary }]}>{formatMedName(medication.name, 'card')}</Text>
+                <Text style={[styles.tomorrowMedDose, { color: colors.textMuted }]}>{doseInfo}</Text>
               </View>
             ))}
           </Animated.View>
         )}
 
         {showTomorrowDoses && !tomorrowSlot && (
-          <Text style={styles.noUpcoming}>No upcoming doses scheduled</Text>
+          <Text style={[styles.noUpcoming, { color: colors.textMuted }]}>No upcoming doses scheduled</Text>
         )}
       </Animated.View>
     </Animated.View>
@@ -142,7 +154,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerText: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -160,7 +171,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 190, 220, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -178,22 +188,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pointsValue: {
-    color: colors.textPrimary,
     fontSize: 40,
     fontWeight: '800',
     letterSpacing: -1,
-    textShadowColor: colors.cyan,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 16,
   },
   pointsLabel: {
-    color: colors.cyan,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1.5,
   },
   dosesRecorded: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
@@ -207,7 +213,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   insightText: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 18,
@@ -217,7 +222,6 @@ const styles = StyleSheet.create({
   nextDoseSection: {
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   nextDoseToggle: {
     flexDirection: 'row',
@@ -226,7 +230,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nextDoseLabel: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -235,7 +238,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tomorrowTime: {
-    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
@@ -247,21 +249,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 8,
   },
   tomorrowMedName: {
-    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '500',
   },
   tomorrowMedDose: {
-    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '500',
   },
   noUpcoming: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '500',
     marginTop: 8,

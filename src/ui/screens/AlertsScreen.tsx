@@ -4,10 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Pill, Flame, Check, ShieldCheck, AlertCircle, Bell, Clock, Zap, Info } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useFeed } from '../hooks/useFeed';
 import { useGamification } from '../hooks/useGamification';
 import { gamificationService } from '../../data/services/gamificationService';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import type { ColorPalette } from '../theme/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
@@ -30,7 +32,7 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-function getAlertIcon(type: string, isActive: boolean) {
+function getAlertIcon(type: string, isActive: boolean, colors: ColorPalette) {
   const size = 20;
   const sw = 2.5;
   const color = isActive ? colors.cyan : '#8E9196';
@@ -58,22 +60,23 @@ interface AlertCardProps {
   isActive: boolean;
   onLogRefill?: () => void;
   onDismiss: () => void;
+  colors: ColorPalette;
 }
 
-function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
+function AlertCard({ item, isActive, onLogRefill, onDismiss, colors }: AlertCardProps) {
   const [showNihTooltip, setShowNihTooltip] = useState(false);
 
   // Parse metadata for cabinet_insight cards
   const meta = item.type === 'cabinet_insight' ? parseFeedMetadata(item.metadata) : null;
 
   return (
-    <View style={[styles.alertCard, isActive && styles.alertCardActive]}>
+    <View style={[styles.alertCard, isActive && styles.alertCardActive, isActive && { shadowColor: colors.cyan }]}>
       <View style={styles.alertRow}>
         <View style={[styles.alertIcon, isActive ? styles.alertIconActive : styles.alertIconPast]}>
-          {getAlertIcon(item.type, isActive)}
+          {getAlertIcon(item.type, isActive, colors)}
         </View>
         <View style={styles.alertContent}>
-          <Text style={[styles.alertTitle, !isActive && styles.alertTitlePast]}>{item.title}</Text>
+          <Text style={[styles.alertTitle, { color: colors.textPrimary }, !isActive && styles.alertTitlePast]}>{item.title}</Text>
           {item.subtitle && (
             <Text style={styles.alertSubtitle}>{item.subtitle}</Text>
           )}
@@ -94,22 +97,22 @@ function AlertCard({ item, isActive, onLogRefill, onDismiss }: AlertCardProps) {
           <Text style={styles.alertTime}>{formatRelativeTime(item.created_at)}</Text>
         </View>
         {isActive && item.type === 'refill_alert' && onLogRefill && (
-          <TouchableOpacity style={styles.logRefillBtn} onPress={onLogRefill}>
-            <Text style={styles.logRefillText}>Log Refill</Text>
+          <TouchableOpacity style={[styles.logRefillBtn, { borderColor: colors.cyan }]} onPress={onLogRefill}>
+            <Text style={[styles.logRefillText, { color: colors.cyan }]}>Log Refill</Text>
           </TouchableOpacity>
         )}
       </View>
       {/* NIH Disclaimer Tooltip (Step 23) */}
       {showNihTooltip && (
         <Modal transparent animationType="fade" visible onRequestClose={() => setShowNihTooltip(false)}>
-          <TouchableOpacity style={styles.tooltipOverlay} activeOpacity={1} onPress={() => setShowNihTooltip(false)}>
-            <View style={styles.tooltipBox}>
-              <Text style={styles.tooltipTitle}>NIH Data Source</Text>
+          <TouchableOpacity style={[styles.tooltipOverlay, { backgroundColor: colors.overlay }]} activeOpacity={1} onPress={() => setShowNihTooltip(false)}>
+            <View style={[styles.tooltipBox, { backgroundColor: colors.bgElevated }]}>
+              <Text style={[styles.tooltipTitle, { color: colors.textPrimary }]}>NIH Data Source</Text>
               <Text style={styles.tooltipText}>
                 This information is sourced from NIH public databases. It is not medical advice. Consult your healthcare provider for personalized guidance.
               </Text>
               <TouchableOpacity style={styles.tooltipClose} onPress={() => setShowNihTooltip(false)}>
-                <Text style={styles.tooltipCloseText}>Got it</Text>
+                <Text style={[styles.tooltipCloseText, { color: colors.cyan }]}>Got it</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -140,7 +143,9 @@ export default function AlertsScreen() {
   const { feedItems, fetchFeed, archiveFeedItem } = useFeed();
   const { showAlert } = useAlert();
   const { totalXp, currentTier, tierName } = useGamification();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Alerts');
+  const { colors } = useTheme();
 
   // XP History log
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
@@ -194,16 +199,16 @@ export default function AlertsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>Vitality Feed</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Vitality Feed</Text>
             <Text style={styles.subtitle}>Real-time system intelligence</Text>
           </View>
-          <TouchableOpacity style={styles.previewBtn}>
-            <Text style={styles.previewText}>PREVIEW</Text>
+          <TouchableOpacity style={[styles.previewBtn, { borderColor: colors.cyan }]}>
+            <Text style={[styles.previewText, { color: colors.cyan }]}>PREVIEW</Text>
           </TouchableOpacity>
         </View>
 
@@ -220,15 +225,16 @@ export default function AlertsScreen() {
         {/* Active Alerts */}
         {activeAlerts.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitleActive}>ACTIVE ALERTS</Text>
+            <Text style={[styles.sectionTitleActive, { color: colors.cyan }]}>ACTIVE ALERTS</Text>
             <View style={styles.alertList}>
               {activeAlerts.map((item, index) => (
-                <Animated.View key={item.id} entering={FadeInDown.delay(index * 50)}>
+                <Animated.View key={item.id} entering={reducedMotion ? undefined : FadeInDown.delay(index * 50)}>
                   <AlertCard
                     item={item}
                     isActive={true}
                     onLogRefill={() => handleLogRefill(item)}
                     onDismiss={() => handleDismiss(item.id)}
+                    colors={colors}
                   />
                 </Animated.View>
               ))}
@@ -242,11 +248,12 @@ export default function AlertsScreen() {
             <Text style={styles.sectionTitlePast}>PAST ACTIVITY</Text>
             <View style={styles.alertList}>
               {pastActivity.map((item, index) => (
-                <Animated.View key={item.id} entering={FadeInDown.delay(index * 50)}>
+                <Animated.View key={item.id} entering={reducedMotion ? undefined : FadeInDown.delay(index * 50)}>
                   <AlertCard
                     item={item}
                     isActive={false}
                     onDismiss={() => handleDismiss(item.id)}
+                    colors={colors}
                   />
                 </Animated.View>
               ))}
@@ -261,7 +268,7 @@ export default function AlertsScreen() {
               <Zap color="#FFD700" size={16} strokeWidth={2.5} fill="#FFD700" />
               <Text style={styles.xpLogTitle}>XP ACTIVITY LOG</Text>
             </View>
-            <Text style={styles.xpLogSummary}>{totalXp} XP — {tierName} (Tier {currentTier})</Text>
+            <Text style={[styles.xpLogSummary, { color: colors.textSecondary }]}>{totalXp} XP — {tierName} (Tier {currentTier})</Text>
           </View>
 
           {xpLoading ? (
@@ -273,15 +280,15 @@ export default function AlertsScreen() {
           ) : (
             <View style={styles.xpTable}>
               {/* Table Header */}
-              <View style={styles.xpTableRow}>
+              <View style={[styles.xpTableRow, { borderBottomColor: colors.bgSubtle }]}>
                 <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 2 }]}>ACTION</Text>
                 <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 1, textAlign: 'right' }]}>POINTS</Text>
                 <Text style={[styles.xpTableCell, styles.xpTableHeader, { flex: 1.2, textAlign: 'right' }]}>TIME</Text>
               </View>
               {/* Table Rows */}
               {xpEvents.map((event) => (
-                <View key={event.id} style={styles.xpTableRow}>
-                  <Text style={[styles.xpTableCell, styles.xpTableAction, { flex: 2 }]} numberOfLines={1}>
+                <View key={event.id} style={[styles.xpTableRow, { borderBottomColor: colors.bgSubtle }]}>
+                  <Text style={[styles.xpTableCell, styles.xpTableAction, { flex: 2, color: colors.textPrimary }]} numberOfLines={1}>
                     {EVENT_LABELS[event.event_type] ?? event.event_type}
                   </Text>
                   <Text style={[styles.xpTableCell, { flex: 1, textAlign: 'right' }, event.points >= 0 ? styles.xpTablePositive : styles.xpTableNegative]}>
@@ -304,7 +311,6 @@ export default function AlertsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0A0A0B',
   },
   content: {
     paddingHorizontal: 20,
@@ -322,7 +328,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
@@ -336,11 +341,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.cyan,
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   previewText: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -351,7 +354,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitleActive: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -378,7 +380,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 209, 255, 0.05)',
     borderWidth: 1,
     borderColor: 'rgba(0, 209, 255, 0.4)',
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -407,7 +408,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
@@ -463,13 +463,11 @@ const styles = StyleSheet.create({
   // NIH Tooltip Modal
   tooltipOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
   tooltipBox: {
-    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 24,
     maxWidth: 340,
@@ -477,7 +475,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(100, 116, 139, 0.3)',
   },
   tooltipTitle: {
-    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -496,7 +493,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 209, 255, 0.15)',
   },
   tooltipCloseText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -507,12 +503,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.cyan,
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
     alignSelf: 'flex-start',
   },
   logRefillText: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -556,7 +550,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   xpLogSummary: {
-    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     marginLeft: 22,
@@ -581,7 +574,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   xpTableCell: {
     fontSize: 13,
@@ -593,7 +585,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   xpTableAction: {
-    color: colors.textPrimary,
     fontWeight: '500',
   },
   xpTablePositive: {

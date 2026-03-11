@@ -22,6 +22,7 @@ import { FieldStatus, ConfidenceLevel } from '../../../domain/utils/confidenceUt
 import { ConfidenceBadge } from './ConfidenceIndicator';
 import { FIELD_DISPLAY_NAMES, AI_UPLOAD_COPY } from '../../../domain/medicationConfig';
 import { formatFrequencyDisplay, formatMealRelation } from '../../../domain/medicationConfig';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface AIReviewCardProps {
   formData: MedicationFormData;
@@ -42,6 +43,8 @@ export function AIReviewCard({
   onQuickSave,
   onEditDetails,
 }: AIReviewCardProps) {
+  const { colors, isDark } = useTheme();
+
   // Group key fields for display
   const keyFields = [
     { key: 'name', label: 'Medication', value: formData.name, icon: Pill },
@@ -70,13 +73,13 @@ export function AIReviewCard({
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bgElevated, borderColor: colors.cyanDim }]}>
       {/* Header with confidence score */}
       <View style={styles.header}>
-        <Text style={styles.title}>Extracted Details</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Extracted Details</Text>
         {averageConfidence !== null && (
-          <View style={styles.confidencePill}>
-            <Text style={styles.confidenceText}>
+          <View style={[styles.confidencePill, { backgroundColor: colors.cyanDim }]}>
+            <Text style={[styles.confidenceText, { color: colors.cyan }]}>
               {Math.round(averageConfidence * 100)}% confidence
             </Text>
           </View>
@@ -102,16 +105,16 @@ export function AIReviewCard({
           const Icon = field.icon;
 
           return (
-            <View key={field.key} style={styles.fieldRow}>
+            <View key={field.key} style={[styles.fieldRow, { borderBottomColor: colors.bgSubtle }]}>
               <View style={styles.fieldLeft}>
                 {Icon && (
-                  <View style={styles.fieldIcon}>
-                    <Icon size={16} color="rgba(255, 255, 255, 0.5)" />
+                  <View style={[styles.fieldIcon, { backgroundColor: colors.bgSubtle }]}>
+                    <Icon size={16} color={colors.textMuted} />
                   </View>
                 )}
                 <View style={styles.fieldContent}>
-                  <Text style={styles.fieldLabel}>{field.label}</Text>
-                  <Text style={styles.fieldValue}>{field.value}</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>{field.label}</Text>
+                  <Text style={[styles.fieldValue, { color: colors.textPrimary }]}>{field.value}</Text>
                 </View>
               </View>
               <ConfidenceBadge level={status as ConfidenceLevel} />
@@ -125,7 +128,7 @@ export function AIReviewCard({
         {canQuickSave && (
           <TouchableOpacity onPress={onQuickSave} activeOpacity={0.8}>
             <LinearGradient
-              colors={['#00D1FF', '#0099CC']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.quickSaveButton}
@@ -137,13 +140,21 @@ export function AIReviewCard({
         )}
 
         <TouchableOpacity
-          style={[styles.editButton, !canQuickSave && styles.editButtonPrimary]}
+          style={[
+            styles.editButton,
+            { borderColor: colors.cyanDim },
+            !canQuickSave && { backgroundColor: colors.cyan, borderColor: colors.cyan },
+          ]}
           onPress={onEditDetails}
           activeOpacity={0.7}
         >
-          <Edit3 size={18} color={canQuickSave ? '#00D1FF' : '#FFFFFF'} />
+          <Edit3 size={18} color={canQuickSave ? colors.cyan : '#FFFFFF'} />
           <Text
-            style={[styles.editText, !canQuickSave && styles.editTextPrimary]}
+            style={[
+              styles.editText,
+              { color: colors.cyan },
+              !canQuickSave && { color: '#FFFFFF' },
+            ]}
           >
             {AI_UPLOAD_COPY.REVIEW_EDIT_DETAILS}
           </Text>
@@ -155,11 +166,9 @@ export function AIReviewCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1A1A2E',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   header: {
     flexDirection: 'row',
@@ -170,17 +179,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   confidencePill: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   confidenceText: {
     fontSize: 12,
-    color: '#00D1FF',
     fontWeight: '500',
   },
   warningsContainer: {
@@ -211,7 +217,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   fieldLeft: {
     flexDirection: 'row',
@@ -223,7 +228,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -232,12 +236,10 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
     marginBottom: 2,
   },
   fieldValue: {
     fontSize: 15,
-    color: '#FFFFFF',
     fontWeight: '500',
   },
   actions: {
@@ -264,18 +266,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
-  },
-  editButtonPrimary: {
-    backgroundColor: '#00D1FF',
-    borderColor: '#00D1FF',
   },
   editText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#00D1FF',
-  },
-  editTextPrimary: {
-    color: '#FFFFFF',
   },
 });

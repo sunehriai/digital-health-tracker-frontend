@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Trash2, UserX } from 'lucide-react-native';
 import Modal from '../primitives/Modal';
 import Button from '../primitives/Button';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface DeleteConfirmationModalProps {
   visible: boolean;
@@ -41,6 +41,7 @@ export default function DeleteConfirmationModal({
   onConfirm,
   onCancel,
 }: DeleteConfirmationModalProps) {
+  const { colors } = useTheme();
   console.log('[DeleteConfirmationModal] render — visible:', visible, 'deletionType:', deletionType, 'loading:', loading);
   const copy = COPY[deletionType];
   const Icon = copy.icon;
@@ -61,8 +62,8 @@ export default function DeleteConfirmationModal({
         <View style={styles.iconContainer}>
           <Icon color={colors.error} size={32} />
         </View>
-        <Text style={styles.message}>{copy.message}</Text>
-        <Text style={styles.detail}>{copy.detail}</Text>
+        <Text style={[styles.message, { color: colors.textPrimary }]}>{copy.message}</Text>
+        <Text style={[styles.detail, { color: colors.textSecondary }]}>{copy.detail}</Text>
         {loading ? (
           <>
             {console.log('[DeleteConfirmationModal] showing loading spinner')}
@@ -91,14 +92,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   message: {
-    color: colors.textPrimary,
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 8,
     lineHeight: 22,
   },
   detail: {
-    color: colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 24,

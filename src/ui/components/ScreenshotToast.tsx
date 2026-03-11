@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Text, StyleSheet, Animated } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 interface ScreenshotToastProps {
   visible: boolean;
@@ -11,6 +12,7 @@ interface ScreenshotToastProps {
  * Auto-dismisses after 3 seconds with opacity fade.
  */
 export default function ScreenshotToast({ visible, onDismiss }: ScreenshotToastProps) {
+  const { colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function ScreenshotToast({ visible, onDismiss }: ScreenshotToastP
 
   return (
     <Animated.View style={[styles.container, { opacity }]}>
-      <Text style={styles.text}>
+      <Text style={[styles.text, { color: colors.textPrimary }]}>
         Screenshot captured. Use Share to securely export health data.
       </Text>
     </Animated.View>
@@ -59,7 +61,6 @@ const styles = StyleSheet.create({
     zIndex: 9990,
   },
   text: {
-    color: '#FFFFFF',
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',

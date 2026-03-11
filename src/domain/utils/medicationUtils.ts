@@ -8,10 +8,10 @@ import type { Medication, DoseTimeSlot, RitualChip, RitualStatus } from '../type
 import {
   getStartOfToday,
   applyTimeToDate,
-  formatTime12h,
+  formatTime,
   formatDoseDate,
-  formatTimeAMPM,
 } from './dateTimeUtils';
+import type { TimeFormat } from './dateTimeUtils';
 
 /**
  * Get all dose times for a medication.
@@ -202,7 +202,8 @@ export function getNextDoseTime(
  */
 export function getNextDoseInfoString(
   med: Medication,
-  takenDoseIndices: Set<number> = new Set()
+  takenDoseIndices: Set<number> = new Set(),
+  timeFormat: TimeFormat = '12h'
 ): string {
   const nextDose = getNextDoseTime(med, takenDoseIndices);
 
@@ -212,8 +213,9 @@ export function getNextDoseInfoString(
 
   const today = getStartOfToday();
   const dateDisplay = formatDoseDate(nextDose);
-  const timeStr = formatTime12h(
-    `${nextDose.getHours().toString().padStart(2, '0')}:${nextDose.getMinutes().toString().padStart(2, '0')}`
+  const timeStr = formatTime(
+    `${nextDose.getHours().toString().padStart(2, '0')}:${nextDose.getMinutes().toString().padStart(2, '0')}`,
+    timeFormat
   );
 
   if (dateDisplay === 'Today') {
@@ -233,7 +235,7 @@ export function getNextDoseInfoString(
  * @param medications - All active medications
  * @returns DoseTimeSlot for tomorrow's earliest dose, or null if none scheduled
  */
-export function getTomorrowsDoses(medications: Medication[]): DoseTimeSlot | null {
+export function getTomorrowsDoses(medications: Medication[], timeFormat: TimeFormat = '12h'): DoseTimeSlot | null {
   const today = getStartOfToday();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -282,7 +284,7 @@ export function getTomorrowsDoses(medications: Medication[]): DoseTimeSlot | nul
   // Build the slot
   const slot: DoseTimeSlot = {
     doseTime: earliest.doseTime,
-    timeDisplay: formatTimeAMPM(earliest.doseTime),
+    timeDisplay: formatTime(earliest.doseTime, timeFormat),
     dateDisplay: 'Tomorrow',
     isTodayDose: false,
     medications: earliest.medications.map((med) => ({
@@ -305,7 +307,8 @@ export function getTomorrowsDoses(medications: Medication[]): DoseTimeSlot | nul
  */
 export function buildTodayRitualChips(
   medications: Medication[],
-  takenChipIds: Set<string> = new Set()
+  takenChipIds: Set<string> = new Set(),
+  timeFormat: TimeFormat = '12h'
 ): RitualChip[] {
   const now = new Date();
   const chips: RitualChip[] = [];
@@ -346,7 +349,7 @@ export function buildTodayRitualChips(
         doseIndex,
         name: displayName,
         doseInfo: formatDoseSize(med.dose_size),
-        timeDisplay: formatTime12h(timeStr),
+        timeDisplay: formatTime(timeStr, timeFormat),
         scheduledTime,
         mealInfo: formatMealRelation(med.meal_relation),
         status,

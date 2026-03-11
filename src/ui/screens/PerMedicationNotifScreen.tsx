@@ -15,7 +15,7 @@ import {
   Pill,
   AlertTriangle,
 } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { useMedications } from '../hooks/useMedications';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -31,6 +31,7 @@ const ADVANCE_OPTIONS = [
 ];
 
 export default function PerMedicationNotifScreen({ navigation }: RootStackScreenProps<'PerMedicationNotif'>) {
+  const { colors } = useTheme();
   const { medications, loading: medsLoading } = useMedications();
   const { prefs, loading: prefsLoading, updateMedicationOverride } = useNotificationPrefs();
   const [expandedMedId, setExpandedMedId] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
 
   if (medsLoading || prefsLoading || !prefs) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.cyan} />
         </View>
@@ -121,15 +122,15 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft color={colors.textSecondary} size={24} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Medication Alerts</Text>
-          <Text style={styles.headerSubtitle}>Override notification settings</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Medication Alerts</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Override notification settings</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -138,8 +139,8 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
         {activeMeds.length === 0 ? (
           <View style={styles.emptyState}>
             <Pill color={colors.textMuted} size={48} />
-            <Text style={styles.emptyTitle}>No Medications</Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Medications</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               Add a medication to configure individual notification settings
             </Text>
           </View>
@@ -152,16 +153,16 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
               <View key={med.id}>
                 {/* Medication Row */}
                 <TouchableOpacity
-                  style={styles.medCard}
+                  style={[styles.medCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => setExpandedMedId(isExpanded ? null : med.id)}
                 >
-                  <View style={styles.medIcon}>
+                  <View style={[styles.medIcon, { backgroundColor: colors.cyanDim }]}>
                     <Pill color={colors.cyan} size={18} />
                   </View>
                   <View style={styles.medContent}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.medName} numberOfLines={1}>
+                      <Text style={[styles.medName, { color: colors.textPrimary }]} numberOfLines={1}>
                         {med.name}
                         {med.strength ? ` (${med.strength})` : ''}
                       </Text>
@@ -172,10 +173,10 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
                         </View>
                       )}
                       {med.is_as_needed && (
-                        <Text style={styles.asNeededLabel}>(As needed)</Text>
+                        <Text style={[styles.asNeededLabel, { color: colors.textMuted }]}>(As needed)</Text>
                       )}
                     </View>
-                    <Text style={styles.medSchedule}>{getScheduleInfo(med)}</Text>
+                    <Text style={[styles.medSchedule, { color: colors.textMuted }]}>{getScheduleInfo(med)}</Text>
                   </View>
                   <Switch
                     value={enabled}
@@ -190,24 +191,24 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
                   <View style={styles.expandedSection}>
                     {med.is_paused && (
                       <View style={styles.pausedBanner}>
-                        <Text style={styles.pausedText}>This medication is paused</Text>
+                        <Text style={[styles.pausedText, { color: colors.warning }]}>This medication is paused</Text>
                       </View>
                     )}
 
                     {/* Advance Reminder Override */}
                     <TouchableOpacity
-                      style={styles.subSettingCard}
+                      style={[styles.subSettingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
                       activeOpacity={0.8}
                       onPress={() =>
                         setShowAdvanceFor(showAdvanceFor === med.id ? null : med.id)
                       }
                     >
                       <View style={styles.subSettingContent}>
-                        <Text style={styles.subSettingTitle}>Advance Reminder</Text>
-                        <Text style={styles.subSettingSubtitle}>Override global timing</Text>
+                        <Text style={[styles.subSettingTitle, { color: colors.textPrimary }]}>Advance Reminder</Text>
+                        <Text style={[styles.subSettingSubtitle, { color: colors.textMuted }]}>Override global timing</Text>
                       </View>
                       <View style={styles.settingValue}>
-                        <Text style={styles.settingValueText}>
+                        <Text style={[styles.settingValueText, { color: colors.cyan }]}>
                           {getAdvanceLabel(med)}
                         </Text>
                         <ChevronDown color={colors.textMuted} size={16} />
@@ -215,7 +216,7 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
                     </TouchableOpacity>
 
                     {showAdvanceFor === med.id && (
-                      <View style={styles.pickerDropdown}>
+                      <View style={[styles.pickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                         {ADVANCE_OPTIONS.map((option, idx) => {
                           const currentValue = getAdvanceMinutes(med);
                           const isSelected = option.value === currentValue;
@@ -224,6 +225,7 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
                               key={idx}
                               style={[
                                 styles.pickerOption,
+                                { borderBottomColor: colors.border },
                                 isSelected && styles.pickerOptionSelected,
                               ]}
                               onPress={() => handleAdvanceChange(med, option.value)}
@@ -231,7 +233,8 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
                               <Text
                                 style={[
                                   styles.pickerOptionText,
-                                  isSelected && styles.pickerOptionTextSelected,
+                                  { color: colors.textSecondary },
+                                  isSelected && [styles.pickerOptionTextSelected, { color: colors.cyan }],
                                 ]}
                               >
                                 {option.label}
@@ -255,7 +258,7 @@ export default function PerMedicationNotifScreen({ navigation }: RootStackScreen
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -268,7 +271,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
@@ -278,12 +280,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -295,13 +295,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
     marginTop: 16,
   },
   emptySubtitle: {
-    color: colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
@@ -312,18 +310,15 @@ const styles = StyleSheet.create({
   medCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   medIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -332,13 +327,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   medName: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     flexShrink: 1,
   },
   medSchedule: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -359,7 +352,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   asNeededLabel: {
-    color: colors.textMuted,
     fontSize: 11,
     fontStyle: 'italic',
   },
@@ -378,7 +370,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pausedText: {
-    color: colors.warning,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -387,23 +378,19 @@ const styles = StyleSheet.create({
   subSettingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F1319',
     borderRadius: 12,
     padding: 14,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#1A2030',
   },
   subSettingContent: {
     flex: 1,
   },
   subSettingTitle: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
   subSettingSubtitle: {
-    color: colors.textMuted,
     fontSize: 11,
     marginTop: 1,
   },
@@ -413,36 +400,30 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   settingValueText: {
-    color: colors.cyan,
     fontSize: 13,
     fontWeight: '500',
   },
 
   // Picker Dropdown
   pickerDropdown: {
-    backgroundColor: '#121721',
     borderRadius: 12,
     marginTop: 4,
     marginBottom: 4,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   pickerOption: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2633',
   },
   pickerOptionSelected: {
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   pickerOptionText: {
-    color: colors.textSecondary,
     fontSize: 14,
   },
   pickerOptionTextSelected: {
-    color: colors.cyan,
     fontWeight: '600',
   },
 });

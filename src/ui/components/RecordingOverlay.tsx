@@ -1,6 +1,7 @@
+// Force-dark: This screen always uses dark theme regardless of user preference
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { colors } from '../theme/colors';
+import { darkColors } from '../theme/ThemeContext';
 
 /**
  * Full-screen overlay shown when iOS screen recording is detected.
@@ -25,7 +26,7 @@ export default function RecordingOverlay() {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.bg,
+    backgroundColor: darkColors.bg,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   message: {
-    color: colors.textSecondary,
+    color: darkColors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',

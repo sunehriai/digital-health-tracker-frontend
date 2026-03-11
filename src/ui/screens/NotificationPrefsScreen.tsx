@@ -31,8 +31,10 @@ import {
   Calendar,
   Info,
 } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { formatTime } from '../../domain/utils/dateTimeUtils';
 import type { RootStackScreenProps } from '../navigation/types';
 
 // Dropdown option types
@@ -69,8 +71,13 @@ const HOURS = Array.from({ length: 24 }, (_, i) => {
 });
 
 export default function NotificationPrefsScreen({ navigation }: RootStackScreenProps<'NotificationPrefs'>) {
+  const { colors } = useTheme();
   const { prefs, loading, syncing, updatePref } = useNotificationPrefs();
+  const { prefs: appPrefs } = useAppPreferences();
   const isFocused = useIsFocused();
+
+  /** Format a "HH:00" value for display using the user's time format preference. */
+  const fmtHour = (value: string) => formatTime(value, appPrefs.timeFormat);
 
   // OS permission state
   const [osPermission, setOsPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
@@ -109,7 +116,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
 
   if (loading || !prefs) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.cyan} />
         </View>
@@ -125,15 +132,15 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
     THRESHOLD_OPTIONS.find((o) => o.value === prefs.low_stock_threshold_days)?.label ?? '7 days';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft color={colors.textSecondary} size={24} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Control your alerts</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Control your alerts</Text>
         </View>
         <View style={{ width: 40 }}>
           {syncing && <ActivityIndicator size="small" color={colors.cyan} />}
@@ -150,8 +157,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           >
             <BellOff color={colors.warning} size={20} />
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.permissionTitle}>Notifications Disabled</Text>
-              <Text style={styles.permissionSubtitle}>
+              <Text style={[styles.permissionTitle, { color: colors.warning }]}>Notifications Disabled</Text>
+              <Text style={[styles.permissionSubtitle, { color: colors.textMuted }]}>
                 Tap to open Settings and enable notifications for Vision
               </Text>
             </View>
@@ -160,16 +167,16 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         )}
 
         {/* ── DOSE REMINDERS ── */}
-        <Text style={styles.sectionTitle}>DOSE REMINDERS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>DOSE REMINDERS</Text>
 
         {/* Master toggle */}
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Bell color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Dose Reminders</Text>
-            <Text style={styles.settingSubtitle}>Get notified when it's time for a dose</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Dose Reminders</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Get notified when it's time for a dose</Text>
           </View>
           <Switch
             value={prefs.dose_reminders_enabled}
@@ -183,30 +190,31 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <>
             {/* Advance Reminder */}
             <TouchableOpacity
-              style={styles.settingCard}
+              style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               activeOpacity={0.8}
               onPress={() => toggleDropdown(setShowAdvance)}
             >
-              <View style={styles.settingIcon}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Clock color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Advance Reminder</Text>
-                <Text style={styles.settingSubtitle}>How early to remind you</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Advance Reminder</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>How early to remind you</Text>
               </View>
               <View style={styles.settingValue}>
-                <Text style={styles.settingValueText}>{getAdvanceLabel()}</Text>
+                <Text style={[styles.settingValueText, { color: colors.cyan }]}>{getAdvanceLabel()}</Text>
                 <ChevronDown color={colors.textMuted} size={18} />
               </View>
             </TouchableOpacity>
 
             {showAdvance && (
-              <View style={styles.pickerDropdown}>
+              <View style={[styles.pickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                 {ADVANCE_REMINDER_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
                       styles.pickerOption,
+                      { borderBottomColor: colors.border },
                       prefs.advance_reminder_minutes === option.value && styles.pickerOptionSelected,
                     ]}
                     onPress={() => {
@@ -217,7 +225,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                     <Text
                       style={[
                         styles.pickerOptionText,
-                        prefs.advance_reminder_minutes === option.value && styles.pickerOptionTextSelected,
+                        { color: colors.textSecondary },
+                        prefs.advance_reminder_minutes === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
                       ]}
                     >
                       {option.label}
@@ -228,13 +237,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             )}
 
             {/* Snooze Toggle */}
-            <View style={styles.settingCard}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Clock color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Snooze</Text>
-                <Text style={styles.settingSubtitle}>Allow snoozing dose reminders (up to 3x)</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Snooze</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Allow snoozing dose reminders (up to 3x)</Text>
               </View>
               <Switch
                 value={prefs.snooze_enabled}
@@ -248,30 +257,31 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <>
                 {/* Snooze Duration */}
                 <TouchableOpacity
-                  style={styles.settingCard}
+                  style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
                   activeOpacity={0.8}
                   onPress={() => toggleDropdown(setShowSnooze)}
                 >
-                  <View style={styles.settingIcon}>
+                  <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                     <Clock color={colors.cyan} size={20} />
                   </View>
                   <View style={styles.settingContent}>
-                    <Text style={styles.settingTitle}>Snooze Duration</Text>
-                    <Text style={styles.settingSubtitle}>Time before re-alerting</Text>
+                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Snooze Duration</Text>
+                    <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Time before re-alerting</Text>
                   </View>
                   <View style={styles.settingValue}>
-                    <Text style={styles.settingValueText}>{getSnoozeLabel()}</Text>
+                    <Text style={[styles.settingValueText, { color: colors.cyan }]}>{getSnoozeLabel()}</Text>
                     <ChevronDown color={colors.textMuted} size={18} />
                   </View>
                 </TouchableOpacity>
 
                 {showSnooze && (
-                  <View style={styles.pickerDropdown}>
+                  <View style={[styles.pickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                     {SNOOZE_DURATION_OPTIONS.map((option) => (
                       <TouchableOpacity
                         key={option.value}
                         style={[
                           styles.pickerOption,
+                          { borderBottomColor: colors.border },
                           prefs.snooze_duration_minutes === option.value && styles.pickerOptionSelected,
                         ]}
                         onPress={() => {
@@ -282,7 +292,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                         <Text
                           style={[
                             styles.pickerOptionText,
-                            prefs.snooze_duration_minutes === option.value && styles.pickerOptionTextSelected,
+                            { color: colors.textSecondary },
+                            prefs.snooze_duration_minutes === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
                           ]}
                         >
                           {option.label}
@@ -297,15 +308,15 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         )}
 
         {/* ── REFILL ALERTS ── */}
-        <Text style={styles.sectionTitle}>REFILL ALERTS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>REFILL ALERTS</Text>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Package color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Refill Alerts</Text>
-            <Text style={styles.settingSubtitle}>Low stock warnings</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Refill Alerts</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Low stock warnings</Text>
           </View>
           <Switch
             value={prefs.refill_alerts_enabled}
@@ -318,30 +329,31 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         {prefs.refill_alerts_enabled && (
           <>
             <TouchableOpacity
-              style={styles.settingCard}
+              style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               activeOpacity={0.8}
               onPress={() => toggleDropdown(setShowThreshold)}
             >
-              <View style={styles.settingIcon}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <AlertTriangle color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Alert Threshold</Text>
-                <Text style={styles.settingSubtitle}>Alert when supply falls below</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Alert Threshold</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Alert when supply falls below</Text>
               </View>
               <View style={styles.settingValue}>
-                <Text style={styles.settingValueText}>{getThresholdLabel()}</Text>
+                <Text style={[styles.settingValueText, { color: colors.cyan }]}>{getThresholdLabel()}</Text>
                 <ChevronDown color={colors.textMuted} size={18} />
               </View>
             </TouchableOpacity>
 
             {showThreshold && (
-              <View style={styles.pickerDropdown}>
+              <View style={[styles.pickerDropdown, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                 {THRESHOLD_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
                       styles.pickerOption,
+                      { borderBottomColor: colors.border },
                       prefs.low_stock_threshold_days === option.value && styles.pickerOptionSelected,
                     ]}
                     onPress={() => {
@@ -352,7 +364,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                     <Text
                       style={[
                         styles.pickerOptionText,
-                        prefs.low_stock_threshold_days === option.value && styles.pickerOptionTextSelected,
+                        { color: colors.textSecondary },
+                        prefs.low_stock_threshold_days === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
                       ]}
                     >
                       {option.label}
@@ -365,15 +378,15 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         )}
 
         {/* ── ACHIEVEMENTS & PROGRESS ── */}
-        <Text style={styles.sectionTitle}>ACHIEVEMENTS & PROGRESS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>ACHIEVEMENTS & PROGRESS</Text>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Trophy color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Achievement Notifications</Text>
-            <Text style={styles.settingSubtitle}>Gamification alerts and milestones</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Achievement Notifications</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Gamification alerts and milestones</Text>
           </View>
           <Switch
             value={prefs.gamification_notifications_enabled}
@@ -386,13 +399,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         {prefs.gamification_notifications_enabled && (
           <>
             {/* Streak Milestones */}
-            <View style={[styles.settingCard, styles.subSettingCard]}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, styles.subSettingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Flame color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Streak Milestones</Text>
-                <Text style={styles.settingSubtitle}>7-day, 30-day streak alerts</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Streak Milestones</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>7-day, 30-day streak alerts</Text>
               </View>
               <Switch
                 value={prefs.streak_milestones_enabled}
@@ -403,13 +416,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             </View>
 
             {/* Tier Advancement */}
-            <View style={[styles.settingCard, styles.subSettingCard]}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, styles.subSettingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Award color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Tier Advancement</Text>
-                <Text style={styles.settingSubtitle}>Tier-up celebration alerts</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Tier Advancement</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Tier-up celebration alerts</Text>
               </View>
               <Switch
                 value={prefs.tier_advancement_enabled}
@@ -420,13 +433,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             </View>
 
             {/* Waiver Prompts */}
-            <View style={[styles.settingCard, styles.subSettingCard]}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, styles.subSettingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Shield color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Waiver Prompts</Text>
-                <Text style={styles.settingSubtitle}>Streak protection badge reminders</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Waiver Prompts</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Streak protection badge reminders</Text>
               </View>
               <Switch
                 value={prefs.waiver_prompt_enabled}
@@ -437,13 +450,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             </View>
 
             {/* Comeback Boost */}
-            <View style={[styles.settingCard, styles.subSettingCard]}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, styles.subSettingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Zap color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Comeback Boost</Text>
-                <Text style={styles.settingSubtitle}>Boost availability alerts</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Comeback Boost</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Boost availability alerts</Text>
               </View>
               <Switch
                 value={prefs.comeback_boost_enabled}
@@ -456,15 +469,15 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         )}
 
         {/* ── SYSTEM & SAFETY ── */}
-        <Text style={styles.sectionTitle}>SYSTEM & SAFETY</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>SYSTEM & SAFETY</Text>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Bell color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>System Alerts</Text>
-            <Text style={styles.settingSubtitle}>App updates and system messages</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>System Alerts</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>App updates and system messages</Text>
           </View>
           <Switch
             value={prefs.system_notifications_enabled}
@@ -474,18 +487,18 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           />
         </View>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <AlertTriangle color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.settingTitle}>Safety Alerts</Text>
+              <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Safety Alerts</Text>
               <View style={styles.recommendedBadge}>
-                <Text style={styles.recommendedText}>Recommended</Text>
+                <Text style={[styles.recommendedText, { color: colors.cyan }]}>Recommended</Text>
               </View>
             </View>
-            <Text style={styles.settingSubtitle}>Allergy and interaction warnings</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Allergy and interaction warnings</Text>
           </View>
           <Switch
             value={prefs.safety_alerts_enabled}
@@ -495,13 +508,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           />
         </View>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Calendar color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Prescription End Alerts</Text>
-            <Text style={styles.settingSubtitle}>Notify before medication end date</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Prescription End Alerts</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Notify before medication end date</Text>
           </View>
           <Switch
             value={prefs.medication_end_date_alerts}
@@ -512,15 +525,15 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         </View>
 
         {/* ── QUIET HOURS ── */}
-        <Text style={styles.sectionTitle}>QUIET HOURS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>QUIET HOURS</Text>
 
-        <View style={styles.settingCard}>
-          <View style={styles.settingIcon}>
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Moon color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Quiet Hours</Text>
-            <Text style={styles.settingSubtitle}>Silence non-critical notifications</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Quiet Hours</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Silence non-critical notifications</Text>
           </View>
           <Switch
             value={prefs.quiet_hours_enabled}
@@ -534,31 +547,32 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <>
             {/* Quiet Start */}
             <TouchableOpacity
-              style={styles.settingCard}
+              style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               activeOpacity={0.8}
               onPress={() => toggleDropdown(setShowQuietStart)}
             >
-              <View style={styles.settingIcon}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Clock color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Start Time</Text>
-                <Text style={styles.settingSubtitle}>When quiet hours begin</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Start Time</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>When quiet hours begin</Text>
               </View>
               <View style={styles.settingValue}>
-                <Text style={styles.settingValueText}>{prefs.quiet_hours_start}</Text>
+                <Text style={[styles.settingValueText, { color: colors.cyan }]}>{fmtHour(prefs.quiet_hours_start)}</Text>
                 <ChevronDown color={colors.textMuted} size={18} />
               </View>
             </TouchableOpacity>
 
             {showQuietStart && (
-              <View style={[styles.pickerDropdown, styles.timePicker]}>
+              <View style={[styles.pickerDropdown, styles.timePicker, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                 <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
                   {HOURS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
                       style={[
                         styles.pickerOption,
+                        { borderBottomColor: colors.border },
                         prefs.quiet_hours_start === option.value && styles.pickerOptionSelected,
                       ]}
                       onPress={() => {
@@ -571,11 +585,12 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                       <Text
                         style={[
                           styles.pickerOptionText,
-                          prefs.quiet_hours_start === option.value && styles.pickerOptionTextSelected,
-                          option.value === prefs.quiet_hours_end && styles.pickerOptionDisabled,
+                          { color: colors.textSecondary },
+                          prefs.quiet_hours_start === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
+                          option.value === prefs.quiet_hours_end && [styles.pickerOptionDisabled, { color: colors.textMuted }],
                         ]}
                       >
-                        {option.label}
+                        {fmtHour(option.value)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -585,31 +600,32 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
 
             {/* Quiet End */}
             <TouchableOpacity
-              style={styles.settingCard}
+              style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
               activeOpacity={0.8}
               onPress={() => toggleDropdown(setShowQuietEnd)}
             >
-              <View style={styles.settingIcon}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Clock color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>End Time</Text>
-                <Text style={styles.settingSubtitle}>When quiet hours end</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>End Time</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>When quiet hours end</Text>
               </View>
               <View style={styles.settingValue}>
-                <Text style={styles.settingValueText}>{prefs.quiet_hours_end}</Text>
+                <Text style={[styles.settingValueText, { color: colors.cyan }]}>{fmtHour(prefs.quiet_hours_end)}</Text>
                 <ChevronDown color={colors.textMuted} size={18} />
               </View>
             </TouchableOpacity>
 
             {showQuietEnd && (
-              <View style={[styles.pickerDropdown, styles.timePicker]}>
+              <View style={[styles.pickerDropdown, styles.timePicker, { backgroundColor: colors.bgCard, borderColor: colors.cyan }]}>
                 <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
                   {HOURS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
                       style={[
                         styles.pickerOption,
+                        { borderBottomColor: colors.border },
                         prefs.quiet_hours_end === option.value && styles.pickerOptionSelected,
                       ]}
                       onPress={() => {
@@ -622,11 +638,12 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                       <Text
                         style={[
                           styles.pickerOptionText,
-                          prefs.quiet_hours_end === option.value && styles.pickerOptionTextSelected,
-                          option.value === prefs.quiet_hours_start && styles.pickerOptionDisabled,
+                          { color: colors.textSecondary },
+                          prefs.quiet_hours_end === option.value && [styles.pickerOptionTextSelected, { color: colors.cyan }],
+                          option.value === prefs.quiet_hours_start && [styles.pickerOptionDisabled, { color: colors.textMuted }],
                         ]}
                       >
-                        {option.label}
+                        {fmtHour(option.value)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -635,13 +652,13 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             )}
 
             {/* Critical Bypass */}
-            <View style={styles.settingCard}>
-              <View style={styles.settingIcon}>
+            <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
                 <Shield color={colors.cyan} size={20} />
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Critical Medication Bypass</Text>
-                <Text style={styles.settingSubtitle}>Critical meds still alert during quiet hours</Text>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Critical Medication Bypass</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Critical meds still alert during quiet hours</Text>
               </View>
               <Switch
                 value={prefs.critical_bypass_quiet}
@@ -654,30 +671,30 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         )}
 
         {/* ── PER-MEDICATION SETTINGS ── */}
-        <Text style={styles.sectionTitle}>MEDICATION-SPECIFIC</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>MEDICATION-SPECIFIC</Text>
 
         <TouchableOpacity
-          style={styles.settingCard}
+          style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('PerMedicationNotif')}
         >
-          <View style={styles.settingIcon}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Pill color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Per-Medication Settings</Text>
-            <Text style={styles.settingSubtitle}>Override alerts for individual medications</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Per-Medication Settings</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Override alerts for individual medications</Text>
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
 
         {/* Info Notice */}
-        <View style={styles.noticeCard}>
+        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
           <View style={styles.noticeHeader}>
             <Info color={colors.cyan} size={18} />
-            <Text style={styles.noticeTitle}>Local Notifications</Text>
+            <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Local Notifications</Text>
           </View>
-          <Text style={styles.noticeText}>
+          <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
             Dose reminders use local notifications scheduled on your device. They work even when offline.
             Open Vision regularly to keep reminders up to date.
           </Text>
@@ -690,7 +707,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -703,7 +720,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
@@ -713,12 +729,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
   headerSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
@@ -735,19 +749,16 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   permissionTitle: {
-    color: colors.warning,
     fontSize: 14,
     fontWeight: '600',
   },
   permissionSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
   },
 
   // Section
   sectionTitle: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -759,12 +770,10 @@ const styles = StyleSheet.create({
   settingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   subSettingCard: {
     marginLeft: 20,
@@ -773,7 +782,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -782,13 +790,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   settingSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
   settingValue: {
@@ -797,7 +803,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   settingValueText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -810,20 +815,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   recommendedText: {
-    color: colors.cyan,
     fontSize: 10,
     fontWeight: '700',
   },
 
   // Picker Dropdown
   pickerDropdown: {
-    backgroundColor: '#121721',
     borderRadius: 12,
     marginBottom: 10,
     marginTop: -6,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.cyan,
   },
   timePicker: {
     maxHeight: 210,
@@ -832,21 +834,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2633',
   },
   pickerOptionSelected: {
     backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   pickerOptionText: {
-    color: colors.textSecondary,
     fontSize: 15,
   },
   pickerOptionTextSelected: {
-    color: colors.cyan,
     fontWeight: '600',
   },
   pickerOptionDisabled: {
-    color: colors.textMuted,
     opacity: 0.5,
   },
 
@@ -857,7 +855,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 20,
     borderLeftWidth: 3,
-    borderLeftColor: colors.cyan,
   },
   noticeHeader: {
     flexDirection: 'row',
@@ -866,12 +863,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noticeTitle: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '700',
   },
   noticeText: {
-    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 20,
   },

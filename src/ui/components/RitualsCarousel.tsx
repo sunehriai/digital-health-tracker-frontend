@@ -9,7 +9,9 @@ import {
 } from 'react-native';
 import { Pill, Check, Clock, AlertCircle } from 'lucide-react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useTheme } from '../theme/ThemeContext';
+import type { ColorPalette } from '../theme/ThemeContext';
 import type { RitualChip, RitualStatus } from '../../domain/types';
 import { getRitualStats, findNextDoseIndex, formatMedName } from '../../domain/utils';
 
@@ -29,7 +31,7 @@ export interface RitualsCarouselRef {
   scrollToRitual: (id: string) => void;
 }
 
-function getStatusColors(status: RitualStatus) {
+function getStatusColors(status: RitualStatus, colors: ColorPalette) {
   switch (status) {
     case 'completed':
       return {
@@ -43,7 +45,7 @@ function getStatusColors(status: RitualStatus) {
         border: 'rgba(0,209,255,0.8)',
         bg: 'rgba(0,209,255,0.15)',
         icon: colors.cyan,
-        text: '#FFFFFF',
+        text: colors.textPrimary,
       };
     case 'missed':
       return {
@@ -62,16 +64,16 @@ function getStatusColors(status: RitualStatus) {
   }
 }
 
-function StatusIndicator({ status }: { status: RitualStatus }) {
+function StatusIndicator({ status, colors }: { status: RitualStatus; colors: ColorPalette }) {
   switch (status) {
     case 'completed':
       return (
-        <View style={styles.completedDot}>
+        <View style={[styles.completedDot, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}>
           <Check color="#000" size={10} strokeWidth={3} />
         </View>
       );
     case 'next':
-      return <View style={styles.activeDot} />;
+      return <View style={[styles.activeDot, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} />;
     case 'missed':
       return (
         <View style={styles.missedDot}>
@@ -95,10 +97,12 @@ interface RitualTileProps {
   canRevert: boolean;
   disabled: boolean;
   isLoading: boolean;
+  colors: ColorPalette;
+  reducedMotion: boolean;
 }
 
-function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoading }: RitualTileProps) {
-  const sc = getStatusColors(item.status);
+function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoading, colors, reducedMotion }: RitualTileProps) {
+  const sc = getStatusColors(item.status, colors);
   const canTapToTake = !disabled && (item.status === 'next' || item.status === 'pending' || item.status === 'missed' || item.status === 'due');
   const canTapToRevert = !disabled && item.status === 'completed' && canRevert && onRevert;
 
@@ -122,7 +126,7 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
         {isLoading ? (
           <ActivityIndicator size="small" color={colors.cyan} />
         ) : (
-          <StatusIndicator status={item.status} />
+          <StatusIndicator status={item.status} colors={colors} />
         )}
       </View>
 
@@ -153,7 +157,7 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
 
   if (canTapToTake) {
     return (
-      <Animated.View entering={FadeInRight.delay(index * 50).duration(300)}>
+      <Animated.View entering={reducedMotion ? undefined : FadeInRight.delay(index * 50).duration(300)}>
         <TouchableOpacity onPress={onTap} activeOpacity={0.7} disabled={disabled}>
           {content}
         </TouchableOpacity>
@@ -164,7 +168,7 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
   // Completed tiles that can be reverted - tap to undo
   if (canTapToRevert) {
     return (
-      <Animated.View entering={FadeInRight.delay(index * 50).duration(300)}>
+      <Animated.View entering={reducedMotion ? undefined : FadeInRight.delay(index * 50).duration(300)}>
         <TouchableOpacity
           onPress={onRevert}
           activeOpacity={0.7}
@@ -178,7 +182,7 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
   }
 
   return (
-    <Animated.View entering={FadeInRight.delay(index * 50).duration(300)}>
+    <Animated.View entering={reducedMotion ? undefined : FadeInRight.delay(index * 50).duration(300)}>
       {content}
     </Animated.View>
   );
@@ -189,6 +193,8 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
     { rituals, onTakeDose, onRevertDose, canRevertChip, disabled = false },
     ref
   ) {
+  const { colors } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
   const flatListRef = useRef<FlatList<RitualChip>>(null);
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
   const [revertingId, setRevertingId] = React.useState<string | null>(null);
@@ -284,7 +290,7 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
     return (
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <Text style={styles.heading}>Today's Rituals</Text>
+          <Text style={[styles.heading, { color: colors.textPrimary }]}>Today's Rituals</Text>
           <Text style={styles.counter}>0/0</Text>
         </View>
         <View style={styles.emptyState}>
@@ -301,15 +307,15 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
     return (
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <Text style={styles.heading}>Today's Rituals</Text>
-          <Text style={styles.counterComplete}>
+          <Text style={[styles.heading, { color: colors.textPrimary }]}>Today's Rituals</Text>
+          <Text style={[styles.counterComplete, { color: colors.cyan }]}>
             {stats.completed}/{stats.total}
           </Text>
         </View>
         <View style={styles.completeState}>
           <Check color={colors.cyan} size={20} strokeWidth={2.5} />
-          <Text style={styles.completeText}>All caught up!</Text>
-          <Text style={styles.completeSubtext}>You've completed all doses for today</Text>
+          <Text style={[styles.completeText, { color: colors.cyan }]}>All caught up!</Text>
+          <Text style={[styles.completeSubtext, { color: colors.textMuted }]}>You've completed all doses for today</Text>
         </View>
       </View>
     );
@@ -318,7 +324,7 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Today's Rituals</Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>Today's Rituals</Text>
         <Text style={styles.counter}>
           {stats.completed}/{stats.total}
         </Text>
@@ -339,6 +345,8 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
             canRevert={canRevertChip ? canRevertChip(item.id) : false}
             disabled={disabled || revertingId !== null}
             isLoading={loadingId === item.id || revertingId === item.id}
+            colors={colors}
+            reducedMotion={reducedMotion}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
@@ -364,7 +372,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 2,
   },
-  heading: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  heading: { fontSize: 14, fontWeight: '700' },
   counter: { color: '#8E9196', fontSize: 10, fontWeight: '500' },
   listContent: { paddingRight: 16 },
   tile: {
@@ -391,10 +399,8 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.cyan,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
@@ -403,8 +409,6 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: colors.cyan,
-    shadowColor: colors.cyan,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
@@ -451,7 +455,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   counterComplete: {
-    color: colors.cyan,
     fontSize: 10,
     fontWeight: '600',
   },
@@ -466,13 +469,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   completeText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '700',
     marginTop: 4,
   },
   completeSubtext: {
-    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '500',
   },

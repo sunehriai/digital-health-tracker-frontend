@@ -1,11 +1,12 @@
-import React, { useCallback } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useCallback, useMemo } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useDeletion } from '../hooks/useDeletion';
 import ReactivationBanner from '../components/ReactivationBanner';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import type { RootStackParamList } from './types';
 
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -33,6 +34,24 @@ import { ImageUploadScreen } from '../screens/ImageUploadScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
+  const { colors, isDark } = useTheme();
+  const { prefs: { reducedMotion } } = useAppPreferences();
+
+  const navigationTheme = useMemo<Theme>(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.cyan,
+        background: colors.bg,
+        card: colors.bgCard,
+        text: colors.textPrimary,
+        border: colors.border,
+        notification: colors.error,
+      },
+    };
+  }, [isDark, colors]);
   const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
 
@@ -73,12 +92,12 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
-          animation: 'slide_from_right',
+          animation: reducedMotion ? 'none' : 'slide_from_right',
         }}
       >
         {!isAuthenticated ? (
@@ -95,7 +114,7 @@ export default function AppNavigator() {
               component={AddMedicationScreen}
               options={{
                 presentation: 'transparentModal',
-                animation: 'slide_from_bottom',
+                animation: reducedMotion ? 'none' : 'slide_from_bottom',
                 contentStyle: { backgroundColor: 'transparent' },
               }}
             />
@@ -107,7 +126,7 @@ export default function AppNavigator() {
             <Stack.Screen
               name="EmergencyVault"
               component={EmergencyVaultScreen}
-              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              options={{ presentation: 'modal', animation: reducedMotion ? 'none' : 'slide_from_bottom' }}
             />
             <Stack.Screen name="EditEmergencyVault" component={EditEmergencyVaultScreen} />
             <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />

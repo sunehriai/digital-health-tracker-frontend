@@ -6,16 +6,19 @@ import { useAuth } from '../hooks/useAuth';
 import { useAlert } from '../context/AlertContext';
 import { useDeletion } from '../hooks/useDeletion';
 import { useSecurity } from '../hooks/useSecurity';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import { biometrics } from '../../data/utils/biometrics';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackScreenProps } from '../navigation/types';
 
 export default function AccountSettingsScreen({ navigation }: RootStackScreenProps<'AccountSettings'>) {
+  const { colors } = useTheme();
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
   const { loading: deletionLoading, requestDeletion } = useDeletion();
   const security = useSecurity();
+  const { resetPreferences } = useAppPreferences();
   const [resetCooldown, setResetCooldown] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'data_only' | 'full_account'>('data_only');
@@ -72,6 +75,8 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
     console.log('[AccountSettings] requestDeletion returned:', success);
     setModalVisible(false);
     if (success) {
+      // Reset app preferences to defaults (haptic/sound module refs + AsyncStorage keys)
+      await resetPreferences();
       if (modalType === 'full_account') {
         // Full account deletion: sign out immediately since account is being deleted
         await signOut();
@@ -90,32 +95,32 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ChevronLeft color={colors.textSecondary} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Account</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* CREDENTIALS Section */}
-        <Text style={styles.sectionTitle}>CREDENTIALS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>CREDENTIALS</Text>
 
         {/* Change Password */}
         <TouchableOpacity
-          style={[styles.settingCard, resetCooldown && styles.settingCardDisabled]}
+          style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, resetCooldown && styles.settingCardDisabled]}
           activeOpacity={resetCooldown ? 1 : 0.8}
           onPress={handleChangePassword}
         >
-          <View style={styles.settingIcon}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Key color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Change Password</Text>
-            <Text style={styles.settingSubtitle}>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Change Password</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>
               {resetCooldown ? 'Reset email sent — check your inbox' : 'Send a password reset email'}
             </Text>
           </View>
@@ -123,19 +128,19 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
         </TouchableOpacity>
 
         {/* Change Email */}
-        <TouchableOpacity style={styles.settingCard} activeOpacity={0.8} onPress={handleChangeEmail}>
-          <View style={styles.settingIcon}>
+        <TouchableOpacity style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.8} onPress={handleChangeEmail}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
             <Mail color={colors.cyan} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Change Email</Text>
-            <Text style={styles.settingSubtitle}>{user?.email || 'Update your login email'}</Text>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Change Email</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>{user?.email || 'Update your login email'}</Text>
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
 
         {/* DATA & DELETION Section */}
-        <Text style={styles.sectionTitleDanger}>DATA & DELETION</Text>
+        <Text style={[styles.sectionTitleDanger, { color: colors.error }]}>DATA & DELETION</Text>
 
         {/* Delete All Data */}
         <TouchableOpacity style={styles.dangerCard} activeOpacity={0.8} onPress={handleDeleteData}>
@@ -143,8 +148,8 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
             <Trash2 color={colors.error} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.dangerTitle}>Delete All Data</Text>
-            <Text style={styles.dangerSubtitle}>Remove all health data. Keep your account.</Text>
+            <Text style={[styles.dangerTitle, { color: colors.error }]}>Delete All Data</Text>
+            <Text style={[styles.dangerSubtitle, { color: colors.textMuted }]}>Remove all health data. Keep your account.</Text>
           </View>
           <ChevronRight color={colors.error} size={20} />
         </TouchableOpacity>
@@ -155,15 +160,15 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
             <UserX color={colors.error} size={20} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={styles.dangerTitle}>Delete Account</Text>
-            <Text style={styles.dangerSubtitle}>Permanently delete your account and all data</Text>
+            <Text style={[styles.dangerTitle, { color: colors.error }]}>Delete Account</Text>
+            <Text style={[styles.dangerSubtitle, { color: colors.textMuted }]}>Permanently delete your account and all data</Text>
           </View>
           <ChevronRight color={colors.error} size={20} />
         </TouchableOpacity>
 
         {/* Sign Out */}
         <View style={styles.signOutSection}>
-          <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
+          <TouchableOpacity style={[styles.signOutBtn, { borderColor: colors.borderSubtle }]} onPress={signOut}>
             <LogOut color="#8E9196" size={20} strokeWidth={2} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
@@ -187,7 +192,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
 
@@ -199,21 +204,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backBtn: {
     padding: 8,
     marginLeft: -8,
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
 
   // Section Title
   sectionTitle: {
-    color: colors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -221,7 +223,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitleDanger: {
-    color: colors.error,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -233,12 +234,10 @@ const styles = StyleSheet.create({
   settingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   settingCardDisabled: {
     opacity: 0.6,
@@ -247,7 +246,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -256,13 +254,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingTitle: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   settingSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
 
@@ -287,13 +283,11 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   dangerTitle: {
-    color: colors.error,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   dangerSubtitle: {
-    color: colors.textMuted,
     fontSize: 12,
   },
 
@@ -309,7 +303,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'transparent',
   },
   signOutText: { color: '#8E9196', fontSize: 14, fontWeight: '600' },
 });

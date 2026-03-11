@@ -7,6 +7,13 @@ import { doseStatusCache } from './doseStatusCache';
 import { medicationEvents } from './medicationEvents';
 import { getDoseTimes as getDoseTimesUtil } from '../../domain/utils/medicationUtils';
 import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
+import {
+  logNotificationScheduled,
+  logRescheduleSummary,
+  logDoseViaNotification,
+  logNotificationSnoozed,
+  logDoseAutoMissed,
+} from './notificationDebugLog';
 
 const MAX_SCHEDULED = 60;
 const LOOKAHEAD_DAYS = 30;
@@ -18,16 +25,32 @@ function nlog(...args: unknown[]) {
   if (NOTIF_DEBUG) console.log('[NOTIF-DEBUG]', ...args);
 }
 
+// ── Module-level sound preference ─────────────────────────────────────
+// Controlled by AppPreferencesContext via setSoundEnabled().
+// Affects in-app foreground notification sounds only (D3 option a).
+// Scheduled notification sounds are unaffected (Android channel limitation).
+let soundEnabled = true;
+
+export function setSoundEnabled(value: boolean): void {
+  soundEnabled = value;
+  // Re-register handler so the new value takes effect (BP-002 fix)
+  registerNotificationHandler();
+}
+
+function registerNotificationHandler(): void {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: soundEnabled,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
+
 // Configure how notifications appear when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+registerNotificationHandler();
 
 /**
  * Initialize notification system: request permissions, set up channels and categories.
@@ -300,6 +323,9 @@ function buildSortedCandidates(
 // ── Issue 10: Input hash for rescheduleAll caching ─────────────────────
 
 let lastRescheduleHash: string | null = null;
+let lastLoggedHash: string | null = null; // Dedup activity log entries across reschedules
+let rescheduleRunning = false; // Mutex to prevent concurrent rescheduleAll calls
+let pendingReschedule: { medications: Medication[]; prefs: NotificationPreferences } | null = null;
 
 function computeInputHash(medications: Medication[], prefs: NotificationPreferences): string {
   // Lightweight hash: combine IDs, pause/archive states, prefs toggles
@@ -324,17 +350,50 @@ export async function rescheduleAll(
   nlog('=== rescheduleAll() CALLED ===');
   nlog('  medications:', medications.length, 'prefs:', prefs ? 'loaded' : 'NULL');
 
+  // Mutex: if another rescheduleAll is running, queue this one for after it completes
+  if (rescheduleRunning) {
+    nlog('  QUEUED: another rescheduleAll is already running');
+    pendingReschedule = { medications, prefs };
+    return;
+  }
+
   // Issue 10: Skip if nothing changed
   const inputHash = computeInputHash(medications, prefs);
   if (inputHash === lastRescheduleHash) {
     nlog('  SKIPPED: input hash unchanged (cached)');
     return;
   }
+
+  rescheduleRunning = true;
   nlog('  Hash changed, proceeding with reschedule');
+
+  try {
 
   // Step 1: CALCULATE (safe, no side effects)
   const candidates = buildSortedCandidates(medications, prefs);
   nlog('  Candidates to schedule:', candidates.length);
+
+  // Activity log: log what WILL be scheduled (before try/catch so it always runs)
+  // Dedup: only log if the medication+doseTime combo set changed since last log
+  const schedulableCount = Math.min(candidates.length, MAX_SCHEDULED);
+  const comboCounts = new Map<string, { name: string; doseTime: string; count: number }>();
+  for (let i = 0; i < schedulableCount; i++) {
+    const c = candidates[i];
+    const comboKey = `${c.medication.id}:${c.doseTime}`;
+    const existing = comboCounts.get(comboKey);
+    if (existing) {
+      existing.count++;
+    } else {
+      comboCounts.set(comboKey, { name: c.medication.name, doseTime: c.doseTime, count: 1 });
+    }
+  }
+  const shouldLogSchedule = inputHash !== lastLoggedHash;
+  if (shouldLogSchedule) {
+    for (const { name, doseTime, count } of comboCounts.values()) {
+      logNotificationScheduled(name, doseTime, count);
+    }
+    lastLoggedHash = inputHash;
+  }
 
   // Step 2: SCHEDULE new notifications first
   const newIds: string[] = [];
@@ -433,6 +492,10 @@ export async function rescheduleAll(
   // Update cache hash after successful reschedule
   lastRescheduleHash = inputHash;
 
+  if (shouldLogSchedule) {
+    logRescheduleSummary(newIds.length, cancelledCount);
+  }
+
   // VERIFICATION: Query OS for what's actually scheduled
   const verifyScheduled = await Notifications.getAllScheduledNotificationsAsync();
   nlog('=== VERIFICATION: OS has', verifyScheduled.length, 'scheduled notifications ===');
@@ -443,6 +506,20 @@ export async function rescheduleAll(
     nlog('  OS notif', i + 1, ':', n.content.title, '|', n.content.body, '| trigger:', triggerDate);
   }
   nlog('=== rescheduleAll() COMPLETE ===');
+
+  } finally {
+    rescheduleRunning = false;
+    // If a call was queued while we were running, execute it now
+    if (pendingReschedule) {
+      const { medications: pendingMeds, prefs: pendingPrefs } = pendingReschedule;
+      pendingReschedule = null;
+      nlog('  Running queued reschedule');
+      // Don't await — let it run independently to avoid deep recursion
+      rescheduleAll(pendingMeds, pendingPrefs).catch((err) => {
+        nlog('  Queued reschedule ERROR:', err);
+      });
+    }
+  }
 }
 
 // ── Notification Action Helpers ────────────────────────────────────────
@@ -521,6 +598,7 @@ export function registerNotificationActionHandler(
     try {
       switch (actionId) {
         case 'TAKE': {
+          // Activity log after successful dose below
           // Dismiss the original notification immediately so it doesn't linger
           await Notifications.dismissNotificationAsync(
             response.notification.request.identifier,
@@ -531,6 +609,7 @@ export function registerNotificationActionHandler(
             scheduled_at: doseTime,
             status: 'taken',
           });
+          logDoseViaNotification(med.name, doseTime);
 
           // Post-logDose side effects: failures here are non-critical
           // (dose is already recorded server-side)
@@ -560,12 +639,14 @@ export function registerNotificationActionHandler(
         }
 
         case 'SNOOZE': {
+          logNotificationSnoozed(med.name, snoozeCount + 1, MAX_SNOOZE_COUNT);
           // Dismiss the original notification immediately
           await Notifications.dismissNotificationAsync(
             response.notification.request.identifier,
           );
 
           if (snoozeCount >= MAX_SNOOZE_COUNT) {
+            logDoseAutoMissed(med.name);
             // Max snoozes reached — log as missed
             await medicationService.logDose(medicationId, {
               scheduled_at: doseTime,

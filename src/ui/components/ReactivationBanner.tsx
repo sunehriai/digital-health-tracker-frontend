@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import Button from '../primitives/Button';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface ReactivationBannerProps {
   deletionType: 'data_only' | 'full_account' | null;
@@ -21,6 +21,8 @@ export default function ReactivationBanner({
   onCancelDeletion,
   onSignOut,
 }: ReactivationBannerProps) {
+  const { colors } = useTheme();
+
   const formattedDate = permanentDeletionDate
     ? new Date(permanentDeletionDate).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -32,27 +34,27 @@ export default function ReactivationBanner({
   const typeLabel = deletionType === 'full_account' ? 'account and all data' : 'health data';
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <View style={[styles.card, { backgroundColor: colors.bgCard }]}>
         <View style={styles.iconContainer}>
           <AlertTriangle color={colors.warning} size={40} />
         </View>
 
-        <Text style={styles.title}>Account Deactivated</Text>
+        <Text style={[styles.title, { color: colors.warning }]}>Account Deactivated</Text>
 
-        <Text style={styles.message}>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>
           Your {typeLabel} is scheduled for permanent deletion on{' '}
-          <Text style={styles.bold}>{formattedDate}</Text>.
+          <Text style={[styles.bold, { color: colors.textPrimary }]}>{formattedDate}</Text>.
         </Text>
 
         {daysRemaining !== null && (
           <View style={styles.daysBox}>
-            <Text style={styles.daysNumber}>{daysRemaining}</Text>
-            <Text style={styles.daysLabel}>days remaining</Text>
+            <Text style={[styles.daysNumber, { color: colors.warning }]}>{daysRemaining}</Text>
+            <Text style={[styles.daysLabel, { color: colors.textMuted }]}>days remaining</Text>
           </View>
         )}
 
-        <Text style={styles.subtext}>
+        <Text style={[styles.subtext, { color: colors.textMuted }]}>
           Cancel now to keep your {deletionType === 'full_account' ? 'account and' : ''} data intact.
         </Text>
 
@@ -81,13 +83,13 @@ export default function ReactivationBanner({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080A0F',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   card: {
-    backgroundColor: '#121721',
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 32,
     alignItems: 'center',
@@ -106,14 +108,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    color: colors.warning,
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
-    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -121,7 +121,6 @@ const styles = StyleSheet.create({
   },
   bold: {
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   daysBox: {
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -132,19 +131,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   daysNumber: {
-    color: colors.warning,
     fontSize: 32,
     fontWeight: '800',
   },
   daysLabel: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   subtext: {
-    color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 24,

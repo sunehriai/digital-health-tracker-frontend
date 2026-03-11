@@ -35,6 +35,7 @@ import { ImageInfo, validateImageAsync, areLikelyDuplicates, compressImage } fro
 import { AI_UPLOAD_COPY } from '../../domain/medicationConfig';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
+import { useTheme } from '../theme/ThemeContext';
 
 import {
   AIConsentModal,
@@ -59,6 +60,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ImageUpload
 
 export function ImageUploadScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { colors, isDark } = useTheme();
   const { showAlert } = useAlert();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ImageUpload');
   const {
@@ -351,16 +353,16 @@ export function ImageUploadScreen() {
       {/* Header icon */}
       <View style={styles.headerIcon}>
         <LinearGradient
-          colors={['rgba(0, 209, 255, 0.2)', 'rgba(0, 209, 255, 0.05)']}
-          style={styles.headerIconGradient}
+          colors={[colors.cyanGlow, colors.cyanDim]}
+          style={[styles.headerIconGradient, { borderColor: colors.cyanDim }]}
         >
-          <Sparkles size={28} color="#00D1FF" />
+          <Sparkles size={28} color={colors.cyan} />
         </LinearGradient>
       </View>
 
       {/* Title */}
-      <Text style={styles.title}>{AI_UPLOAD_COPY.UPLOAD_TITLE}</Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{AI_UPLOAD_COPY.UPLOAD_TITLE}</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Take clear photos of the packaging label
       </Text>
 
@@ -391,7 +393,7 @@ export function ImageUploadScreen() {
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={canAnalyze ? ['#00D1FF', '#0099CC'] : ['#333', '#444']}
+          colors={canAnalyze ? (isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']) : ['#333', '#444']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.analyzeButton}
@@ -403,29 +405,29 @@ export function ImageUploadScreen() {
 
       {/* Manual entry link */}
       <TouchableOpacity style={styles.manualLink} onPress={handleManualEntry}>
-        <Text style={styles.manualLinkText}>Enter manually instead</Text>
+        <Text style={[styles.manualLinkText, { color: colors.textMuted }]}>Enter manually instead</Text>
       </TouchableOpacity>
     </View>
   );
 
   if (consentLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.borderSubtle }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <ArrowLeft size={24} color="#FFFFFF" />
+          <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Medication</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add Medication</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -452,7 +454,6 @@ export function ImageUploadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A1A',
   },
   loadingContainer: {
     flex: 1,
@@ -461,7 +462,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.6)',
   },
   header: {
     flexDirection: 'row',
@@ -470,7 +470,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   backButton: {
     width: 40,
@@ -481,7 +480,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   headerSpacer: {
     width: 40,
@@ -506,18 +504,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -546,7 +541,6 @@ const styles = StyleSheet.create({
   },
   manualLinkText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
     textDecorationLine: 'underline',
   },
 });

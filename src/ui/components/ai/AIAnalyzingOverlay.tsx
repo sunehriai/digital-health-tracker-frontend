@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Scan, Sparkles } from 'lucide-react-native';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface AIAnalyzingOverlayProps {
   visible: boolean;
@@ -29,6 +30,7 @@ const MESSAGES = [
 ];
 
 export function AIAnalyzingOverlay({ visible }: AIAnalyzingOverlayProps) {
+  const { colors } = useTheme();
   const [messageIndex, setMessageIndex] = useState(0);
   const [fadeAnim] = useState(new Animated.Value(1));
 
@@ -61,45 +63,45 @@ export function AIAnalyzingOverlay({ visible }: AIAnalyzingOverlayProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlayHeavy }]}>
         <View style={styles.content}>
           {/* Animated icon */}
           <View style={styles.iconContainer}>
             <LinearGradient
-              colors={['rgba(0, 209, 255, 0.2)', 'rgba(0, 209, 255, 0.05)']}
-              style={styles.iconGradient}
+              colors={[colors.cyanGlow, colors.cyanDim]}
+              style={[styles.iconGradient, { borderColor: colors.cyanDim }]}
             >
-              <View style={styles.iconInner}>
-                <Scan size={40} color="#00D1FF" />
+              <View style={[styles.iconInner, { backgroundColor: colors.cyanDim }]}>
+                <Scan size={40} color={colors.cyan} />
               </View>
             </LinearGradient>
 
             {/* Sparkles decoration */}
             <View style={[styles.sparkle, styles.sparkle1]}>
-              <Sparkles size={14} color="#00D1FF" />
+              <Sparkles size={14} color={colors.cyan} />
             </View>
             <View style={[styles.sparkle, styles.sparkle2]}>
-              <Sparkles size={10} color="#00D1FF" />
+              <Sparkles size={10} color={colors.cyan} />
             </View>
             <View style={[styles.sparkle, styles.sparkle3]}>
-              <Sparkles size={12} color="#00D1FF" />
+              <Sparkles size={12} color={colors.cyan} />
             </View>
           </View>
 
           {/* Loading indicator */}
           <ActivityIndicator
             size="large"
-            color="#00D1FF"
+            color={colors.cyan}
             style={styles.spinner}
           />
 
           {/* Animated message */}
-          <Animated.Text style={[styles.message, { opacity: fadeAnim }]}>
+          <Animated.Text style={[styles.message, { opacity: fadeAnim, color: colors.textPrimary }]}>
             {MESSAGES[messageIndex]}
           </Animated.Text>
 
           {/* Subtitle */}
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             This usually takes a few seconds
           </Text>
         </View>
@@ -112,10 +114,12 @@ export function AIAnalyzingOverlay({ visible }: AIAnalyzingOverlayProps) {
  * Inline loading state for use within screens (not modal)
  */
 export function AIAnalyzingInline() {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.inlineContainer}>
-      <ActivityIndicator size="small" color="#00D1FF" />
-      <Text style={styles.inlineText}>Analyzing...</Text>
+      <ActivityIndicator size="small" color={colors.cyan} />
+      <Text style={[styles.inlineText, { color: colors.cyan }]}>Analyzing...</Text>
     </View>
   );
 }
@@ -123,7 +127,6 @@ export function AIAnalyzingInline() {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -142,13 +145,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   iconInner: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -174,13 +175,11 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
   },
   inlineContainer: {
@@ -192,7 +191,6 @@ const styles = StyleSheet.create({
   },
   inlineText: {
     fontSize: 14,
-    color: '#00D1FF',
     fontWeight: '500',
   },
 });

@@ -8,7 +8,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMedications } from '../hooks/useMedications';
 import { feedService } from '../../data/services/feedService';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { Medication } from '../../domain/types';
 import { useAlert } from '../context/AlertContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -16,6 +16,7 @@ import type { RootStackParamList } from '../navigation/types';
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ArchivedRitualsScreen() {
+  const { colors } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const {
     archivedMedications,
@@ -230,6 +231,7 @@ export default function ArchivedRitualsScreen() {
       <TouchableOpacity
         style={[
           styles.medCard,
+          { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle },
           isSelectMode && isSelected && styles.medCardSelected,
         ]}
         onPress={() => {
@@ -262,7 +264,7 @@ export default function ArchivedRitualsScreen() {
               )}
             </TouchableOpacity>
           )}
-          <View style={styles.medIcon}>
+          <View style={[styles.medIcon, { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}>
             <Pill color="#64748B" size={24} strokeWidth={3} />
           </View>
           <View style={styles.medNameSection}>
@@ -308,7 +310,7 @@ export default function ArchivedRitualsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, isSelectMode && styles.contentWithBottomBar]}
@@ -323,7 +325,7 @@ export default function ArchivedRitualsScreen() {
                 <X color="#94A3B8" size={20} strokeWidth={2.5} />
                 <Text style={styles.cancelSelectText}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.selectedCount}>
+              <Text style={[styles.selectedCount, { color: colors.textPrimary }]}>
                 {selectedIds.size} selected
               </Text>
               <TouchableOpacity style={styles.selectAllBtn} onPress={selectAll}>
@@ -332,11 +334,11 @@ export default function ArchivedRitualsScreen() {
             </>
           ) : (
             <>
-              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.bgSubtle }]} onPress={() => navigation.goBack()}>
                 <ChevronLeft color="#94A3B8" size={24} strokeWidth={2} />
               </TouchableOpacity>
               <View style={styles.titleSection}>
-                <Text style={styles.title}>History</Text>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>History</Text>
                 <Text style={styles.subtitle}>{archivedMedications.length} archived</Text>
               </View>
               <View style={{ width: 44 }} />
@@ -347,10 +349,10 @@ export default function ArchivedRitualsScreen() {
         {/* Search Bar */}
         {!isSelectMode && (
           <View style={styles.searchContainer}>
-            <View style={styles.searchInputWrapper}>
+            <View style={[styles.searchInputWrapper, { backgroundColor: colors.bgInput }]}>
               <Search color="#64748B" size={18} strokeWidth={2} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: colors.textPrimary }]}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search archived..."
@@ -382,7 +384,7 @@ export default function ArchivedRitualsScreen() {
       {isSelectMode && selectedIds.size > 0 && (
         <Animated.View
           entering={FadeInDown.duration(200)}
-          style={styles.bottomActionBar}
+          style={[styles.bottomActionBar, { borderTopColor: colors.borderSubtle, backgroundColor: colors.bgElevated }]}
         >
           <TouchableOpacity style={styles.bottomAction} onPress={handleBulkRestore}>
             <RotateCcw color="#2DD4BF" size={20} strokeWidth={2.5} />
@@ -399,7 +401,7 @@ export default function ArchivedRitualsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0F172A' },
+  safe: { flex: 1 },
   scrollView: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
   contentWithBottomBar: { paddingBottom: 100 },
@@ -410,12 +412,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   titleSection: { flex: 1, alignItems: 'center' },
-  title: { color: colors.textPrimary, fontSize: 20, fontWeight: '700' },
+  title: { fontSize: 20, fontWeight: '700' },
   subtitle: { color: '#64748B', fontSize: 13, marginTop: 2 },
 
   // Select mode header
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 12,
   },
   cancelSelectText: { color: '#94A3B8', fontSize: 15, fontWeight: '600' },
-  selectedCount: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
+  selectedCount: { fontSize: 17, fontWeight: '700' },
   selectAllBtn: {
     paddingVertical: 8, paddingHorizontal: 12,
   },
@@ -435,7 +436,6 @@ const styles = StyleSheet.create({
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -443,7 +443,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '500',
     padding: 0,
@@ -492,9 +491,7 @@ const styles = StyleSheet.create({
 
   // Med card - matching CabinetScreen
   medCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -516,9 +513,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   medNameSection: { flex: 1 },
   medNameRow: {
@@ -569,9 +564,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#1E293B',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 12,

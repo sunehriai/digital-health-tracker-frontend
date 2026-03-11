@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { deletionService, DeletionStatusResponse } from '../../data/services/deletionService';
 import { medicationEvents } from '../../data/utils/medicationEvents';
+import { clearLog } from '../../data/utils/notificationDebugLog';
 
 const TAG = '[useDeletion]';
 
@@ -50,11 +51,15 @@ export function useDeletion(): UseDeletionReturn {
           !PRESERVED_KEYS.has(key) &&
           (key.startsWith('vision_') ||
            key.startsWith('@vision') ||
-           key.startsWith('@dose_status_cache'))
+           key.startsWith('@dose_status_cache') ||
+           key.startsWith('daySettled:'))
       );
       if (visionKeys.length > 0) {
         await AsyncStorage.multiRemove(visionKeys);
       }
+
+      // Clear debug log (in-memory + backend file)
+      await clearLog();
     } catch (e) {
       // Non-critical — log but don't fail the deletion flow
       console.warn('Failed to clear local caches:', e);

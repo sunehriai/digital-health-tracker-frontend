@@ -3,11 +3,12 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } fr
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../../primitives/Button';
 import Input from '../../primitives/Input';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/typography';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignUp'>) {
+  const { colors } = useTheme();
   const { signUp, loading, error, clearError } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,13 +24,13 @@ export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignU
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Start your longevity journey</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Create Account</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Start your longevity journey</Text>
         </View>
 
         <View style={styles.form}>
@@ -59,7 +60,7 @@ export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignU
             containerStyle={styles.field}
           />
 
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
 
           <Button
             title="Create Account"
@@ -71,7 +72,7 @@ export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignU
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+          <Text style={[styles.footerText, { color: colors.textMuted }]}>Already have an account?</Text>
           <Button
             title="Sign In"
             onPress={() => navigation.goBack()}
@@ -84,15 +85,15 @@ export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignU
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 80 },
   header: { alignItems: 'center', marginBottom: 48 },
-  title: { ...typography.h1, color: colors.textPrimary },
-  subtitle: { ...typography.bodySmall, color: colors.textSecondary, marginTop: 4 },
+  title: { ...typography.h1 },
+  subtitle: { ...typography.bodySmall, marginTop: 4 },
   form: { gap: 8 },
   field: { marginBottom: 12 },
-  error: { color: colors.error, fontSize: 13, textAlign: 'center', marginVertical: 8 },
+  error: { fontSize: 13, textAlign: 'center', marginVertical: 8 },
   button: { marginTop: 8 },
   footer: { alignItems: 'center', marginTop: 32 },
-  footerText: { color: colors.textMuted, fontSize: 13 },
+  footerText: { fontSize: 13 },
 });

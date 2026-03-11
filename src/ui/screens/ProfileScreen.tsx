@@ -7,7 +7,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
 const SECTIONS = [
@@ -73,6 +73,7 @@ const ALL_SETTINGS_OPTIONS = [
 ] as const;
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,13 +107,13 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
         {/* Settings Header */}
-        <Text style={styles.settingsHeading}>Settings</Text>
+        <Text style={[styles.settingsHeading, { color: colors.textPrimary }]}>Settings</Text>
 
         {/* Search Bar */}
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, { backgroundColor: colors.bgElevated }]}>
           <Search color={colors.textMuted} size={18} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search settings..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
@@ -135,7 +136,7 @@ export default function ProfileScreen() {
               filteredResults.map((result, index) => (
                 <TouchableOpacity
                   key={`${result.screen}-${index}`}
-                  style={styles.searchResultItem}
+                  style={[styles.searchResultItem, { backgroundColor: colors.bgElevated }]}
                   activeOpacity={0.7}
                   onPress={() => {
                     setSearchQuery('');
@@ -143,11 +144,11 @@ export default function ProfileScreen() {
                   }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.searchResultLabel}>{result.label}</Text>
+                    <Text style={[styles.searchResultLabel, { color: colors.textPrimary }]}>{result.label}</Text>
                     <Text style={styles.searchResultDesc}>{result.desc}</Text>
                   </View>
                   <View style={styles.searchResultBadge}>
-                    <Text style={styles.searchResultBadgeText}>{result.category}</Text>
+                    <Text style={[styles.searchResultBadgeText, { color: colors.cyan }]}>{result.category}</Text>
                   </View>
                 </TouchableOpacity>
               ))
@@ -157,19 +158,19 @@ export default function ProfileScreen() {
           <>
             {/* Hero Profile Section */}
             <TouchableOpacity
-              style={styles.heroSection}
+              style={[styles.heroSection, { backgroundColor: colors.bgElevated }]}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('PersonalInfo')}
             >
               {profilePhoto ? (
-                <Image source={{ uri: profilePhoto }} style={styles.heroAvatar} />
+                <Image source={{ uri: profilePhoto }} style={[styles.heroAvatar, { borderColor: colors.cyan }]} />
               ) : (
-                <View style={styles.heroAvatarPlaceholder}>
+                <View style={[styles.heroAvatarPlaceholder, { borderColor: colors.cyan }]}>
                   <User color={colors.textMuted} size={36} />
                 </View>
               )}
               <View style={styles.heroInfo}>
-                <Text style={styles.heroName}>{user?.display_name || 'Vision User'}</Text>
+                <Text style={[styles.heroName, { color: colors.textPrimary }]}>{user?.display_name || 'Vision User'}</Text>
                 <Text style={styles.heroSubtitle}>View and edit profile</Text>
               </View>
               <ChevronRight color="#8E9196" size={20} strokeWidth={2} />
@@ -183,7 +184,7 @@ export default function ProfileScreen() {
                 return (
                   <TouchableOpacity
                     key={section.id}
-                    style={[styles.sectionItem, isVault && styles.sectionItemVault]}
+                    style={[styles.sectionItem, { backgroundColor: colors.bgElevated }, isVault && styles.sectionItemVault]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate(section.id)}
                   >
@@ -192,7 +193,7 @@ export default function ProfileScreen() {
                         <Icon color={isVault ? '#FFAA00' : colors.cyan} size={20} strokeWidth={2} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.sectionLabel}>{section.label}</Text>
+                        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>{section.label}</Text>
                         <Text style={styles.sectionDesc}>{section.desc}</Text>
                       </View>
                       <ChevronRight color={isVault ? '#FFAA00' : '#8E9196'} size={20} strokeWidth={2} />
@@ -232,7 +233,6 @@ const styles = StyleSheet.create({
 
   // Settings Header
   settingsHeading: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
     paddingTop: 16,
@@ -243,7 +243,6 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -254,7 +253,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: colors.textPrimary,
     fontSize: 15,
     padding: 0,
     margin: 0,
@@ -269,7 +267,6 @@ const styles = StyleSheet.create({
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
@@ -277,7 +274,6 @@ const styles = StyleSheet.create({
     borderColor: '#1E2633',
   },
   searchResultLabel: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -294,7 +290,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   searchResultBadgeText: {
-    color: colors.cyan,
     fontSize: 10,
     fontWeight: '600',
   },
@@ -309,7 +304,6 @@ const styles = StyleSheet.create({
   heroSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -321,7 +315,6 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: colors.cyan,
   },
   heroAvatarPlaceholder: {
     width: 80,
@@ -331,14 +324,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: colors.cyan,
   },
   heroInfo: {
     flex: 1,
     marginLeft: 16,
   },
   heroName: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -351,7 +342,6 @@ const styles = StyleSheet.create({
   // Sections
   sectionsList: { gap: 10, marginBottom: 28 },
   sectionItem: {
-    backgroundColor: '#121721',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -373,7 +363,7 @@ const styles = StyleSheet.create({
   sectionIconVault: {
     backgroundColor: 'rgba(255, 170, 0, 0.12)',
   },
-  sectionLabel: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  sectionLabel: { fontSize: 14, fontWeight: '600' },
   sectionDesc: { color: '#8E9196', fontSize: 12, marginTop: 2 },
 
   // Version

@@ -419,3 +419,34 @@ export interface MilestonesResponse {
   milestones: MilestoneInfo[];
   perfect_months_streak: number;
 }
+
+// --- 7-Day Adherence Card ---
+
+/** One dose slot for a given day in the weekly adherence card. */
+export interface DayAdherenceSlot {
+  status: 'taken' | 'taken_late' | 'missed' | 'pending' | 'future';
+}
+
+/** Adherence data for a single calendar day (Mon–Sun). */
+export interface WeekDayRecord {
+  date: string;
+  slots: DayAdherenceSlot[];
+  taken_count: number;
+  taken_late_count: number;
+  missed_count: number;
+  pending_count: number;
+  total_scheduled: number;
+  adherence_pct: number | null;
+}
+
+/** GET /adherence/weekly — current + previous week summary. */
+export interface WeeklyAdherenceResponse {
+  week_start: string;
+  week_end: string;
+  days: WeekDayRecord[];
+  current_week_adherence_pct: number | null;
+  prev_week_adherence_pct: number | null;
+  total_taken: number;
+  total_taken_late: number;
+  total_missed: number;
+}

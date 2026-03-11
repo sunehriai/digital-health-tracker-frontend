@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Pencil, Trash2, Plus, Sun, Moon, CloudMoon, ChevronDown, ChevronUp, AlertTriangle, Pause, Play, Archive, Package, AlertCircle } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppPreferences } from '../hooks/useAppPreferences';
+import { formatTime } from '../../domain/utils/dateTimeUtils';
 import { medicationService } from '../../data/services/medicationService';
 import { feedService } from '../../data/services/feedService';
 import TimeInput from '../components/TimeInput';
@@ -72,8 +74,15 @@ const getPeriodIcon = (period: string) => {
   }
 };
 
-const formatTime12Hour = (time: string): { time: string; period: string } => {
-  const [hours, minutes] = time.split(':').map(Number);
+/** Split time into display parts for the schedule timeline UI. */
+const formatTimeSplit = (time: string, tf: '12h' | '24h'): { time: string; period: string } => {
+  const [hours, minutes] = (time || '00:00').split(':').map(Number);
+  if (tf === '24h') {
+    return {
+      time: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+      period: '',
+    };
+  }
   const period = hours >= 12 ? 'PM' : 'AM';
   const hour12 = hours % 12 || 12;
   return {
@@ -89,6 +98,8 @@ export default function MedicationDetailsScreen({
 }: RootStackScreenProps<'MedicationDetails'>) {
   const { medicationId, isArchived = false, alertId } = route.params;
   const { showAlert } = useAlert();
+  const { prefs: { timeFormat, defaultDoseTime } } = useAppPreferences();
+  const { colors, isDark } = useTheme();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
   const [medication, setMedication] = useState<Medication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +214,7 @@ export default function MedicationDetailsScreen({
 
   const openAddAlarmModal = () => {
     setEditingAlarm(null);
-    setEditTime('12:00');
+    setEditTime(defaultDoseTime || '12:00');
     setEditFrequency(medication?.frequency || 'daily');
     // Set selected days and interval from medication's custom_days
     if (medication?.custom_days) {
@@ -640,9 +651,9 @@ export default function MedicationDetailsScreen({
 
   if (loading || !medication) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -652,25 +663,25 @@ export default function MedicationDetailsScreen({
   const progressBarColor = getProgressBarColor(stockPct);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <X color={colors.textSecondary} size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
             {isArchived ? 'Archived Ritual' : 'Ritual Management'}
           </Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* Medication Card */}
-        <View style={[styles.medicationCard, isArchived && styles.archivedCard]}>
+        <View style={[styles.medicationCard, { backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }, isArchived && { borderColor: colors.borderSubtle, opacity: 0.8 }]}>
           <View style={styles.medCardHeader}>
             <View style={styles.medCardInfo}>
               <View style={styles.medNameRow}>
-                <Text style={styles.medName}>{medication.name}</Text>
+                <Text style={[styles.medName, { color: colors.cyan }]}>{medication.name}</Text>
                 {medication.is_critical && (
                   <View style={styles.criticalBadge}>
                     <AlertTriangle color="#FB7185" size={14} strokeWidth={3} />
@@ -679,11 +690,11 @@ export default function MedicationDetailsScreen({
                 )}
               </View>
               {medication.strength && (
-                <Text style={styles.medStrength}>{medication.strength}</Text>
+                <Text style={[styles.medStrength, { color: colors.textSecondary }]}>{medication.strength}</Text>
               )}
             </View>
             {!isArchived && (
-              <TouchableOpacity style={styles.editMedBtn} onPress={openEditMedModal}>
+              <TouchableOpacity style={[styles.editMedBtn, { backgroundColor: colors.cyanDim }]} onPress={openEditMedModal}>
                 <Pencil color={colors.cyan} size={18} />
               </TouchableOpacity>
             )}
@@ -692,13 +703,13 @@ export default function MedicationDetailsScreen({
           {/* Progress bar and inventory */}
           <View style={styles.inventorySection}>
             <View style={styles.inventoryHeader}>
-              <Text style={styles.inventoryLabel}>CURRENT INVENTORY</Text>
+              <Text style={[styles.inventoryLabel, { color: colors.textSecondary }]}>CURRENT INVENTORY</Text>
               <Text style={[styles.inventoryValue, { color: progressBarColor }]}>
                 {INVENTORY_CONFIG.formatStockDisplay(medication.current_stock, medication.initial_stock, medication.dose_unit)}
               </Text>
             </View>
             <View style={styles.progressBarContainer}>
-              <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarBg, { backgroundColor: colors.bgInput }]}>
                 <View
                   style={[
                     styles.progressBarFill,
@@ -717,9 +728,9 @@ export default function MedicationDetailsScreen({
 
           {/* End Date Display */}
           {medication.end_date && (
-            <View style={styles.endDateDisplay}>
-              <Text style={styles.endDateLabel}>ENDS ON</Text>
-              <Text style={styles.endDateValue}>
+            <View style={[styles.endDateDisplay, { borderTopColor: colors.borderSubtle }]}>
+              <Text style={[styles.endDateLabel, { color: colors.error }]}>ENDS ON</Text>
+              <Text style={[styles.endDateValue, { color: colors.error }]}>
                 {new Date(medication.end_date).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -731,11 +742,11 @@ export default function MedicationDetailsScreen({
 
           {/* Expandable Medical Context Section */}
           <TouchableOpacity
-            style={styles.expandHeader}
+            style={[styles.expandHeader, { borderTopColor: colors.borderSubtle }]}
             onPress={() => setDetailsExpanded(!detailsExpanded)}
             activeOpacity={0.7}
           >
-            <Text style={styles.expandHeaderText}>Medical Details</Text>
+            <Text style={[styles.expandHeaderText, { color: colors.textSecondary }]}>Medical Details</Text>
             {detailsExpanded ? (
               <ChevronUp color={colors.textSecondary} size={20} />
             ) : (
@@ -747,8 +758,8 @@ export default function MedicationDetailsScreen({
             <View style={styles.expandedContent}>
               {/* Dosage Info */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>DOSE</Text>
-                <Text style={styles.detailValue}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>DOSE</Text>
+                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
                   {medication.dose_size || 1} {medication.dose_unit || 'tablet'}(s)
                 </Text>
               </View>
@@ -756,13 +767,14 @@ export default function MedicationDetailsScreen({
               {/* Expiry Date */}
               {medication.expiry_date && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>EXPIRY DATE</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>EXPIRY DATE</Text>
                   <View style={styles.expiryValueRow}>
                     <Text style={[
                       styles.detailValue,
-                      new Date(medication.expiry_date) < new Date() && { color: '#EF4444' },
+                      { color: colors.textPrimary },
+                      new Date(medication.expiry_date) < new Date() && { color: colors.error },
                       new Date(medication.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) &&
-                      new Date(medication.expiry_date) >= new Date() && { color: '#F59E0B' },
+                      new Date(medication.expiry_date) >= new Date() && { color: colors.warning },
                     ]}>
                       {new Date(medication.expiry_date).toLocaleDateString('en-US', {
                         month: 'short',
@@ -772,15 +784,15 @@ export default function MedicationDetailsScreen({
                     </Text>
                     {new Date(medication.expiry_date) < new Date() && (
                       <View style={styles.expiryWarningBadge}>
-                        <AlertCircle color="#EF4444" size={12} />
-                        <Text style={styles.expiryWarningText}>Expired</Text>
+                        <AlertCircle color={colors.error} size={12} />
+                        <Text style={[styles.expiryWarningText, { color: colors.error }]}>Expired</Text>
                       </View>
                     )}
                     {new Date(medication.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) &&
                      new Date(medication.expiry_date) >= new Date() && (
-                      <View style={[styles.expiryWarningBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                        <AlertCircle color="#F59E0B" size={12} />
-                        <Text style={[styles.expiryWarningText, { color: '#F59E0B' }]}>Expiring soon</Text>
+                      <View style={[styles.expiryWarningBadge, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(217, 119, 6, 0.12)' }]}>
+                        <AlertCircle color={colors.warning} size={12} />
+                        <Text style={[styles.expiryWarningText, { color: colors.warning }]}>Expiring soon</Text>
                       </View>
                     )}
                   </View>
@@ -788,8 +800,8 @@ export default function MedicationDetailsScreen({
               )}
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>MEAL RELATION</Text>
-                <Text style={styles.detailValue}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>MEAL RELATION</Text>
+                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
                   {formatMealRelation(medication.meal_relation)}
                 </Text>
               </View>
@@ -797,23 +809,23 @@ export default function MedicationDetailsScreen({
               {/* Indication */}
               {medication.indication && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>INDICATION</Text>
-                  <Text style={styles.detailValue}>{medication.indication}</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>INDICATION</Text>
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{medication.indication}</Text>
                 </View>
               )}
 
               {/* Special Instructions */}
               {medication.special_instructions && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>SPECIAL INSTRUCTIONS</Text>
-                  <Text style={styles.detailValue}>{medication.special_instructions}</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>SPECIAL INSTRUCTIONS</Text>
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{medication.special_instructions}</Text>
                 </View>
               )}
 
               {/* Allergies */}
               {medication.allergies && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>ALLERGIES</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>ALLERGIES</Text>
                   <Text style={[styles.detailValue, { color: '#FB7185' }]}>{medication.allergies}</Text>
                 </View>
               )}
@@ -821,31 +833,31 @@ export default function MedicationDetailsScreen({
               {/* Brand Name */}
               {medication.brand_name && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>BRAND NAME</Text>
-                  <Text style={styles.detailValue}>{medication.brand_name}</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>BRAND NAME</Text>
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{medication.brand_name}</Text>
                 </View>
               )}
 
               {/* Doctor */}
               {medication.doctor_name && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>PRESCRIBING DOCTOR</Text>
-                  <Text style={styles.detailValue}>{medication.doctor_name}</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>PRESCRIBING DOCTOR</Text>
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{medication.doctor_name}</Text>
                 </View>
               )}
 
               {/* Pharmacy */}
               {medication.pharmacy_name && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>PHARMACY</Text>
-                  <Text style={styles.detailValue}>{medication.pharmacy_name}</Text>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>PHARMACY</Text>
+                  <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{medication.pharmacy_name}</Text>
                 </View>
               )}
 
               {/* Start Date */}
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>STARTED ON</Text>
-                <Text style={styles.detailValue}>
+                <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>STARTED ON</Text>
+                <Text style={[styles.detailValue, { color: colors.textPrimary }]}>
                   {new Date(medication.start_date).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -860,60 +872,60 @@ export default function MedicationDetailsScreen({
         {/* Daily Schedule - show "Take as needed" for as-needed meds, otherwise show alarms */}
         {medication.is_as_needed ? (
           <>
-            <Text style={styles.sectionTitle}>Schedule</Text>
-            <View style={styles.asNeededScheduleContainer}>
-              <Text style={styles.asNeededScheduleText}>Take as needed</Text>
-              <Text style={styles.asNeededScheduleHint}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Schedule</Text>
+            <View style={[styles.asNeededScheduleContainer, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+              <Text style={[styles.asNeededScheduleText, { color: colors.cyan }]}>Take as needed</Text>
+              <Text style={[styles.asNeededScheduleHint, { color: colors.textSecondary }]}>
                 No scheduled reminders — log doses when you take them
               </Text>
             </View>
             {/* Option to add a schedule (converts from as-needed to scheduled) */}
             {!isArchived && (
-              <TouchableOpacity style={styles.addAlarmBtn} onPress={openAddAlarmModal}>
+              <TouchableOpacity style={[styles.addAlarmBtn, { borderColor: colors.cyanGlow }]} onPress={openAddAlarmModal}>
                 <Plus color={colors.cyan} size={18} />
-                <Text style={styles.addAlarmText}>Add Schedule</Text>
+                <Text style={[styles.addAlarmText, { color: colors.cyan }]}>Add Schedule</Text>
               </TouchableOpacity>
             )}
           </>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>Daily Schedule</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Daily Schedule</Text>
 
             <View style={styles.scheduleContainer}>
               {alarms.map((alarm, index) => {
-                const { time: formattedTime, period: ampm } = formatTime12Hour(alarm.time);
+                const { time: formattedTime, period: ampm } = formatTimeSplit(alarm.time, timeFormat);
                 return (
                   <View key={alarm.id}>
                     {/* Timeline connector */}
-                    {index > 0 && <View style={styles.timelineConnector} />}
+                    {index > 0 && <View style={[styles.timelineConnector, { backgroundColor: colors.cyanGlow }]} />}
 
-                    <View style={styles.alarmRow}>
+                    <View style={[styles.alarmRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
                       {/* Timeline dot */}
-                      <View style={styles.timelineDot}>
-                        <View style={styles.timelineDotInner} />
+                      <View style={[styles.timelineDot, { backgroundColor: isDark ? 'rgba(0, 209, 255, 0.2)' : 'rgba(0, 151, 184, 0.15)' }]}>
+                        <View style={[styles.timelineDotInner, { backgroundColor: colors.cyan }]} />
                       </View>
 
                       {/* Time display */}
                       <View style={styles.timeContainer}>
-                        <Text style={styles.timeText}>{formattedTime}</Text>
-                        <Text style={styles.ampmText}>{ampm}</Text>
+                        <Text style={[styles.timeText, { color: colors.textPrimary }]}>{formattedTime}</Text>
+                        <Text style={[styles.ampmText, { color: colors.textSecondary }]}>{ampm}</Text>
                       </View>
 
                       {/* Period icon */}
-                      <View style={styles.periodIcon}>
+                      <View style={[styles.periodIcon, { backgroundColor: colors.cyanDim }]}>
                         {getPeriodIcon(alarm.period)}
                       </View>
 
                       {/* Frequency badge */}
-                      <View style={styles.frequencyBadge}>
-                        <Text style={styles.frequencyText}>{formatFrequencyDisplay(alarm.frequency, medication?.custom_days)}</Text>
+                      <View style={[styles.frequencyBadge, { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow }]}>
+                        <Text style={[styles.frequencyText, { color: colors.cyan }]}>{formatFrequencyDisplay(alarm.frequency, medication?.custom_days)}</Text>
                       </View>
 
                       {/* Edit and Delete buttons - only show if not archived */}
                       {!isArchived && (
                         <>
                           <TouchableOpacity
-                            style={styles.editBtn}
+                            style={[styles.editBtn, { backgroundColor: colors.bgSubtle }]}
                             onPress={() => openAlarmModal(alarm)}
                           >
                             <Pencil color={colors.textSecondary} size={14} />
@@ -935,9 +947,9 @@ export default function MedicationDetailsScreen({
 
             {/* Add New Alarm Button - only show if not archived and not as-needed */}
             {!isArchived && (
-              <TouchableOpacity style={styles.addAlarmBtn} onPress={openAddAlarmModal}>
+              <TouchableOpacity style={[styles.addAlarmBtn, { borderColor: colors.cyanGlow }]} onPress={openAddAlarmModal}>
                 <Plus color={colors.cyan} size={18} />
-                <Text style={styles.addAlarmText}>Add New Alarm</Text>
+                <Text style={[styles.addAlarmText, { color: colors.cyan }]}>Add New Alarm</Text>
               </TouchableOpacity>
             )}
           </>
@@ -946,13 +958,13 @@ export default function MedicationDetailsScreen({
         {/* Log Refill Button - prominent action */}
         {!isArchived && (
           <TouchableOpacity
-            style={styles.refillBtn}
+            style={[styles.refillBtn, { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow }]}
             onPress={openRefillModal}
             activeOpacity={0.8}
           >
             <Package color={colors.cyan} size={18} />
-            <Text style={styles.refillBtnText}>Log Refill</Text>
-            <Text style={styles.refillBtnStock}>{medication.current_stock} {medication.dose_unit || 'doses'} in stock</Text>
+            <Text style={[styles.refillBtnText, { color: colors.cyan }]}>Log Refill</Text>
+            <Text style={[styles.refillBtnStock, { color: colors.textSecondary }]}>{medication.current_stock} {medication.dose_unit || 'doses'} in stock</Text>
           </TouchableOpacity>
         )}
 
@@ -961,9 +973,9 @@ export default function MedicationDetailsScreen({
           <View style={styles.actionButtonsContainer}>
             {/* Paused status indicator */}
             {medication.is_paused && (
-              <View style={styles.pausedIndicator}>
-                <Pause color="#F59E0B" size={14} />
-                <Text style={styles.pausedIndicatorText}>
+              <View style={[styles.pausedIndicator, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(217, 119, 6, 0.08)' }]}>
+                <Pause color={colors.warning} size={14} />
+                <Text style={[styles.pausedIndicatorText, { color: colors.warning }]}>
                   This medication is currently paused
                 </Text>
               </View>
@@ -977,8 +989,8 @@ export default function MedicationDetailsScreen({
                   onPress={handleResume}
                   disabled={actionLoading}
                 >
-                  <Play color="#22C55E" size={14} />
-                  <Text style={[styles.ghostBtnText, { color: '#22C55E' }]}>
+                  <Play color={colors.success} size={14} />
+                  <Text style={[styles.ghostBtnText, { color: colors.success }]}>
                     {actionLoading ? 'Resuming...' : 'Resume'}
                   </Text>
                 </TouchableOpacity>
@@ -988,14 +1000,14 @@ export default function MedicationDetailsScreen({
                   onPress={handlePause}
                   disabled={actionLoading}
                 >
-                  <Pause color="#64748B" size={14} />
-                  <Text style={styles.ghostBtnText}>
+                  <Pause color={colors.textMuted} size={14} />
+                  <Text style={[styles.ghostBtnText, { color: colors.textMuted }]}>
                     {actionLoading ? 'Pausing...' : 'Pause'}
                   </Text>
                 </TouchableOpacity>
               )}
 
-              <View style={styles.ghostBtnDivider} />
+              <View style={[styles.ghostBtnDivider, { backgroundColor: colors.borderSubtle }]} />
 
               {/* Archive button */}
               <TouchableOpacity
@@ -1003,8 +1015,8 @@ export default function MedicationDetailsScreen({
                 onPress={handleArchive}
                 disabled={actionLoading}
               >
-                <Archive color="#64748B" size={14} />
-                <Text style={styles.ghostBtnText}>
+                <Archive color={colors.textMuted} size={14} />
+                <Text style={[styles.ghostBtnText, { color: colors.textMuted }]}>
                   {actionLoading ? 'Archiving...' : 'Archive'}
                 </Text>
               </TouchableOpacity>
@@ -1014,8 +1026,8 @@ export default function MedicationDetailsScreen({
 
         {/* Archived notice */}
         {isArchived && (
-          <View style={styles.archivedNotice}>
-            <Text style={styles.archivedNoticeText}>
+          <View style={[styles.archivedNotice, { backgroundColor: colors.bgSubtle }]}>
+            <Text style={[styles.archivedNoticeText, { color: colors.textSecondary }]}>
               This medication is archived. Restore it from the Cabinet to make changes.
             </Text>
           </View>
@@ -1029,10 +1041,10 @@ export default function MedicationDetailsScreen({
         animationType="slide"
         onRequestClose={() => setAlarmModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.bg }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                 {editingAlarm ? 'Edit Alarm' : 'Add Alarm'}
               </Text>
               <TouchableOpacity onPress={() => setAlarmModalVisible(false)}>
@@ -1047,24 +1059,26 @@ export default function MedicationDetailsScreen({
               placeholder="Select time"
             />
 
-            <Text style={[styles.modalLabel, { marginTop: 20 }]}>Frequency</Text>
+            <Text style={[styles.modalLabel, { marginTop: 20, color: colors.textSecondary }]}>Frequency</Text>
             <View style={styles.frequencyGrid}>
               {ALARM_FREQUENCY_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.value}
                   style={[
                     styles.frequencyGridOption,
-                    editFrequency === option.value && styles.frequencyGridOptionActive,
+                    { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                    editFrequency === option.value && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                   ]}
                   onPress={() => setEditFrequency(option.value as FrequencyType)}
                 >
-                  <View style={[styles.radioOuter, editFrequency === option.value && styles.radioOuterActive]}>
-                    {editFrequency === option.value && <View style={styles.radioInner} />}
+                  <View style={[styles.radioOuter, { borderColor: colors.textMuted }, editFrequency === option.value && { borderColor: colors.cyan }]}>
+                    {editFrequency === option.value && <View style={[styles.radioInner, { backgroundColor: colors.cyan }]} />}
                   </View>
                   <Text
                     style={[
                       styles.frequencyGridText,
-                      editFrequency === option.value && styles.frequencyGridTextActive,
+                      { color: colors.textSecondary },
+                      editFrequency === option.value && { color: colors.textPrimary },
                     ]}
                   >
                     {option.label}
@@ -1075,15 +1089,16 @@ export default function MedicationDetailsScreen({
 
             {/* Day selector for "Specific Days" */}
             {editFrequency === 'custom' && (
-              <View style={styles.daySelector}>
-                <Text style={styles.daySelectorLabel}>Select days:</Text>
+              <View style={[styles.daySelector, { backgroundColor: colors.bgDark, borderColor: isDark ? 'rgba(0, 209, 255, 0.2)' : colors.cyanGlow }]}>
+                <Text style={[styles.daySelectorLabel, { color: colors.textSecondary }]}>Select days:</Text>
                 <View style={styles.daysRow}>
                   {DAYS_OF_WEEK.map((day) => (
                     <TouchableOpacity
                       key={day.value}
                       style={[
                         styles.dayChip,
-                        editSelectedDays.includes(day.value) && styles.dayChipActive,
+                        { backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle },
+                        editSelectedDays.includes(day.value) && { backgroundColor: isDark ? 'rgba(0, 209, 255, 0.2)' : colors.cyanDim, borderColor: colors.cyan },
                       ]}
                       onPress={() => {
                         if (editSelectedDays.includes(day.value)) {
@@ -1096,7 +1111,8 @@ export default function MedicationDetailsScreen({
                       <Text
                         style={[
                           styles.dayChipText,
-                          editSelectedDays.includes(day.value) && styles.dayChipTextActive,
+                          { color: colors.textMuted },
+                          editSelectedDays.includes(day.value) && { color: colors.cyan },
                         ]}
                       >
                         {day.short}
@@ -1109,29 +1125,29 @@ export default function MedicationDetailsScreen({
 
             {/* Interval input for "Every X Days" */}
             {editFrequency === 'every_other_day' && (
-              <View style={styles.intervalSelector}>
-                <Text style={styles.intervalLabel}>Every</Text>
+              <View style={[styles.intervalSelector, { backgroundColor: colors.bgDark, borderColor: isDark ? 'rgba(0, 209, 255, 0.2)' : colors.cyanGlow }]}>
+                <Text style={[styles.intervalLabel, { color: colors.textPrimary }]}>Every</Text>
                 <View style={styles.intervalStepper}>
                   <TouchableOpacity
-                    style={styles.intervalBtn}
+                    style={[styles.intervalBtn, { backgroundColor: colors.cyanDim }]}
                     onPress={() => setEditIntervalDays(Math.max(2, editIntervalDays - 1))}
                   >
-                    <Text style={styles.intervalBtnText}>-</Text>
+                    <Text style={[styles.intervalBtnText, { color: colors.cyan }]}>-</Text>
                   </TouchableOpacity>
-                  <Text style={styles.intervalValue}>{editIntervalDays}</Text>
+                  <Text style={[styles.intervalValue, { color: colors.cyan }]}>{editIntervalDays}</Text>
                   <TouchableOpacity
-                    style={styles.intervalBtn}
+                    style={[styles.intervalBtn, { backgroundColor: colors.cyanDim }]}
                     onPress={() => setEditIntervalDays(editIntervalDays + 1)}
                   >
-                    <Text style={styles.intervalBtnText}>+</Text>
+                    <Text style={[styles.intervalBtnText, { color: colors.cyan }]}>+</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.intervalLabel}>days</Text>
+                <Text style={[styles.intervalLabel, { color: colors.textPrimary }]}>days</Text>
               </View>
             )}
 
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={saveAlarm}>
-              <Text style={styles.modalSaveBtnText}>
+            <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: colors.cyan }]} onPress={saveAlarm}>
+              <Text style={[styles.modalSaveBtnText, { color: colors.bg }]}>
                 {editingAlarm ? 'Save Changes' : 'Add Alarm'}
               </Text>
             </TouchableOpacity>
@@ -1146,70 +1162,70 @@ export default function MedicationDetailsScreen({
         animationType="slide"
         onRequestClose={() => setEditMedModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentScrollable}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
+          <View style={[styles.modalContentScrollable, { backgroundColor: colors.bg }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Medication</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Edit Medication</Text>
               <TouchableOpacity onPress={() => setEditMedModalVisible(false)}>
                 <X color={colors.textSecondary} size={24} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-            <Text style={styles.modalLabel}>Name</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Name</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={editName}
               onChangeText={setEditName}
               placeholder="Medication name"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
             />
 
             {/* Critical Toggle */}
             <TouchableOpacity
-              style={styles.criticalToggleRow}
+              style={[styles.criticalToggleRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               onPress={() => setEditIsCritical(!editIsCritical)}
               activeOpacity={0.7}
             >
               <View style={styles.criticalToggleLeft}>
-                <AlertTriangle color={editIsCritical ? "#FB7185" : "#64748B"} size={20} strokeWidth={2.5} />
+                <AlertTriangle color={editIsCritical ? "#FB7185" : colors.textMuted} size={20} strokeWidth={2.5} />
                 <View>
-                  <Text style={styles.criticalToggleLabel}>Mark as Critical</Text>
-                  <Text style={styles.criticalToggleHint}>Essential medication - never skip</Text>
+                  <Text style={[styles.criticalToggleLabel, { color: colors.textPrimary }]}>Mark as Critical</Text>
+                  <Text style={[styles.criticalToggleHint, { color: colors.textMuted }]}>Essential medication - never skip</Text>
                 </View>
               </View>
-              <View style={[styles.toggleSwitch, editIsCritical && styles.toggleSwitchActive]}>
-                <View style={[styles.toggleKnob, editIsCritical && styles.toggleKnobActive]} />
+              <View style={[styles.toggleSwitch, { backgroundColor: colors.bgInput }, editIsCritical && styles.toggleSwitchActive]}>
+                <View style={[styles.toggleKnob, { backgroundColor: colors.textMuted }, editIsCritical && styles.toggleKnobActive]} />
               </View>
             </TouchableOpacity>
 
             {/* Dose - with wheel picker */}
-            <Text style={styles.modalLabel}>Dose</Text>
-            <View style={styles.dosePerIntakeRow}>
-              <Text style={styles.dosePerIntakeLabel}>Per intake</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Dose</Text>
+            <View style={[styles.dosePerIntakeRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+              <Text style={[styles.dosePerIntakeLabel, { color: colors.textPrimary }]}>Per intake</Text>
               <TouchableOpacity
-                style={styles.dosePickerButton}
+                style={[styles.dosePickerButton, { backgroundColor: colors.cyanDim }]}
                 onPress={() => setShowDosePicker(true)}
               >
-                <Text style={styles.dosePickerButtonText}>{editDoseSize}</Text>
+                <Text style={[styles.dosePickerButtonText, { color: colors.cyan }]}>{editDoseSize}</Text>
                 <ChevronDown color={colors.cyan} size={16} />
               </TouchableOpacity>
             </View>
 
             {/* Dose Picker Modal */}
             {showDosePicker && (
-              <View style={styles.pickerModal}>
-                <View style={styles.pickerHeader}>
+              <View style={[styles.pickerModal, { backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }]}>
+                <View style={[styles.pickerHeader, { borderBottomColor: colors.borderSubtle }]}>
                   <TouchableOpacity onPress={() => setShowDosePicker(false)}>
-                    <Text style={styles.pickerCancel}>Cancel</Text>
+                    <Text style={[styles.pickerCancel, { color: colors.textMuted }]}>Cancel</Text>
                   </TouchableOpacity>
-                  <Text style={styles.pickerTitle}>Dose per intake</Text>
+                  <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Dose per intake</Text>
                   <TouchableOpacity onPress={() => setShowDosePicker(false)}>
-                    <Text style={styles.pickerDone}>Done</Text>
+                    <Text style={[styles.pickerDone, { color: colors.cyan }]}>Done</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.wheelPickerContainer}>
-                  <View style={styles.wheelPickerHighlight} />
+                  <View style={[styles.wheelPickerHighlight, { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow }]} />
                   <ScrollView
                     showsVerticalScrollIndicator={false}
                     snapToInterval={50}
@@ -1230,7 +1246,9 @@ export default function MedicationDetailsScreen({
                         <Text
                           style={[
                             styles.wheelPickerText,
+                            { color: colors.textMuted },
                             editDoseSize === num && styles.wheelPickerTextActive,
+                            editDoseSize === num && { color: colors.cyan },
                           ]}
                         >
                           {num}
@@ -1240,7 +1258,7 @@ export default function MedicationDetailsScreen({
                   </ScrollView>
                 </View>
                 <TextInput
-                  style={styles.pickerDirectInput}
+                  style={[styles.pickerDirectInput, { color: colors.textPrimary, backgroundColor: colors.bgSubtle, borderColor: colors.borderSubtle }]}
                   value={doseInputText}
                   onFocus={() => setDoseInputText(editDoseSize.toString())}
                   onChangeText={(text) => {
@@ -1269,7 +1287,7 @@ export default function MedicationDetailsScreen({
                   }}
                   keyboardType="number-pad"
                   placeholder={`Enter value (1-${editDoseUnit === 'mL' ? 50 : 10})`}
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   maxLength={2}
                 />
               </View>
@@ -1282,14 +1300,16 @@ export default function MedicationDetailsScreen({
                   key={option.value}
                   style={[
                     styles.doseUnitOption,
-                    editDoseUnit === option.value && styles.doseUnitOptionActive,
+                    { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                    editDoseUnit === option.value && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                   ]}
                   onPress={() => setEditDoseUnit(option.value)}
                 >
                   <Text
                     style={[
                       styles.doseUnitOptionText,
-                      editDoseUnit === option.value && styles.doseUnitOptionTextActive,
+                      { color: colors.textSecondary },
+                      editDoseUnit === option.value && { color: colors.cyan },
                     ]}
                   >
                     {option.label}
@@ -1298,13 +1318,13 @@ export default function MedicationDetailsScreen({
               ))}
             </View>
 
-            <Text style={styles.modalLabel}>Current Stock</Text>
+            <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Current Stock</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={editStock}
               onChangeText={setEditStock}
               placeholder="Number of doses"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
             />
 
@@ -1320,18 +1340,18 @@ export default function MedicationDetailsScreen({
                   style={styles.clearEndDateBtn}
                   onPress={() => setEditEndDate('')}
                 >
-                  <Text style={styles.clearEndDateText}>Clear end date (make ongoing)</Text>
+                  <Text style={[styles.clearEndDateText, { color: colors.textMuted }]}>Clear end date (make ongoing)</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Expandable Additional Details */}
             <TouchableOpacity
-              style={styles.editExpandHeader}
+              style={[styles.editExpandHeader, { backgroundColor: colors.cyanDim, borderColor: isDark ? 'rgba(0, 209, 255, 0.2)' : colors.cyanGlow }]}
               onPress={() => setEditDetailsExpanded(!editDetailsExpanded)}
               activeOpacity={0.7}
             >
-              <Text style={styles.editExpandHeaderText}>Additional Details</Text>
+              <Text style={[styles.editExpandHeaderText, { color: colors.cyan }]}>Additional Details</Text>
               {editDetailsExpanded ? (
                 <ChevronUp color={colors.cyan} size={20} />
               ) : (
@@ -1341,13 +1361,13 @@ export default function MedicationDetailsScreen({
 
             {editDetailsExpanded && (
               <View style={styles.editExpandedContent}>
-                <Text style={styles.modalLabel}>Strength</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Strength</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editStrength}
                   onChangeText={setEditStrength}
                   placeholder="e.g., 20mg"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
 
                 <View style={styles.expirySection}>
@@ -1362,26 +1382,28 @@ export default function MedicationDetailsScreen({
                       style={styles.clearExpiryBtn}
                       onPress={() => setEditExpiryDate('')}
                     >
-                      <Text style={styles.clearExpiryText}>Clear expiry date</Text>
+                      <Text style={[styles.clearExpiryText, { color: colors.textMuted }]}>Clear expiry date</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                <Text style={styles.modalLabel}>Meal Relation</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Meal Relation</Text>
                 <View style={styles.mealOptions}>
                   {MEAL_OPTIONS.map((option) => (
                     <TouchableOpacity
                       key={option.value}
                       style={[
                         styles.mealOption,
-                        editMealRelation === option.value && styles.mealOptionActive,
+                        { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                        editMealRelation === option.value && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                       ]}
                       onPress={() => setEditMealRelation(option.value as MealRelationType)}
                     >
                       <Text
                         style={[
                           styles.mealOptionText,
-                          editMealRelation === option.value && styles.mealOptionTextActive,
+                          { color: colors.textSecondary },
+                          editMealRelation === option.value && { color: colors.cyan },
                         ]}
                       >
                         {option.label}
@@ -1390,70 +1412,70 @@ export default function MedicationDetailsScreen({
                   ))}
                 </View>
 
-                <Text style={styles.modalLabel}>Indication / Purpose</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Indication / Purpose</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editIndication}
                   onChangeText={setEditIndication}
                   placeholder="What is this medication for?"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
 
-                <Text style={styles.modalLabel}>Special Instructions</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Special Instructions</Text>
                 <TextInput
-                  style={[styles.modalInput, styles.multilineInput]}
+                  style={[styles.modalInput, styles.multilineInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editSpecialInstructions}
                   onChangeText={setEditSpecialInstructions}
                   placeholder="Any special instructions"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   numberOfLines={3}
                 />
 
-                <Text style={styles.modalLabel}>Known Allergies</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Known Allergies</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editAllergies}
                   onChangeText={setEditAllergies}
                   placeholder="Related allergies or sensitivities"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
 
-                <Text style={styles.modalLabel}>Brand Name</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Brand Name</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editBrandName}
                   onChangeText={setEditBrandName}
                   placeholder="Brand or manufacturer"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
 
-                <Text style={styles.modalLabel}>Prescribing Doctor</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Prescribing Doctor</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editDoctorName}
                   onChangeText={setEditDoctorName}
                   placeholder="Doctor's name"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
 
-                <Text style={styles.modalLabel}>Pharmacy</Text>
+                <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Pharmacy</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
                   value={editPharmacyName}
                   onChangeText={setEditPharmacyName}
                   placeholder="Pharmacy name"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                 />
               </View>
             )}
 
             <TouchableOpacity
-              style={[styles.modalSaveBtn, saving && styles.modalSaveBtnDisabled]}
+              style={[styles.modalSaveBtn, { backgroundColor: colors.cyan }, saving && styles.modalSaveBtnDisabled]}
               onPress={saveMedication}
               disabled={saving}
             >
-              <Text style={styles.modalSaveBtnText}>
+              <Text style={[styles.modalSaveBtnText, { color: colors.bg }]}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </Text>
             </TouchableOpacity>
@@ -1469,39 +1491,41 @@ export default function MedicationDetailsScreen({
         animationType="slide"
         onRequestClose={() => setRefillModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.refillModalContent}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
+          <View style={[styles.refillModalContent, { backgroundColor: colors.bgElevated }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Log Refill</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Log Refill</Text>
               <TouchableOpacity onPress={() => setRefillModalVisible(false)}>
                 <X color={colors.textSecondary} size={24} />
               </TouchableOpacity>
             </View>
 
             {/* Current stock display */}
-            <View style={styles.refillCurrentStock}>
-              <Text style={styles.refillCurrentStockLabel}>Current Stock</Text>
-              <Text style={styles.refillCurrentStockValue}>
+            <View style={[styles.refillCurrentStock, { backgroundColor: colors.bgDark }]}>
+              <Text style={[styles.refillCurrentStockLabel, { color: colors.textSecondary }]}>Current Stock</Text>
+              <Text style={[styles.refillCurrentStockValue, { color: colors.textPrimary }]}>
                 {medication ? INVENTORY_CONFIG.formatStockDisplay(medication.current_stock, medication.initial_stock, medication.dose_unit) : ''}
               </Text>
             </View>
 
             {/* Quick add chips */}
-            <Text style={styles.refillQuickLabel}>Quick Add</Text>
+            <Text style={[styles.refillQuickLabel, { color: colors.textSecondary }]}>Quick Add</Text>
             <View style={styles.refillChipsRow}>
               {[30, 60, 90].map((amount) => (
                 <TouchableOpacity
                   key={amount}
                   style={[
                     styles.refillChip,
-                    refillAmount === amount.toString() && styles.refillChipActive,
+                    { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle },
+                    refillAmount === amount.toString() && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                   ]}
                   onPress={() => handleQuickRefill(amount)}
                 >
                   <Text
                     style={[
                       styles.refillChipText,
-                      refillAmount === amount.toString() && styles.refillChipTextActive,
+                      { color: colors.textSecondary },
+                      refillAmount === amount.toString() && { color: colors.cyan },
                     ]}
                   >
                     +{amount}
@@ -1511,13 +1535,13 @@ export default function MedicationDetailsScreen({
             </View>
 
             {/* Custom amount input */}
-            <Text style={styles.refillCustomLabel}>Or enter custom amount</Text>
+            <Text style={[styles.refillCustomLabel, { color: colors.textSecondary }]}>Or enter custom amount</Text>
             <TextInput
-              style={styles.refillInput}
+              style={[styles.refillInput, { color: colors.textPrimary, backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}
               value={refillAmount}
               onChangeText={setRefillAmount}
               placeholder="Enter amount"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
             />
 
@@ -1526,9 +1550,9 @@ export default function MedicationDetailsScreen({
               const newTotal = (medication.current_stock || 0) + parseInt(refillAmount, 10);
               const newInitial = Math.max(medication.initial_stock, newTotal);
               return (
-                <View style={styles.refillPreview}>
-                  <Text style={styles.refillPreviewLabel}>New Total</Text>
-                  <Text style={styles.refillPreviewValue}>
+                <View style={[styles.refillPreview, { backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : 'rgba(22, 163, 74, 0.08)' }]}>
+                  <Text style={[styles.refillPreviewLabel, { color: colors.success }]}>New Total</Text>
+                  <Text style={[styles.refillPreviewValue, { color: colors.success }]}>
                     {INVENTORY_CONFIG.formatStockDisplay(newTotal, newInitial, medication.dose_unit)}
                   </Text>
                 </View>
@@ -1539,12 +1563,13 @@ export default function MedicationDetailsScreen({
             <TouchableOpacity
               style={[
                 styles.refillConfirmBtn,
+                { backgroundColor: colors.cyan },
                 (!refillAmount || refillLoading) && styles.refillConfirmBtnDisabled,
               ]}
               onPress={handleConfirmRefill}
               disabled={!refillAmount || refillLoading}
             >
-              <Text style={styles.refillConfirmBtnText}>
+              <Text style={[styles.refillConfirmBtnText, { color: colors.bg }]}>
                 {refillLoading ? 'Saving...' : 'Confirm Refill'}
               </Text>
             </TouchableOpacity>
@@ -1559,7 +1584,6 @@ export default function MedicationDetailsScreen({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0A0A0B',
   },
   scrollView: {
     flex: 1,
@@ -1574,7 +1598,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: colors.textSecondary,
     fontSize: 16,
   },
 
@@ -1592,23 +1615,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
 
   // Medication Card
   medicationCard: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 32,
-  },
-  archivedCard: {
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    opacity: 0.8,
   },
   medCardHeader: {
     flexDirection: 'row',
@@ -1645,18 +1661,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   medName: {
-    color: colors.cyan,
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 4,
   },
   medStrength: {
-    color: colors.textSecondary,
     fontSize: 16,
   },
   inventorySection: {
@@ -1669,7 +1682,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   inventoryLabel: {
-    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -1686,7 +1698,6 @@ const styles = StyleSheet.create({
   progressBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: '#1E293B',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -1704,17 +1715,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   endDateLabel: {
-    color: '#FB7185',
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   endDateValue: {
-    color: '#FB7185',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -1726,14 +1734,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   clearEndDateText: {
-    color: '#64748B',
     fontSize: 13,
     textDecorationLine: 'underline',
   },
 
   // Daily Schedule
   sectionTitle: {
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 20,
@@ -1747,14 +1753,11 @@ const styles = StyleSheet.create({
     top: -20,
     width: 2,
     height: 20,
-    backgroundColor: 'rgba(0, 209, 255, 0.3)',
   },
   alarmRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -1763,7 +1766,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1772,18 +1774,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.cyan,
   },
   timeContainer: {
     marginRight: 12,
   },
   timeText: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
   ampmText: {
-    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1791,22 +1790,18 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   frequencyBadge: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
     marginRight: 'auto',
   },
   frequencyText: {
-    color: colors.cyan,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1814,7 +1809,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1835,35 +1829,29 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 12,
     borderStyle: 'dashed',
     paddingVertical: 16,
   },
   addAlarmText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
 
   // As-needed schedule display
   asNeededScheduleContainer: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
   asNeededScheduleText: {
-    color: colors.cyan,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   asNeededScheduleHint: {
-    color: colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -1871,13 +1859,11 @@ const styles = StyleSheet.create({
 
   // Archived notice
   archivedNotice: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     padding: 16,
     marginTop: 20,
   },
   archivedNoticeText: {
-    color: colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -1886,18 +1872,15 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0A0A0B',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
   },
   modalContentScrollable: {
-    backgroundColor: '#0A0A0B',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
@@ -1915,24 +1898,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitle: {
-    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
   },
   modalLabel: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 16,
   },
   modalInput: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 16,
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -1949,54 +1927,36 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     gap: 8,
-  },
-  frequencyGridOptionActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
-    borderColor: colors.cyan,
   },
   radioOuter: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#64748B',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  radioOuterActive: {
-    borderColor: colors.cyan,
   },
   radioInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.cyan,
   },
   frequencyGridText: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
-  },
-  frequencyGridTextActive: {
-    color: colors.textPrimary,
   },
 
   // Day Selector
   daySelector: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#0A0F14',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   daySelectorLabel: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '500',
     marginBottom: 8,
@@ -2010,22 +1970,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
-  dayChipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.2)',
-    borderColor: colors.cyan,
-  },
   dayChipText: {
-    color: '#64748B',
     fontSize: 11,
     fontWeight: '600',
-  },
-  dayChipTextActive: {
-    color: colors.cyan,
   },
 
   // Interval Selector
@@ -2036,13 +1986,10 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#0A0F14',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   intervalLabel: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -2055,17 +2002,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   intervalBtnText: {
-    color: colors.cyan,
     fontSize: 18,
     fontWeight: '700',
   },
   intervalValue: {
-    color: colors.cyan,
     fontSize: 20,
     fontWeight: '700',
     minWidth: 30,
@@ -2073,7 +2017,6 @@ const styles = StyleSheet.create({
   },
 
   modalSaveBtn: {
-    backgroundColor: colors.cyan,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -2083,7 +2026,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   modalSaveBtnText: {
-    color: '#0A0A0B',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -2096,10 +2038,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   expandHeaderText: {
-    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -2111,14 +2051,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   detailLabel: {
-    color: colors.textSecondary,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   detailValue: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -2131,13 +2069,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.2)',
   },
   editExpandHeaderText: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2153,19 +2088,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   doseSizeBtnText: {
-    color: colors.cyan,
     fontSize: 20,
     fontWeight: '700',
   },
   doseSizeValue: {
-    color: colors.textPrimary,
     fontSize: 24,
     fontWeight: '700',
     minWidth: 40,
@@ -2180,21 +2111,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mealOptionActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
   },
   mealOptionText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
-  },
-  mealOptionTextActive: {
-    color: colors.cyan,
   },
   multilineInput: {
     minHeight: 80,
@@ -2213,28 +2134,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  doseUnitOptionActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
   },
   doseUnitOptionText: {
-    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
-  },
-  doseUnitOptionTextActive: {
-    color: colors.cyan,
   },
 
   // Dose Picker (for edit modal)
   dosePerIntakeRow: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2243,7 +2152,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dosePerIntakeLabel: {
-    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -2251,22 +2159,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
   dosePickerButtonText: {
-    color: colors.cyan,
     fontSize: 16,
     fontWeight: '700',
   },
 
   // Wheel Picker Modal (for dose picker)
   pickerModal: {
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 16,
     marginTop: 8,
     overflow: 'hidden',
@@ -2278,20 +2182,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   pickerCancel: {
-    color: '#64748B',
     fontSize: 14,
     fontWeight: '500',
   },
   pickerTitle: {
-    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   pickerDone: {
-    color: colors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2306,11 +2206,9 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     height: 50,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     borderRadius: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
   },
   wheelPickerContent: {
     paddingVertical: 50,
@@ -2321,25 +2219,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wheelPickerText: {
-    color: '#64748B',
     fontSize: 22,
     fontWeight: '500',
   },
   wheelPickerTextActive: {
-    color: colors.cyan,
     fontSize: 24,
     fontWeight: '700',
   },
   pickerDirectInput: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: colors.textPrimary,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -2353,7 +2246,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   clearExpiryText: {
-    color: '#64748B',
     fontSize: 13,
     textDecorationLine: 'underline',
   },
@@ -2375,7 +2267,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   expiryWarningText: {
-    color: '#EF4444',
     fontSize: 11,
     fontWeight: '600',
   },
@@ -2385,12 +2276,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     padding: 16,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   criticalToggleLeft: {
     flexDirection: 'row',
@@ -2399,12 +2288,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   criticalToggleLabel: {
-    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
   criticalToggleHint: {
-    color: '#64748B',
     fontSize: 12,
     marginTop: 2,
   },
@@ -2412,7 +2299,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1E293B',
     padding: 2,
     justifyContent: 'center',
   },
@@ -2423,7 +2309,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#64748B',
   },
   toggleKnobActive: {
     backgroundColor: '#FB7185',
@@ -2450,14 +2335,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   ghostBtnText: {
-    color: '#64748B',
     fontSize: 13,
     fontWeight: '500',
   },
   ghostBtnDivider: {
     width: 1,
     height: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   pausedIndicator: {
     flexDirection: 'row',
@@ -2466,11 +2349,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 8,
   },
   pausedIndicatorText: {
-    color: '#F59E0B',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -2481,52 +2362,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
     borderRadius: 12,
     paddingVertical: 14,
     marginTop: 20,
   },
   refillBtnText: {
-    color: colors.cyan,
     fontSize: 15,
     fontWeight: '600',
   },
   refillBtnStock: {
-    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
   },
 
   // Refill Modal
   refillModalContent: {
-    backgroundColor: '#0F1419',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: '80%',
   },
   refillCurrentStock: {
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginBottom: 24,
   },
   refillCurrentStockLabel: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
     marginBottom: 4,
   },
   refillCurrentStockValue: {
-    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
   refillQuickLabel: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 12,
@@ -2542,39 +2414,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#0A0F14',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
-  refillChipActive: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
-    borderColor: colors.cyan,
-  },
   refillChipText: {
-    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '700',
   },
-  refillChipTextActive: {
-    color: colors.cyan,
-  },
   refillCustomLabel: {
-    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '500',
     marginBottom: 8,
   },
   refillInput: {
-    backgroundColor: '#0A0F14',
     borderRadius: 12,
     padding: 16,
-    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   refillPreview: {
     flexDirection: 'row',
@@ -2582,21 +2440,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     padding: 12,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
     borderRadius: 8,
   },
   refillPreviewLabel: {
-    color: '#22C55E',
     fontSize: 13,
     fontWeight: '500',
   },
   refillPreviewValue: {
-    color: '#22C55E',
     fontSize: 16,
     fontWeight: '700',
   },
   refillConfirmBtn: {
-    backgroundColor: colors.cyan,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -2606,7 +2460,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   refillConfirmBtnText: {
-    color: '#0A0A0B',
     fontSize: 16,
     fontWeight: '700',
   },

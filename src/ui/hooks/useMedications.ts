@@ -3,6 +3,17 @@ import type { Medication, MedicationInsert, MedicationUpdate, MedicationWithInsi
 import { medicationService } from '../../data/services/medicationService';
 import { offlineCache } from '../../data/utils/offlineCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
+import { getDoseTimes } from '../../domain/utils/medicationUtils';
+import {
+  logMedicationAdded,
+  logMedicationUpdated,
+  logMedicationDeleted,
+  logMedicationAction,
+  logRefill,
+  logDoseLogged,
+  logDoseBatch,
+  logDoseReverted,
+} from '../../data/utils/notificationDebugLog';
 
 const CACHE_KEY = 'medications';
 
@@ -79,6 +90,7 @@ export function useMedications() {
     const { insight, ...medicationOnly } = response;
     setMedications((prev) => [medicationOnly as Medication, ...prev]);
     medicationEvents.emit('medication_created', response.id);
+    logMedicationAdded(response.name, getDoseTimes(response), insight?.xp_awarded);
     return response;
   };
 
@@ -86,19 +98,23 @@ export function useMedications() {
     const med = await medicationService.update(id, data);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
     medicationEvents.emit('medication_updated', id);
+    logMedicationUpdated(med.name);
     return med;
   };
 
   const deleteMedication = async (id: string) => {
+    const med = medications.find((m) => m.id === id);
     await medicationService.remove(id);
     setMedications((prev) => prev.filter((m) => m.id !== id));
     medicationEvents.emit('medication_deleted', id);
+    logMedicationDeleted(med?.name ?? id);
   };
 
   const pauseMedication = async (id: string) => {
     const med = await medicationService.pause(id);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
     medicationEvents.emit('medication_paused', id);
+    logMedicationAction('Paused', med.name);
     return med;
   };
 
@@ -106,6 +122,7 @@ export function useMedications() {
     const med = await medicationService.resume(id);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
     medicationEvents.emit('medication_resumed', id);
+    logMedicationAction('Resumed', med.name);
     return med;
   };
 
@@ -113,6 +130,7 @@ export function useMedications() {
     const med = await medicationService.archive(id);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
     medicationEvents.emit('medication_archived', id);
+    logMedicationAction('Archived', med.name);
     return med;
   };
 
@@ -120,25 +138,31 @@ export function useMedications() {
     const med = await medicationService.restore(id);
     setMedications((prev) => prev.map((m) => (m.id === id ? med : m)));
     medicationEvents.emit('medication_restored', id);
+    logMedicationAction('Restored', med.name);
     return med;
   };
 
   const refillMedication = async (id: string, quantity: number) => {
+    const med = medications.find((m) => m.id === id);
     const refill = await medicationService.refill(id, quantity);
+    logRefill(med?.name ?? id, quantity, refill.new_stock ?? 0);
     await fetchMedications();
     return refill;
   };
 
   const logDose = async (medicationId: string, data: DoseLogInsert) => {
+    const med = medications.find((m) => m.id === medicationId);
     const dose = await medicationService.logDose(medicationId, data);
+    logDoseLogged(med?.name ?? medicationId, data.status ?? 'taken', data.scheduled_at);
     await fetchMedications(); // Refresh to get updated stock
     return dose;
   };
 
-  const logDoseBatch = async (
+  const logDoseBatchFn = async (
     doses: Array<{ medicationId: string; data: DoseLogInsert }>
   ): Promise<{ success: DoseLog[]; failed: string[] }> => {
     const result = await medicationService.logDoseBatch(doses);
+    logDoseBatch(doses.length, result.success.length, result.failed.length);
     await fetchMedications(); // Refresh to get updated stock
     return result;
   };
@@ -154,6 +178,7 @@ export function useMedications() {
     doseSize: number
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      const med = medications.find((m) => m.id === medicationId);
       await medicationService.revertDose(medicationId, doseId);
       // Optimistic local stock update (backend already restored stock)
       setMedications((prev) =>
@@ -164,6 +189,7 @@ export function useMedications() {
         )
       );
       medicationEvents.emit('dose_reverted', medicationId);
+      logDoseReverted(med?.name ?? medicationId);
       return { success: true };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -194,7 +220,7 @@ export function useMedications() {
     restoreMedication,
     refillMedication,
     logDose,
-    logDoseBatch,
+    logDoseBatch: logDoseBatchFn,
     revertDose,
   };
 }
