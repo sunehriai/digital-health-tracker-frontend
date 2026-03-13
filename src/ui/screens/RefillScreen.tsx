@@ -1,22 +1,31 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AlertTriangle, Check } from 'lucide-react-native';
 import { useMedications } from '../hooks/useMedications';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { useAlert } from '../context/AlertContext';
 import { useTheme } from '../theme/ThemeContext';
+import { calculateLowStockDoses } from '../../domain/medicationConfig';
+import { getDoseTimes } from '../../domain/utils';
 import type { Medication } from '../../domain/types';
 import LogRefillSheet from '../components/LogRefillSheet';
 
 export default function RefillScreen() {
   const { colors, isDark } = useTheme();
   const { medications, refillMedication } = useMedications();
+  const { prefs: notifPrefs } = useNotificationPrefs();
   const { showAlert } = useAlert();
   const [refillTarget, setRefillTarget] = useState<Medication | null>(null);
 
-  const lowStockMeds = medications.filter(
-    (m) => !m.is_archived && m.initial_stock > 0 && (m.current_stock / m.initial_stock) * 100 < 15
-  );
+  const thresholdDays = notifPrefs?.low_stock_threshold_days ?? 7;
+
+  const lowStockMeds = useMemo(() => medications.filter((m) => {
+    if (m.is_archived || m.initial_stock <= 0) return false;
+    const dosesPerDay = getDoseTimes(m).length;
+    const threshold = calculateLowStockDoses(m.dose_size || 1, dosesPerDay, thresholdDays);
+    return m.current_stock < threshold;
+  }), [medications, thresholdDays]);
 
   const handleRefill = useCallback(async (quantity: number) => {
     if (!refillTarget) return;

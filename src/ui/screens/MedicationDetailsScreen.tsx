@@ -33,6 +33,7 @@ import {
   STOCK_THRESHOLDS,
   VALIDATION,
   calculateStockPercentage,
+  calculateLowStockDoses,
   getProgressBarColor,
   toBackendFrequency,
   formatFrequencyDisplay,
@@ -40,6 +41,7 @@ import {
   type MealRelationType,
   type DoseUnitType,
 } from '../../domain/medicationConfig';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 
 // Type alias for UI frequency (excludes 'as_needed' since as-needed meds don't have alarms)
 type FrequencyType = 'daily' | 'every_other_day' | 'mon_fri' | 'custom';
@@ -101,6 +103,7 @@ export default function MedicationDetailsScreen({
   const { prefs: { timeFormat, defaultDoseTime } } = useAppPreferences();
   const { colors, isDark } = useTheme();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
+  const { prefs: notifPrefs } = useNotificationPrefs();
   const [medication, setMedication] = useState<Medication | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -491,8 +494,12 @@ export default function MedicationDetailsScreen({
         }
       }
 
-      // Create low stock alert if quantity is below 10
-      if (newStock < STOCK_THRESHOLDS.low) {
+      // Create low stock alert if stock is below dynamic threshold and refill alerts are enabled
+      const refillEnabled = notifPrefs?.refill_alerts_enabled ?? true;
+      const thresholdDays = notifPrefs?.low_stock_threshold_days ?? 7;
+      const dosesPerDay = getDoseTimes(medication).length;
+      const lowStockThreshold = calculateLowStockDoses(editDoseSize, dosesPerDay, thresholdDays);
+      if (refillEnabled && newStock < lowStockThreshold) {
         try {
           await feedService.create({
             type: 'refill_alert',
@@ -506,7 +513,7 @@ export default function MedicationDetailsScreen({
         }
       }
 
-      const successMsg = newStock < 10
+      const successMsg = refillEnabled && newStock < lowStockThreshold
         ? `Medication updated. Low stock alert created (${newStock} doses remaining).`
         : 'Medication updated successfully';
       showAlert({ title: 'Success', message: successMsg, type: 'success' });

@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog } from 'lucide-react-native';
+import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -13,6 +13,7 @@ import type { RootStackParamList } from '../navigation/types';
 const SECTIONS = [
   { id: 'EmergencyVault' as const, icon: Lock, label: 'Emergency Vault', desc: 'Critical medical information' },
   { id: 'MyJourney' as const, icon: Map, label: 'My Journey', desc: 'View your tier progression' },
+  { id: 'MyAdherence' as const, icon: BarChart2, label: 'My Adherence', desc: 'Monthly adherence heat map' },
   { id: 'AccountSettings' as const, icon: UserCog, label: 'Account', desc: 'Password, email, data deletion, sign out' },
   { id: 'PrivacySecurity' as const, icon: Shield, label: 'Privacy & Security', desc: 'Biometric lock, data export' },
   { id: 'NotificationPrefs' as const, icon: Bell, label: 'Notifications', desc: 'Privacy mode, critical alerts, nudges' },
@@ -34,6 +35,7 @@ const ALL_SETTINGS_OPTIONS = [
   { label: 'Emergency Contact', desc: 'Name, phone, relationship', screen: 'PersonalInfo' as const, category: 'Profile' },
   // My Journey
   { label: 'My Journey', desc: 'View your tier progression', screen: 'MyJourney' as const, category: 'My Journey' },
+  { label: 'My Adherence', desc: 'Monthly adherence heat map', screen: 'MyAdherence' as const, category: 'My Adherence' },
   // Emergency Vault
   { label: 'Emergency Vault', desc: 'Critical medical information', screen: 'EmergencyVault' as const, category: 'Emergency Vault' },
   // Privacy & Security
@@ -63,7 +65,9 @@ const ALL_SETTINGS_OPTIONS = [
   // App Preferences
   { label: 'Reduced Motion', desc: 'Minimize animations', screen: 'AppPreferences' as const, category: 'App Preferences' },
   { label: 'Haptic Feedback', desc: 'Vibration on interactions', screen: 'AppPreferences' as const, category: 'App Preferences' },
-  { label: 'Theme', desc: 'Dark mode (default)', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  { label: 'Appearance', desc: 'Color themes and icon packs', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  { label: 'Color Theme', desc: 'Color themes and icon packs', screen: 'AppPreferences' as const, category: 'App Preferences' },
+  { label: 'Icon Pack', desc: 'Color themes and icon packs', screen: 'AppPreferences' as const, category: 'App Preferences' },
   // Account
   { label: 'Change Password', desc: 'Send a password reset email', screen: 'AccountSettings' as const, category: 'Account' },
   { label: 'Change Email', desc: 'Update your login email', screen: 'AccountSettings' as const, category: 'Account' },

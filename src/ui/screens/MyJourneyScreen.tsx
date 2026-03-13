@@ -27,18 +27,18 @@ import type { RootStackParamList } from '../navigation/types';
 import type { TierInfo, MilestoneInfo } from '../../domain/types';
 
 const TIER_FEATURES: Record<number, string> = {
-  1: 'Dashboard access',
-  2: 'Emergency Vault',
-  3: 'Waiver Badge',
-  4: 'Insight Trends',
-  5: 'Sage Reports',
+  1: 'Dashboard, medication logging, Emergency Vault',
+  2: 'Custom Themes (color themes + icon packs)',
+  3: 'Monthly Adherence Calendar + Waiver Badge',
+  4: 'Ritual Tree + Insight Trends',
+  5: 'Sage Wisdom',
 };
 
 const TIER_DESCRIPTIONS: Record<number, string> = {
-  1: 'Your starting point. Track medications and build your daily ritual.',
-  2: 'Unlock your Emergency Vault to store critical medical information for emergencies.',
-  3: 'Access Insight Trends to visualize your adherence patterns over time.',
-  4: 'Generate personalized Sage Reports with deep health analytics.',
+  1: 'Your starting point. Track medications, build your daily ritual, and access your Emergency Vault — your safety-critical health info, always accessible.',
+  2: 'Personalize your app with 6 color themes and 3 icon packs. Make it yours.',
+  3: 'Tap to view your monthly adherence heat map. See your streaks, milestone stickers, and month-in-review insights.',
+  4: 'Grow your Ritual Tree and explore Insight Trends to visualize adherence patterns.',
   5: 'You have mastered the art of health stewardship. All features are yours.',
 };
 
@@ -63,7 +63,12 @@ export default function MyJourneyScreen() {
     setJourneyLoading(true);
     try {
       const data = await gamificationService.getJourney();
-      setJourneyTiers(data.tiers);
+      // BP-011: Override backend feature_unlock with frontend-authoritative text
+      const correctedTiers = data.tiers.map((tier: TierInfo) => ({
+        ...tier,
+        feature_unlock: TIER_FEATURES[tier.tier] ?? tier.feature_unlock,
+      }));
+      setJourneyTiers(correctedTiers);
     } catch {
       const fallback: TierInfo[] = [1, 2, 3, 4, 5].map((tier) => ({
         tier,
@@ -107,6 +112,8 @@ export default function MyJourneyScreen() {
   const handleTierPress = (tier: TierInfo) => {
     if (!tier.is_unlocked) {
       setSelectedLockedTier(selectedLockedTier === tier.tier ? null : tier.tier);
+    } else if (tier.tier === 3) {
+      navigation.navigate('MyAdherence');
     }
   };
 

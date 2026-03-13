@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 import Switch from '../primitives/Switch';
 import TimeInput from '../components/TimeInput';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useGamification } from '../hooks/useGamification';
+import { isFeatureUnlocked } from '../../domain/utils/tierGating';
+import { THEME_LABELS } from '../theme/themeDefinitions';
 import type { RootStackScreenProps } from '../navigation/types';
 
 // ── Segmented Control ───────────────────────────────────────────────────
@@ -114,8 +117,10 @@ const TIME_FORMAT_OPTIONS: SegmentOption<'12h' | '24h'>[] = [
 // ];
 
 export default function AppPreferencesScreen({ navigation }: RootStackScreenProps<'AppPreferences'>) {
-  const { colors } = useTheme();
+  const { colors, themeId } = useTheme();
   const { prefs, updatePref } = useAppPreferences();
+  const { currentTier } = useGamification();
+  const hasCustomThemes = isFeatureUnlocked('custom_themes', currentTier);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
@@ -191,6 +196,32 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
             {/* Theme selector hidden — light/system themes not fully supported yet */}
           </View>
         </View>
+
+        {/* ── THEME / APPEARANCE Section ──────────────────────────────── */}
+        <View style={[styles.section, { borderTopColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>THEME</Text>
+
+          <View style={[styles.card, { backgroundColor: colors.bgElevated }]}>
+            {hasCustomThemes ? (
+              <TouchableOpacity
+                style={styles.navRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('Appearance')}
+              >
+                <View style={styles.navRowLeft}>
+                  <Text style={[styles.controlLabel, { color: colors.textPrimary, marginBottom: 0 }]}>Appearance</Text>
+                  <Text style={[styles.navRowValue, { color: colors.textMuted }]}>{THEME_LABELS[themeId]}</Text>
+                </View>
+                <ChevronRight color={colors.textMuted} size={20} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.controlGroup}>
+                <Text style={[styles.controlLabel, { color: colors.textPrimary }]}>Theme</Text>
+                <Text style={[styles.navRowValue, { color: colors.textMuted }]}>Dark (Default)</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -239,5 +270,19 @@ const styles = StyleSheet.create({
   },
   timeInputWrapper: {
     marginTop: 4,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+  },
+  navRowLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  navRowValue: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

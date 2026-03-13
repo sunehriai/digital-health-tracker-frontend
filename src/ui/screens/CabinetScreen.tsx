@@ -26,6 +26,7 @@ import type { Medication } from '../../domain/types';
 import type { RootStackParamList } from '../navigation/types';
 import { formatTime, getNextDoseInfoString, formatOccurrence } from '../../domain/utils';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import ThemedEmptyState from '../components/ThemedEmptyState';
 import {
   INVENTORY_CONFIG,
   STOCK_THRESHOLDS,
@@ -480,16 +481,18 @@ export default function CabinetScreen() {
     const stockPct = calculateStockPercentage(med.current_stock, med.initial_stock);
     const isLow = stockPct < STOCK_THRESHOLDS.veryLowPercent;
     const isVeryLowStock = med.current_stock <= STOCK_THRESHOLDS.critical; // For pulsing animation
-    const accentColor = getStockAccentColor(stockPct);
+    const rawAccent = getStockAccentColor(stockPct);
+    // Use theme cyan for normal stock, keep clinical red/orange for low/critical
+    const accentColor = stockPct > STOCK_THRESHOLDS.lowPercent ? colors.chartAccent : rawAccent;
     const isSelected = selectedIds.has(med.id);
 
     const cardContent = (
       <TouchableOpacity
         style={[
           styles.medCard,
-          { backgroundColor: colors.bgSubtle, borderColor: 'rgba(45,212,191,0.2)' },
+          { backgroundColor: colors.bgSubtle, borderColor: colors.cyanDim },
           med.is_paused && [styles.medCardPaused, { borderColor: colors.borderSubtle }],
-          isSelectMode && isSelected && styles.medCardSelected,
+          isSelectMode && isSelected && { borderColor: colors.cyan, backgroundColor: colors.cyanDim },
         ]}
         onPress={() => handleMedicationPress(med)}
         onLongPress={() => {
@@ -509,14 +512,14 @@ export default function CabinetScreen() {
               onPress={() => toggleSelection(med.id)}
             >
               {isSelected ? (
-                <CheckSquare color="#2DD4BF" size={22} strokeWidth={2.5} />
+                <CheckSquare color={colors.cyan} size={22} strokeWidth={2.5} />
               ) : (
                 <Square color={colors.textMuted} size={22} strokeWidth={2} />
               )}
             </TouchableOpacity>
           )}
-          <View style={styles.medIcon}>
-            <Pill color={med.is_paused ? colors.textMuted : "#2DD4BF"} size={24} strokeWidth={3} />
+          <View style={[styles.medIcon, { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow }]}>
+            <Pill color={med.is_paused ? colors.textMuted : colors.cyan} size={24} strokeWidth={3} />
           </View>
           <View style={styles.medNameSection}>
             <View style={styles.medNameRow}>
@@ -527,8 +530,8 @@ export default function CabinetScreen() {
                 </View>
               )}
               {formatOccurrence(med) && (
-                <View style={styles.occurrenceBadge}>
-                  <Text style={styles.occurrenceText}>{formatOccurrence(med)}</Text>
+                <View style={[styles.occurrenceBadge, { backgroundColor: colors.cyanDim }]}>
+                  <Text style={[styles.occurrenceText, { color: colors.cyan }]}>{formatOccurrence(med)}</Text>
                 </View>
               )}
             </View>
@@ -556,8 +559,8 @@ export default function CabinetScreen() {
             <Text style={[styles.pausedText, { color: colors.textSecondary }]}>PAUSED</Text>
           ) : (
             <View style={styles.nextDoseRow}>
-              <Clock color="#2DD4BF" size={14} strokeWidth={3} />
-              <Text style={styles.nextDoseText}>{getNextDoseInfoString(med, takenTodayIds.has(med.id) ? new Set([0]) : new Set(), timeFormat)}</Text>
+              <Clock color={colors.cyan} size={14} strokeWidth={3} />
+              <Text style={[styles.nextDoseText, { color: colors.cyan }]}>{getNextDoseInfoString(med, takenTodayIds.has(med.id) ? new Set([0]) : new Set(), timeFormat)}</Text>
             </View>
           )}
           <View style={styles.footerActions}>
@@ -572,9 +575,9 @@ export default function CabinetScreen() {
               </TouchableOpacity>
             )}
             {med.is_paused && !isSelectMode && (
-              <TouchableOpacity style={styles.resumeBtn} onPress={(e) => { e.stopPropagation(); handleResume(med.id); }}>
-                <Play color="#2DD4BF" size={12} strokeWidth={3} />
-                <Text style={styles.resumeText}>Resume</Text>
+              <TouchableOpacity style={[styles.resumeBtn, { backgroundColor: colors.cyanDim }]} onPress={(e) => { e.stopPropagation(); handleResume(med.id); }}>
+                <Play color={colors.cyan} size={12} strokeWidth={3} />
+                <Text style={[styles.resumeText, { color: colors.cyan }]}>Resume</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -618,7 +621,7 @@ export default function CabinetScreen() {
                   {selectedIds.size} selected
                 </Text>
                 <TouchableOpacity style={styles.selectAllBtn} onPress={selectAll}>
-                  <Text style={styles.selectAllText}>Select All</Text>
+                  <Text style={[styles.selectAllText, { color: colors.cyan }]}>Select All</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -671,14 +674,14 @@ export default function CabinetScreen() {
                 style={[
                   styles.filterChip,
                   { backgroundColor: colors.bgInput, borderColor: colors.borderSubtle },
-                  activeFilter === filter.key && styles.filterChipActive,
+                  activeFilter === filter.key && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                 ]}
                 onPress={() => setActiveFilter(filter.key)}
               >
                 <Text style={[
                   styles.filterChipText,
                   { color: colors.textSecondary },
-                  activeFilter === filter.key && styles.filterChipTextActive,
+                  activeFilter === filter.key && { color: colors.cyan },
                 ]}>
                   {filter.label}
                 </Text>
@@ -691,11 +694,11 @@ export default function CabinetScreen() {
         <GestureHandlerRootView style={styles.medList}>
           {filteredActiveMedications.map(renderActiveMed)}
           {filteredActiveMedications.length === 0 && !loading && (
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {searchQuery || activeFilter !== 'all'
-                ? 'No medications match your search or filter.'
-                : 'No active medications. Add one to get started.'}
-            </Text>
+            searchQuery || activeFilter !== 'all'
+              ? <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No medications match your search or filter.
+                </Text>
+              : <ThemedEmptyState screen="cabinet" fallbackMessage="No active medications. Add one to get started." />
           )}
         </GestureHandlerRootView>
       </ScrollView>
@@ -711,12 +714,12 @@ export default function CabinetScreen() {
             <Text style={[styles.bottomActionText, { color: colors.textSecondary }]}>Pause</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.bottomAction} onPress={handleBulkResume}>
-            <Play color="#2DD4BF" size={20} strokeWidth={2.5} />
-            <Text style={[styles.bottomActionText, { color: '#2DD4BF' }]}>Resume</Text>
+            <Play color={colors.cyan} size={20} strokeWidth={2.5} />
+            <Text style={[styles.bottomActionText, { color: colors.cyan }]}>Resume</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.bottomAction} onPress={handleBulkArchive}>
-            <Archive color="#FB7185" size={20} strokeWidth={2.5} />
-            <Text style={[styles.bottomActionText, { color: '#FB7185' }]}>Archive</Text>
+            <Archive color={colors.error} size={20} strokeWidth={2.5} />
+            <Text style={[styles.bottomActionText, { color: colors.error }]}>Archive</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -744,14 +747,16 @@ export default function CabinetScreen() {
                   key={qty}
                   style={[
                     styles.quickAddChip,
-                    refillAmount === String(qty) && styles.quickAddChipActive,
+                    { backgroundColor: colors.bgInput, borderColor: colors.borderSubtle },
+                    refillAmount === String(qty) && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                   ]}
                   onPress={() => setRefillAmount(String(qty))}
                 >
                   <Text
                     style={[
                       styles.quickAddText,
-                      refillAmount === String(qty) && styles.quickAddTextActive,
+                      { color: colors.textSecondary },
+                      refillAmount === String(qty) && { color: colors.cyan },
                     ]}
                   >
                     +{qty}
@@ -778,8 +783,8 @@ export default function CabinetScreen() {
               const newTotal = selectedMedForRefill.current_stock + parseInt(refillAmount, 10);
               const newInitial = Math.max(selectedMedForRefill.initial_stock, newTotal);
               return (
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewText}>
+                <View style={[styles.previewRow, { backgroundColor: colors.cyanDim }]}>
+                  <Text style={[styles.previewText, { color: colors.cyan }]}>
                     New Total: {INVENTORY_CONFIG.formatStockDisplay(newTotal, newInitial, selectedMedForRefill.dose_unit)}
                   </Text>
                 </View>
@@ -797,6 +802,7 @@ export default function CabinetScreen() {
               <TouchableOpacity
                 style={[
                   styles.modalConfirmBtn,
+                  { backgroundColor: colors.cyan },
                   (!refillAmount || refillLoading) && styles.modalConfirmBtnDisabled,
                 ]}
                 onPress={handleConfirmRefill}
@@ -841,7 +847,7 @@ const styles = StyleSheet.create({
   selectAllBtn: {
     paddingVertical: 8, paddingHorizontal: 12,
   },
-  selectAllText: { color: '#2DD4BF', fontSize: 15, fontWeight: '600' },
+  selectAllText: { fontSize: 15, fontWeight: '600' },
 
   // Checkbox
   checkboxContainer: { marginRight: 8 },
@@ -881,17 +887,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  filterChipActive: {
-    backgroundColor: 'rgba(45, 212, 191, 0.2)',
-    borderColor: '#2DD4BF',
-  },
+  filterChipActive: {},
   filterChipText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  filterChipTextActive: {
-    color: '#2DD4BF',
-  },
+  filterChipTextActive: {},
 
   medList: { gap: 12 },
   // Swipeable card
@@ -935,10 +936,7 @@ const styles = StyleSheet.create({
   medCardPaused: {
     opacity: 0.6,
   },
-  medCardSelected: {
-    borderColor: '#2DD4BF',
-    backgroundColor: 'rgba(45,212,191,0.08)',
-  },
+  medCardSelected: {},
 
   // Header row
   medHeaderRow: {
@@ -952,9 +950,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(45,212,191,0.1)',
     borderWidth: 1.5,
-    borderColor: 'rgba(45,212,191,0.3)',
   },
   medNameSection: { flex: 1 },
   medNameRow: {
@@ -979,10 +975,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: 'rgba(45, 212, 191, 0.15)',
   },
   occurrenceText: {
-    color: '#2DD4BF',
     fontSize: 9,
     fontWeight: '600',
   },
@@ -1031,7 +1025,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nextDoseText: {
-    color: '#2DD4BF',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1047,10 +1040,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: 'rgba(45,212,191,0.15)',
   },
   resumeText: {
-    color: '#2DD4BF',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1136,22 +1127,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(45, 212, 191, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(45, 212, 191, 0.3)',
   },
-  quickAddChipActive: {
-    backgroundColor: 'rgba(45, 212, 191, 0.25)',
-    borderColor: '#2DD4BF',
-  },
+  quickAddChipActive: {},
   quickAddText: {
-    color: '#2DD4BF',
     fontSize: 16,
     fontWeight: '700',
   },
-  quickAddTextActive: {
-    color: '#2DD4BF',
-  },
+  quickAddTextActive: {},
   customInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1172,13 +1155,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   previewRow: {
-    backgroundColor: 'rgba(45, 212, 191, 0.1)',
     borderRadius: 10,
     padding: 12,
     marginBottom: 20,
   },
   previewText: {
-    color: '#2DD4BF',
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -1202,7 +1183,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#2DD4BF',
   },
   modalConfirmBtnDisabled: {
     opacity: 0.5,

@@ -11,6 +11,7 @@ import { feedService } from '../../data/services/feedService';
 import { useTheme } from '../theme/ThemeContext';
 import type { Medication } from '../../domain/types';
 import { useAlert } from '../context/AlertContext';
+import ThemedEmptyState from '../components/ThemedEmptyState';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -371,11 +372,9 @@ export default function ArchivedRitualsScreen() {
         <GestureHandlerRootView style={styles.medList}>
           {filteredMedications.map(renderMedication)}
           {filteredMedications.length === 0 && !loading && (
-            <Text style={styles.emptyText}>
-              {searchQuery
-                ? 'No archived medications match your search.'
-                : 'No archived medications.'}
-            </Text>
+            searchQuery
+              ? <Text style={styles.emptyText}>No archived medications match your search.</Text>
+              : <ThemedEmptyState screen="archived" fallbackMessage="No archived medications." />
           )}
         </GestureHandlerRootView>
       </ScrollView>

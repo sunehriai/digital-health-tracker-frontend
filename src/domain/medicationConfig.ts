@@ -352,6 +352,22 @@ export function getProgressBarColor(stockPct: number): string {
   return '#00D1FF'; // Cyan - good
 }
 
+/**
+ * Calculate the low stock threshold in doses based on user's preferred days.
+ * Formula: thresholdDays × doseSize × dosesPerDay
+ * Falls back to STOCK_THRESHOLDS.low (10) if inputs are invalid.
+ */
+export function calculateLowStockDoses(
+  doseSize: number,
+  dosesPerDay: number,
+  thresholdDays: number,
+): number {
+  if (doseSize <= 0 || dosesPerDay <= 0 || thresholdDays <= 0) {
+    return STOCK_THRESHOLDS.low;
+  }
+  return thresholdDays * doseSize * dosesPerDay;
+}
+
 // ============================================================================
 // AI UPLOAD CONFIGURATION
 // ============================================================================

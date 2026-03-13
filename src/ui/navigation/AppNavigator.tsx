@@ -22,8 +22,10 @@ import PrivacySecurityScreen from '../screens/PrivacySecurityScreen';
 import NotificationPrefsScreen from '../screens/NotificationPrefsScreen';
 import PerMedicationNotifScreen from '../screens/PerMedicationNotifScreen';
 import AppPreferencesScreen from '../screens/AppPreferencesScreen';
+import AppearanceScreen from '../screens/AppearanceScreen';
 import AdminScreen from '../screens/AdminScreen';
 import MyJourneyScreen from '../screens/MyJourneyScreen';
+import MyAdherenceScreen from '../screens/MyAdherenceScreen';
 import AccountSettingsScreen from '../screens/AccountSettingsScreen';
 import RitualPreviewScreen from '../screens/RitualPreviewScreen';
 import MedicationDetailsScreen from '../screens/MedicationDetailsScreen';
@@ -134,8 +136,10 @@ export default function AppNavigator() {
             <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} />
             <Stack.Screen name="PerMedicationNotif" component={PerMedicationNotifScreen} />
             <Stack.Screen name="AppPreferences" component={AppPreferencesScreen} />
+            <Stack.Screen name="Appearance" component={AppearanceScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
             <Stack.Screen name="MyJourney" component={MyJourneyScreen} />
+            <Stack.Screen name="MyAdherence" component={MyAdherenceScreen} />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
             <Stack.Screen name="ExportHealthData" component={ExportHealthDataScreen} />
           </>

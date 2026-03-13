@@ -58,8 +58,10 @@ export type RootStackParamList = {
   NotificationPrefs: undefined;
   PerMedicationNotif: undefined;
   AppPreferences: undefined;
+  Appearance: undefined;
   Admin: undefined;
   MyJourney: undefined;
+  MyAdherence: undefined;
   AccountSettings: undefined;
   ExportHealthData: undefined;
 };

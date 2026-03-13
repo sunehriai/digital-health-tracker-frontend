@@ -9,7 +9,7 @@ import VictoryCard from '../components/VictoryCard';
 import VictorySyncAnimation from '../components/VictorySyncAnimation';
 import ActionCenterCard from '../components/ActionCenterCard';
 import RitualsCarousel, { RitualsCarouselRef } from '../components/RitualsCarousel';
-import TipOfTheDay from '../components/TipOfTheDay';
+
 import AdherenceCard from '../components/AdherenceCard';
 import GamificationHeader from '../components/GamificationHeader';
 import XpAnimation from '../components/XpAnimation';
@@ -110,6 +110,9 @@ export default function HomeScreen() {
   const showWelcomeBack = pendingModal === 'welcomeBack';
   const waiverCheckedRef = useRef(false);
   const modalCheckedRef = useRef(false);
+
+  // Track whether a waiver badge was consumed this session
+  const [waiverJustUsed, setWaiverJustUsed] = useState(false);
 
   // N-22/BP-022: Track boost label per foreground session
   const [hasShownBoostLabel, setHasShownBoostLabel] = useState(false);
@@ -873,6 +876,7 @@ export default function HomeScreen() {
   // Step 40: Waiver prompt handlers
   const handleWaiverBadgeUsed = useCallback(() => {
     setPendingModal('none');
+    setWaiverJustUsed(true);
     refreshStatus();
   }, [refreshStatus]);
 
@@ -890,6 +894,17 @@ export default function HomeScreen() {
       setPendingModal('none');
     }
   }, [hasMissedYesterday, waiverBadges]);
+
+  // Waiver icon tap handler (GamificationHeader)
+  const handleWaiverIconPress = useCallback(() => {
+    if (hasMissedYesterday && waiverBadges > 0) {
+      setPendingModal('waiver');
+    } else if (waiverBadges === 0) {
+      showAlert({ title: 'No Waiver Badges', message: 'No waiver badges remaining. Earn more by reaching higher tiers.', type: 'info', iconColor: colors.chartAccent });
+    } else {
+      showAlert({ title: 'Streak Safe', message: 'Your streak is safe! No missed doses to waive.', type: 'info', iconColor: colors.chartAccent });
+    }
+  }, [hasMissedYesterday, waiverBadges, showAlert, colors.chartAccent]);
 
   // Step 36: Tier celebration complete handler
   const handleTierCelebrationComplete = useCallback(() => {
@@ -995,8 +1010,13 @@ export default function HomeScreen() {
               disabled={isLoggingDose}
             />
           )}
-          {allRitualsComplete && <AdherenceCard streakDays={streakDays} currentTier={currentTier} />}
-          <TipOfTheDay />
+          <AdherenceCard
+            streakDays={streakDays}
+            currentTier={currentTier}
+            waiverBadges={waiverBadges}
+            waiverJustUsed={waiverJustUsed}
+            onWaiverPress={handleWaiverIconPress}
+          />
         </View>
       </ScrollView>
 

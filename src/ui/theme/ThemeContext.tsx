@@ -1,58 +1,25 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import {
+  type ColorPalette,
+  type IconStyle,
+  type CardSurfaceStyle,
+  type ThemeId,
+  type IconPackId,
+  type LensId,
+  THEME_PALETTES,
+  ICON_PACKS,
+  computeCardStyle,
+} from './themeDefinitions';
 
-// ── Color palette type ──────────────────────────────────────────────────
+// Re-export types for consumers
+export type { ColorPalette, IconStyle, CardSurfaceStyle, ThemeId, IconPackId, LensId };
 
-export interface ColorPalette {
-  cyan: string;
-  cyanDim: string;
-  cyanGlow: string;
-  bg: string;
-  bgCard: string;
-  bgElevated: string;
-  bgInput: string;
-  bgSubtle: string;       // very faint tinted bg (dark: white@5%, light: black@3%)
-  bgDark: string;          // darker card variant (dark: #0A0F14, light: #F0F1F3)
-  textPrimary: string;
-  textSecondary: string;
-  textMuted: string;
-  success: string;
-  warning: string;
-  error: string;
-  info: string;
-  border: string;
-  borderSubtle: string;    // faint borders (dark: white@10%, light: black@8%)
-  borderFocused: string;
-  overlay: string;
-  overlayHeavy: string;    // strong modal overlay (dark: black@80%, light: black@60%)
-}
+// ── Dark palette (canonical — matches THEME_PALETTES['default']) ─────────
 
-// ── Dark palette (current — unchanged) ──────────────────────────────────
-
-export const darkColors: ColorPalette = {
-  cyan: '#00D1FF',
-  cyanDim: 'rgba(0, 209, 255, 0.15)',
-  cyanGlow: 'rgba(0, 209, 255, 0.3)',
-  bg: '#0A0A0B',
-  bgCard: '#111113',
-  bgElevated: '#1A1A1D',
-  bgInput: '#1E1E21',
-  bgSubtle: 'rgba(255, 255, 255, 0.05)',
-  bgDark: '#0A0F14',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A0A0A8',
-  textMuted: '#6B6B73',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
-  border: '#2A2A2E',
-  borderSubtle: 'rgba(255, 255, 255, 0.1)',
-  borderFocused: '#00D1FF',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  overlayHeavy: 'rgba(0, 0, 0, 0.8)',
-};
+export const darkColors: ColorPalette = THEME_PALETTES['default'];
 
 // ── Light palette ───────────────────────────────────────────────────────
 
@@ -60,6 +27,13 @@ export const lightColors: ColorPalette = {
   cyan: '#0097B8',
   cyanDim: 'rgba(0, 151, 184, 0.10)',
   cyanGlow: 'rgba(0, 151, 184, 0.15)',
+  secondary: '#2563EB',
+  secondaryDim: 'rgba(37, 99, 235, 0.10)',
+  complement: '#EA580C',
+  complementDeep: '#C2410C',
+  complementDim: 'rgba(234, 88, 12, 0.10)',
+  chartAccent: '#EA580C',
+  chartAccentDeep: '#C2410C',
   bg: '#F8F9FA',
   bgCard: '#FFFFFF',
   bgElevated: '#FFFFFF',
@@ -106,6 +80,12 @@ const noShadow: ThemeShadow = {
   elevation: 0,
 };
 
+// ── AsyncStorage keys ───────────────────────────────────────────────────
+
+const STORAGE_KEY_COLOR_THEME = '@vision_color_theme';
+const STORAGE_KEY_ICON_PACK = '@vision_icon_pack';
+const STORAGE_KEY_SURFACE_LENS = '@vision_surface_lens';
+
 // ── Context ─────────────────────────────────────────────────────────────
 
 export interface ThemeContextType {
@@ -113,31 +93,129 @@ export interface ThemeContextType {
   isDark: boolean;
   colorScheme: 'dark' | 'light';
   shadow: ThemeShadow;
+  // Custom theme fields (Tier 2)
+  themeId: ThemeId;
+  lensId: LensId;
+  iconPackId: IconPackId;
+  iconStyle: IconStyle;
+  cardStyle: CardSurfaceStyle;
+  setTheme: (id: ThemeId) => void;
+  setLens: (id: LensId) => void;
+  setIconPack: (id: IconPackId) => void;
+  loading: boolean;
 }
+
+const DEFAULT_CARD_STYLE = computeCardStyle('glass', darkColors);
 
 const ThemeContext = createContext<ThemeContextType>({
   colors: darkColors,
   isDark: true,
   colorScheme: 'dark',
   shadow: noShadow,
+  themeId: 'default',
+  lensId: 'glass',
+  iconPackId: 'outlined',
+  iconStyle: ICON_PACKS['outlined'],
+  cardStyle: DEFAULT_CARD_STYLE,
+  setTheme: () => {},
+  setLens: () => {},
+  setIconPack: () => {},
+  loading: true,
 });
 
 export function useTheme(): ThemeContextType {
   return useContext(ThemeContext);
 }
 
+// ── Valid key sets (for validation) ─────────────────────────────────────
+
+const VALID_LENSES = new Set<string>(['glass', 'depth', 'minimal']);
+
 // ── Provider ────────────────────────────────────────────────────────────
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { prefs } = useAppPreferences();
 
+  // Custom theme state (Tier 2 feature)
+  const [themeId, setThemeId] = useState<ThemeId>('default');
+  const [lensId, setLensIdState] = useState<LensId>('glass');
+  const [iconPackId, setIconPackId] = useState<IconPackId>('outlined');
+  const [loading, setLoading] = useState(true);
+
+  // Debounce refs for AsyncStorage writes
+  const themeWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lensWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iconWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // EC-10: useColorScheme() can return null before native layer initializes.
-  // Fall back to synchronous Appearance.getColorScheme() ?? 'dark'.
   const systemScheme = useColorScheme() ?? Appearance.getColorScheme() ?? 'dark';
+
+  // Load custom theme preferences from AsyncStorage on mount (single round-trip)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const pairs = await AsyncStorage.multiGet([
+          STORAGE_KEY_COLOR_THEME,
+          STORAGE_KEY_ICON_PACK,
+          STORAGE_KEY_SURFACE_LENS,
+        ]);
+        const storedTheme = pairs[0][1];
+        const storedPack = pairs[1][1];
+        const storedLens = pairs[2][1];
+
+        if (storedTheme && storedTheme in THEME_PALETTES) {
+          setThemeId(storedTheme as ThemeId);
+        }
+        if (storedPack && storedPack in ICON_PACKS) {
+          setIconPackId(storedPack as IconPackId);
+        }
+        if (storedLens && VALID_LENSES.has(storedLens)) {
+          setLensIdState(storedLens as LensId);
+        }
+      } catch {
+        console.warn('[ThemeContext] Failed to load theme preferences, using defaults');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      if (themeWriteTimer.current) clearTimeout(themeWriteTimer.current);
+      if (lensWriteTimer.current) clearTimeout(lensWriteTimer.current);
+      if (iconWriteTimer.current) clearTimeout(iconWriteTimer.current);
+    };
+  }, []);
+
+  // Setters: synchronous state update + debounced AsyncStorage write
+
+  const setTheme = useCallback((id: ThemeId) => {
+    setThemeId(id);
+    if (themeWriteTimer.current) clearTimeout(themeWriteTimer.current);
+    themeWriteTimer.current = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEY_COLOR_THEME, id).catch(() => {});
+    }, 300);
+  }, []);
+
+  const setLens = useCallback((id: LensId) => {
+    setLensIdState(id);
+    if (lensWriteTimer.current) clearTimeout(lensWriteTimer.current);
+    lensWriteTimer.current = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEY_SURFACE_LENS, id).catch(() => {});
+    }, 300);
+  }, []);
+
+  const setIconPack = useCallback((id: IconPackId) => {
+    setIconPackId(id);
+    if (iconWriteTimer.current) clearTimeout(iconWriteTimer.current);
+    iconWriteTimer.current = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEY_ICON_PACK, id).catch(() => {});
+    }, 300);
+  }, []);
 
   const value = useMemo<ThemeContextType>(() => {
     let resolvedScheme: 'dark' | 'light';
-
     if (prefs.theme === 'system') {
       resolvedScheme = systemScheme === 'light' ? 'light' : 'dark';
     } else {
@@ -145,14 +223,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
 
     const isDark = resolvedScheme === 'dark';
+    const colors = isDark ? THEME_PALETTES[themeId] : lightColors;
+    const cardStyle = computeCardStyle(lensId, colors);
 
     return {
-      colors: isDark ? darkColors : lightColors,
+      colors,
       isDark,
       colorScheme: resolvedScheme,
       shadow: isDark ? noShadow : lightShadow,
+      themeId,
+      lensId,
+      iconPackId,
+      iconStyle: ICON_PACKS[iconPackId],
+      cardStyle,
+      setTheme,
+      setLens,
+      setIconPack,
+      loading,
     };
-  }, [prefs.theme, systemScheme]);
+  }, [prefs.theme, systemScheme, themeId, lensId, iconPackId, setTheme, setLens, setIconPack, loading]);
 
   return (
     <ThemeContext.Provider value={value}>

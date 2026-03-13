@@ -4,6 +4,8 @@ import { Clock, CheckCircle2, Plus, Utensils, ChevronDown, ChevronUp, AlertCircl
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
+import { useGamification } from '../hooks/useGamification';
+import GlowRing from './GlowRing';
 import { haptics } from '../../data/utils/haptics';
 import { formatMedName } from '../../domain/utils';
 import type { RootStackParamList } from '../navigation/types';
@@ -47,6 +49,7 @@ export default function HeroSection({
 }: HeroSectionProps) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors, isDark } = useTheme();
+  const { streakDays } = useGamification();
   const [showSuccess, setShowSuccess] = useState(false);
   const [showFutureMessage, setShowFutureMessage] = useState(false);
   const [futureDate, setFutureDate] = useState<string>('');
@@ -139,7 +142,7 @@ export default function HeroSection({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.card, { borderColor: colors.cyanGlow, backgroundColor: 'rgba(0, 209, 255, 0.04)' }]}>
+      <View style={[styles.card, { borderColor: colors.cyanGlow, backgroundColor: colors.bgSubtle }]}>
         {/* Critical Miss Badge - Always visible when there's a critical miss */}
         {criticalMissedRitual && (
           <TouchableOpacity
@@ -150,7 +153,7 @@ export default function HeroSection({
             }}
             activeOpacity={0.8}
           >
-            <View style={styles.criticalMissBadge}>
+            <View style={[styles.criticalMissBadge, { backgroundColor: colors.error, shadowColor: colors.error }]}>
               <AlertTriangle color={colors.textPrimary} size={12} strokeWidth={2.5} />
               <Text style={[styles.criticalMissText, { color: colors.textPrimary }]}>CRITICAL MISS</Text>
             </View>
@@ -162,8 +165,8 @@ export default function HeroSection({
           <Clock color={colors.cyan} size={18} strokeWidth={2.5} />
           <Text style={[styles.labelText, { color: colors.cyan }]}>NEXT DOSE</Text>
           {dateDisplay && (
-            <View style={[styles.dateBadge, !isTodayDose && styles.dateBadgeFuture]}>
-              <Text style={[styles.dateText, { color: colors.cyan }, !isTodayDose && styles.dateTextFuture]}>
+            <View style={[styles.dateBadge, { backgroundColor: colors.cyanDim }, !isTodayDose && { backgroundColor: `${colors.warning}26` }]}>
+              <Text style={[styles.dateText, { color: colors.cyan }, !isTodayDose && { color: colors.warning }]}>
                 {dateDisplay}
               </Text>
             </View>
@@ -206,7 +209,7 @@ export default function HeroSection({
 
           {/* Meal timing (only for single medication) */}
           {displayMealInfo && (
-            <View style={styles.mealBadge}>
+            <View style={[styles.mealBadge, { backgroundColor: colors.cyanDim }]}>
               <Utensils color={colors.cyan} size={10} strokeWidth={2.5} />
               <Text style={[styles.mealText, { color: colors.cyan }]}>{displayMealInfo}</Text>
             </View>
@@ -216,16 +219,16 @@ export default function HeroSection({
         {/* Partial failure warning */}
         {partialFailureMessage && (
           <View style={styles.warningBanner}>
-            <AlertCircle color="#F59E0B" size={14} strokeWidth={2.5} />
-            <Text style={styles.warningText}>{partialFailureMessage}</Text>
+            <AlertCircle color={colors.warning} size={14} strokeWidth={2.5} />
+            <Text style={[styles.warningText, { color: colors.warning }]}>{partialFailureMessage}</Text>
           </View>
         )}
 
         {/* Button */}
         {showFutureMessage ? (
-          <View style={styles.futureButton}>
-            <Clock color="#F59E0B" size={18} strokeWidth={2.5} />
-            <Text style={styles.futureText}>Scheduled for {futureDate}</Text>
+          <View style={[styles.futureButton, { backgroundColor: `${colors.warning}26`, borderColor: colors.warning }]}>
+            <Clock color={colors.warning} size={18} strokeWidth={2.5} />
+            <Text style={[styles.futureText, { color: colors.warning }]}>Scheduled for {futureDate}</Text>
           </View>
         ) : showSuccess ? (
           <View style={[styles.successButton, { backgroundColor: colors.cyanDim, borderColor: colors.cyan }]}>
@@ -243,11 +246,20 @@ export default function HeroSection({
             <Text style={[styles.takeButtonText, styles.takeButtonTextLoading, { color: colors.bg }]}>LOGGING...</Text>
           </View>
         ) : (
-          <TouchableOpacity style={[styles.takeButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} onPress={handleTakeNow} activeOpacity={0.8}>
-            <Text style={[styles.takeButtonText, { color: colors.bg }]}>
-              {isMultipleMeds ? `TAKE ALL ${medCount}` : 'TAKE NOW'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity style={[styles.takeButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} onPress={handleTakeNow} activeOpacity={0.8}>
+              <Text style={[styles.takeButtonText, { color: colors.bg }]}>
+                {isMultipleMeds ? `TAKE ALL ${medCount}` : 'TAKE NOW'}
+              </Text>
+            </TouchableOpacity>
+            <GlowRing
+              streakDays={streakDays}
+              color={colors.cyanGlow}
+              size={58}
+              strokeWidth={2}
+              enabled={hasNextDose && isTodayDose && !showSuccess}
+            />
+          </View>
         )}
       </View>
     </View>
@@ -275,11 +287,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EF4444',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 6,
@@ -301,13 +311,11 @@ const styles = StyleSheet.create({
   },
   dateBadge: {
     marginLeft: 'auto',
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   dateBadgeFuture: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
   },
   dateText: {
     fontSize: 11,
@@ -315,7 +323,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dateTextFuture: {
-    color: '#F59E0B',
   },
   centerContent: { flex: 1, justifyContent: 'center', marginVertical: 8 },
   medNameRow: {
@@ -369,7 +376,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 4,
-    backgroundColor: 'rgba(45, 212, 191, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -412,7 +418,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   futureButton: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -420,10 +425,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: '#F59E0B',
   },
   futureText: {
-    color: '#F59E0B',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -445,7 +448,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   warningText: {
-    color: '#F59E0B',
     fontSize: 11,
     fontWeight: '600',
   },

@@ -1,4 +1,4 @@
-// Force-dark: This screen always uses dark theme regardless of user preference
+// Emergency Vault — always uses dark theme palette from useTheme()
 import React, { useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,10 +7,7 @@ import { X, Edit3 } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
-import { darkColors } from '../theme/ThemeContext';
-import { useGamification } from '../hooks/useGamification';
-import { isFeatureUnlocked } from '../../domain/utils/tierGating';
-import LockedFeatureScreen from '../components/LockedFeatureScreen';
+import { useTheme } from '../theme/ThemeContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -42,8 +39,8 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   const { user } = useAuth();
   const { vault, loading: vaultLoading, fetchVault } = useVault();
   const { activeMedications, loading: medsLoading } = useMedications();
-  const { currentTier, totalXp, loading: gamLoading } = useGamification();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EmergencyVault');
+  const { colors } = useTheme();
 
   // Re-fetch vault data when screen regains focus (e.g. after editing in PersonalInfo)
   useFocusEffect(
@@ -54,26 +51,13 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 
   const loading = vaultLoading || medsLoading;
 
-  // Wait for data before tier gate check
-  if (gamLoading || vaultLoading) {
+  if (vaultLoading) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
         <View style={styles.authContainer}>
-          <ActivityIndicator color={darkColors.cyan} size="large" />
+          <ActivityIndicator color={colors.cyan} size="large" />
         </View>
       </SafeAreaView>
-    );
-  }
-
-  // Feature gate: Emergency Vault requires Tier 2 (grandfather clause: existing vault data)
-  if (!isFeatureUnlocked('emergency_vault', currentTier, vault != null)) {
-    return (
-      <LockedFeatureScreen
-        featureLabel="Emergency Vault"
-        requiredTier={2}
-        currentTier={currentTier}
-        currentXp={totalXp}
-      />
     );
   }
 
@@ -85,65 +69,65 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   const conditionsList = vault?.conditions || [];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-            <X color={darkColors.textSecondary} size={24} />
+            <X color={colors.textSecondary} size={24} />
           </TouchableOpacity>
-          <Text style={styles.closeText}>Close</Text>
+          <Text style={[styles.closeText, { color: colors.textSecondary }]}>Close</Text>
         </View>
 
-        <Text style={styles.title}>Emergency Medical Summary</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Emergency Medical Summary</Text>
 
         {/* Allergies Banner */}
-        <View style={styles.allergiesBanner}>
-          <Text style={styles.allergiesText}>
+        <View style={[styles.allergiesBanner, { borderColor: colors.warning, backgroundColor: `${colors.warning}14` }]}>
+          <Text style={[styles.allergiesText, { color: colors.warning }]}>
             ALLERGIES: {allergiesList.length > 0 ? allergiesList.join(', ').toUpperCase() : 'NONE RECORDED'}
           </Text>
         </View>
 
         {/* Quick Stats Row */}
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>BLOOD</Text>
-            <Text style={styles.statValue}>{vault?.blood_type || '—'}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>BLOOD</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{vault?.blood_type || '—'}</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>WEIGHT</Text>
-            <Text style={styles.statValue}>{vault?.weight ? `${vault.weight}lb` : '—'}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>WEIGHT</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{vault?.weight ? `${vault.weight}lb` : '—'}</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>AGE</Text>
-            <Text style={styles.statValue}>{computedAge ?? '—'}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>AGE</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{computedAge ?? '—'}</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>CONDITION</Text>
-            <Text style={styles.statValue}>{conditionsList.length > 0 ? conditionsList[0] : 'None'}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>CONDITION</Text>
+            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{conditionsList.length > 0 ? conditionsList[0] : 'None'}</Text>
           </View>
         </View>
 
         {/* Active Medications Section */}
-        <Text style={styles.sectionTitle}>ACTIVE MEDICATIONS</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>ACTIVE MEDICATIONS</Text>
 
         {activeMedications.length === 0 ? (
           <View style={styles.emptySection}>
-            <Text style={styles.emptyText}>No active medications</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No active medications</Text>
           </View>
         ) : (
           <View style={styles.medicationsList}>
             {activeMedications.map((med) => (
-              <View key={med.id} style={styles.medicationItem}>
+              <View key={med.id} style={[styles.medicationItem, { borderBottomColor: colors.border }]}>
                 <View style={styles.medicationLeft}>
-                  <Text style={styles.medicationName}>{med.name}</Text>
-                  <Text style={styles.medicationDosage}>
+                  <Text style={[styles.medicationName, { color: colors.textPrimary }]}>{med.name}</Text>
+                  <Text style={[styles.medicationDosage, { color: colors.textMuted }]}>
                     {med.strength || ''}{med.strength ? ', ' : ''}{formatFrequency(med.frequency, med.custom_days)}
                   </Text>
                 </View>
                 <View style={styles.medicationRight}>
-                  <Text style={styles.lastTakenLabel}>Scheduled:</Text>
-                  <Text style={styles.lastTakenTime}>{formatScheduledTime(med.time_of_day)}</Text>
+                  <Text style={[styles.lastTakenLabel, { color: colors.textMuted }]}>Scheduled:</Text>
+                  <Text style={[styles.lastTakenTime, { color: colors.textPrimary }]}>{formatScheduledTime(med.time_of_day)}</Text>
                 </View>
               </View>
             ))}
@@ -151,15 +135,15 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
         )}
 
         {/* Medical History Section */}
-        <Text style={styles.sectionTitle}>MEDICAL HISTORY</Text>
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>MEDICAL HISTORY</Text>
 
         <View style={styles.historySection}>
-          <Text style={styles.historySubtitle}>CHRONIC CONDITIONS</Text>
+          <Text style={[styles.historySubtitle, { color: colors.textMuted }]}>CHRONIC CONDITIONS</Text>
           {conditionsList.length === 0 ? (
-            <Text style={styles.historyEmpty}>No conditions recorded</Text>
+            <Text style={[styles.historyEmpty, { color: colors.textMuted }]}>No conditions recorded</Text>
           ) : (
             conditionsList.map((condition, index) => (
-              <Text key={index} style={styles.historyItem}>• {condition}</Text>
+              <Text key={index} style={[styles.historyItem, { color: colors.textPrimary }]}>• {condition}</Text>
             ))
           )}
         </View>
@@ -167,12 +151,12 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
         {/* Emergency Contacts */}
         {vault?.medical_contacts && vault.medical_contacts.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>EMERGENCY CONTACTS</Text>
+            <Text style={[styles.sectionTitle, { color: colors.cyan }]}>EMERGENCY CONTACTS</Text>
             <View style={styles.contactsList}>
               {vault.medical_contacts.map((contact, index) => (
-                <View key={index} style={styles.contactItem}>
-                  <Text style={styles.contactName}>{contact.name}</Text>
-                  <Text style={styles.contactDetails}>
+                <View key={index} style={[styles.contactItem, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.contactName, { color: colors.textPrimary }]}>{contact.name}</Text>
+                  <Text style={[styles.contactDetails, { color: colors.textMuted }]}>
                     {contact.relationship} • {contact.phone}
                   </Text>
                 </View>
@@ -183,11 +167,11 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 
         {/* Edit Button - navigates to Personal Details */}
         <TouchableOpacity
-          style={styles.editButton}
+          style={[styles.editButton, { borderColor: colors.cyan, backgroundColor: colors.cyanDim }]}
           onPress={() => navigation.navigate('PersonalInfo')}
         >
-          <Edit3 color={darkColors.cyan} size={18} />
-          <Text style={styles.editButtonText}>Edit in Personal Details</Text>
+          <Edit3 color={colors.cyan} size={18} />
+          <Text style={[styles.editButtonText, { color: colors.cyan }]}>Edit in Personal Details</Text>
         </TouchableOpacity>
       </ScrollView>
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
@@ -196,7 +180,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: darkColors.bg },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -210,12 +194,10 @@ const styles = StyleSheet.create({
   },
   closeBtn: { padding: 4 },
   closeText: {
-    color: darkColors.textSecondary,
     fontSize: 14,
     marginLeft: 4,
   },
   title: {
-    color: darkColors.textPrimary,
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 20,
@@ -224,15 +206,12 @@ const styles = StyleSheet.create({
   // Allergies Banner
   allergiesBanner: {
     borderWidth: 2,
-    borderColor: '#F59E0B',
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 24,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
   },
   allergiesText: {
-    color: '#F59E0B',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -246,28 +225,24 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: darkColors.border,
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
   },
   statLabel: {
-    color: darkColors.textMuted,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   statValue: {
-    color: darkColors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
 
   // Section Title
   sectionTitle: {
-    color: darkColors.cyan,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
@@ -284,31 +259,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: darkColors.border,
   },
   medicationLeft: {
     flex: 1,
   },
   medicationName: {
-    color: darkColors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
   },
   medicationDosage: {
-    color: darkColors.textMuted,
     fontSize: 13,
   },
   medicationRight: {
     alignItems: 'flex-end',
   },
   lastTakenLabel: {
-    color: darkColors.textMuted,
     fontSize: 11,
     marginBottom: 2,
   },
   lastTakenTime: {
-    color: darkColors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -319,7 +289,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   emptyText: {
-    color: darkColors.textMuted,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -329,18 +298,15 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   historySubtitle: {
-    color: darkColors.textMuted,
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 12,
   },
   historyEmpty: {
-    color: darkColors.textMuted,
     fontSize: 14,
   },
   historyItem: {
-    color: darkColors.textPrimary,
     fontSize: 14,
     marginBottom: 8,
   },
@@ -352,16 +318,13 @@ const styles = StyleSheet.create({
   contactItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: darkColors.border,
   },
   contactName: {
-    color: darkColors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   contactDetails: {
-    color: darkColors.textMuted,
     fontSize: 13,
   },
 
@@ -374,12 +337,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: darkColors.cyan,
-    backgroundColor: darkColors.cyanDim,
     marginTop: 8,
   },
   editButtonText: {
-    color: darkColors.cyan,
     fontSize: 14,
     fontWeight: '600',
   },

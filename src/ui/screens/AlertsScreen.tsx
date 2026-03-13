@@ -13,6 +13,7 @@ import type { ColorPalette } from '../theme/ThemeContext';
 import { useAlert } from '../context/AlertContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import ScreenshotToast from '../components/ScreenshotToast';
+import ThemedEmptyState from '../components/ThemedEmptyState';
 import type { VitalityFeedItem, XpEvent } from '../../domain/types';
 import { parseFeedMetadata } from '../../domain/types';
 
@@ -214,12 +215,7 @@ export default function AlertsScreen() {
 
         {/* Empty State */}
         {feedItems.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIcon}>
-              <Bell color={colors.cyan} size={32} strokeWidth={2} />
-            </View>
-            <Text style={styles.emptyText}>System Nominal. All rituals on track.</Text>
-          </View>
+          <ThemedEmptyState screen="alerts" fallbackMessage="System Nominal. All rituals on track." />
         )}
 
         {/* Active Alerts */}

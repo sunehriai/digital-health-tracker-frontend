@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { Activity, Check, Clock, Flame, X } from 'lucide-react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Activity, Check, Clock, Flame, Shield, Star, X } from 'lucide-react-native';
+import type { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeContext';
 import type { ColorPalette } from '../theme/ThemeContext';
 import { adherenceWeeklyService } from '../../data/services/adherenceWeeklyService';
@@ -19,7 +22,7 @@ import type {
 
 // --- Constants ---
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BAR_MAX_HEIGHT = 100;
 const BAR_WIDTH = 28;
 const BAR_MIN_HEIGHT = 6; // visible minimum for 0% days with scheduled doses
@@ -29,31 +32,39 @@ const BAR_MIN_HEIGHT = 6; // visible minimum for 0% days with scheduled doses
 interface AdherenceCardProps {
   streakDays: number;
   currentTier: number;
+  waiverBadges?: number;
+  waiverJustUsed?: boolean;
+  onWaiverPress?: () => void;
 }
 
 // --- Helpers ---
 
-/** Pick bar color based on the dominant dose status for the day. */
-function getBarColor(
+/** Pick gradient colors [bottom, top] for each bar. Uses theme colors. */
+function getBarGradient(
   day: WeekDayRecord,
-  colors: ColorPalette,
-  isDark: boolean
-): string {
-  if (day.total_scheduled === 0)
-    return isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-  // All future/pending — dim
+  isDark: boolean,
+  themeColors: ColorPalette,
+): [string, string] {
+  if (day.total_scheduled === 0) {
+    const c = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+    return [c, c];
+  }
   const completedCount =
     day.taken_count + day.taken_late_count + day.missed_count;
-  if (completedCount === 0)
-    return isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-  // Any late doses → amber
-  if (day.taken_late_count > 0) return '#F59E0B';
-  // All taken on time → cyan
-  if (day.taken_count === day.total_scheduled) return colors.cyan;
-  // Mix of taken + missed → dimmed cyan
-  if (day.taken_count > 0) return 'rgba(0, 209, 255, 0.5)';
-  // All missed → grey
-  return isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+  if (completedCount === 0) {
+    const c = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    return [c, c];
+  }
+  // Any late doses → warning gradient
+  if (day.taken_late_count > 0) return [themeColors.warning, `${themeColors.warning}AA`];
+  // All taken on time → chart accent gradient (deep to bright)
+  if (day.taken_count === day.total_scheduled) return [themeColors.chartAccentDeep, themeColors.chartAccent];
+  // Mix of taken + missed → muted chart accent gradient
+  if (day.taken_count > 0) return [`${themeColors.chartAccentDeep}80`, `${themeColors.chartAccent}80`];
+  // All missed → subtle grey
+  return isDark
+    ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.18)']
+    : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.14)'];
 }
 
 // --- Sub-components ---
@@ -72,22 +83,23 @@ function DayBar({
 
   const pct = day.adherence_pct ?? 0;
   const hasScheduled = day.total_scheduled > 0;
-  // Bar height: percentage of max, with a visible minimum for days that have doses
   const targetHeight = hasScheduled
     ? Math.max(BAR_MIN_HEIGHT, (pct / 100) * BAR_MAX_HEIGHT)
     : BAR_MIN_HEIGHT;
 
+  const hasDoses = day.taken_count + day.taken_late_count + day.missed_count > 0;
+
   useEffect(() => {
     Animated.timing(heightAnim, {
       toValue: targetHeight,
-      duration: 500,
-      delay: index * 60,
-      easing: Easing.out(Easing.cubic),
+      duration: 600,
+      delay: index * 80,
+      easing: Easing.out(Easing.back(1.1)),
       useNativeDriver: false,
     }).start();
   }, [targetHeight]);
 
-  const barColor = getBarColor(day, colors, isDark);
+  const [gradientBottom, gradientTop] = getBarGradient(day, isDark, colors);
 
   return (
     <View style={styles.barColumnContainer}>
@@ -97,23 +109,53 @@ function DayBar({
             styles.bar,
             {
               height: heightAnim,
-              backgroundColor: barColor,
-              ...(isToday && {
+              overflow: 'hidden',
+              // Glow effect on bars with doses
+              ...(hasDoses && {
                 shadowColor: colors.cyan,
-                shadowOpacity: 0.4,
+                shadowOpacity: 0.3,
                 shadowRadius: 6,
                 shadowOffset: { width: 0, height: 0 },
                 elevation: 4,
               }),
+              ...(isToday && hasDoses && {
+                shadowColor: colors.chartAccent,
+                shadowOpacity: 0.6,
+                shadowRadius: 10,
+                elevation: 6,
+              }),
+              ...(isToday && { borderWidth: 1.5, borderColor: `${colors.chartAccent}99` }),
             },
           ]}
-        />
+        >
+          {/* Gradient fill */}
+          <LinearGradient
+            colors={[gradientTop, gradientBottom]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* Glass highlight strip on left edge */}
+          {hasDoses && (
+            <View
+              style={{
+                position: 'absolute',
+                left: 2,
+                top: 4,
+                bottom: 4,
+                width: 3,
+                borderRadius: 2,
+                backgroundColor: 'rgba(255,255,255,0.25)',
+              }}
+            />
+          )}
+        </Animated.View>
       </View>
       <Text
         style={[
           styles.dayLabel,
           { color: colors.textMuted },
-          isToday && { color: colors.cyan, fontWeight: '700' },
+          isToday && { color: colors.chartAccent, fontWeight: '700' },
         ]}
       >
         {DAY_LABELS[index]}
@@ -122,49 +164,23 @@ function DayBar({
   );
 }
 
-function StreakBar({ streakDays }: { streakDays: number }) {
+function WeeklyPerfectBar({ days }: { days: WeekDayRecord[] }) {
   const { colors, isDark } = useTheme();
   const fillAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Count days with 100% adherence (only past/today days that have doses)
+  const perfectDays = days.filter(
+    (d) => d.total_scheduled > 0 && d.adherence_pct === 100
+  ).length;
 
   useEffect(() => {
-    const fillTo = Math.min(streakDays / 7, 1);
     Animated.timing(fillAnim, {
-      toValue: fillTo,
-      duration: 600,
+      toValue: Math.min(perfectDays / 7, 1),
+      duration: 800,
       easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start();
-
-    if (streakDays >= 3) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.15,
-            duration: 800,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [streakDays]);
-
-  if (streakDays === 0) {
-    return (
-      <View style={styles.streakBarContainer}>
-        <Text style={[styles.streakLabel, { color: colors.textSecondary }]}>
-          No active streak
-        </Text>
-      </View>
-    );
-  }
+  }, [perfectDays]);
 
   const fillWidth = fillAnim.interpolate({
     inputRange: [0, 1],
@@ -172,31 +188,28 @@ function StreakBar({ streakDays }: { streakDays: number }) {
   });
 
   return (
-    <View style={styles.streakBarContainer}>
-      <View style={styles.streakLabelRow}>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <Flame size={14} color="#F59E0B" fill="#F59E0B" />
-        </Animated.View>
-        <Text style={[styles.streakLabel, { color: colors.textSecondary }]}>
-          {streakDays}-day perfect streak
+    <View style={styles.weeklyPerfectContainer}>
+      <View style={styles.weeklyPerfectLabelRow}>
+        <Flame size={14} color={colors.chartAccent} fill={colors.chartAccent} />
+        <Text style={[styles.weeklyPerfectLabel, { color: colors.textSecondary }]}>
+          Streak days
+        </Text>
+        <Text style={[styles.weeklyPerfectCount, { color: colors.chartAccent }]}>
+          {perfectDays}/7
         </Text>
       </View>
-      <View
-        style={[
-          styles.streakTrack,
-          {
-            backgroundColor: isDark
-              ? 'rgba(255,255,255,0.08)'
-              : 'rgba(0,0,0,0.06)',
-          },
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.streakFill,
-            { width: fillWidth, backgroundColor: colors.cyan },
-          ]}
-        />
+      <View style={[styles.weeklyPerfectTrack, {
+        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      }]}>
+        <Animated.View style={[styles.weeklyPerfectFillOuter, { width: fillWidth }]}>
+          <LinearGradient
+            colors={[colors.chartAccentDeep, colors.chartAccent, `${colors.chartAccent}AA`]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: 4 }]}
+          />
+          <View style={styles.weeklyPerfectGlass} />
+        </Animated.View>
       </View>
     </View>
   );
@@ -216,14 +229,14 @@ function SummaryFooter({
   return (
     <View style={styles.footerRow}>
       <View style={styles.footerItem}>
-        <Check size={14} color={colors.cyan} />
-        <Text style={[styles.footerCount, { color: colors.cyan }]}>
+        <Check size={14} color={colors.chartAccent} />
+        <Text style={[styles.footerCount, { color: colors.chartAccent }]}>
           {taken}
         </Text>
       </View>
       <View style={styles.footerItem}>
-        <Clock size={14} color="#F59E0B" />
-        <Text style={[styles.footerCount, { color: '#F59E0B' }]}>{late}</Text>
+        <Clock size={14} color={colors.warning} />
+        <Text style={[styles.footerCount, { color: colors.warning }]}>{late}</Text>
       </View>
       <View style={styles.footerItem}>
         <X size={14} color={colors.error} />
@@ -240,9 +253,12 @@ function SummaryFooter({
 export default function AdherenceCard({
   streakDays,
   currentTier,
+  waiverBadges = 0,
+  waiverJustUsed = false,
+  onWaiverPress,
 }: AdherenceCardProps) {
   const { colors, isDark } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [weekData, setWeekData] = useState<WeeklyAdherenceResponse | null>(
     null
   );
@@ -285,10 +301,10 @@ export default function AdherenceCard({
     );
     if (delta > 0) {
       trendText = `▲${delta}%`;
-      trendColor = colors.success;
+      trendColor = colors.textMuted;
     } else if (delta < 0) {
       trendText = `▼${Math.abs(delta)}%`;
-      trendColor = '#F59E0B';
+      trendColor = colors.textMuted;
     } else {
       trendText = '–';
       trendColor = colors.textMuted;
@@ -299,6 +315,25 @@ export default function AdherenceCard({
     weekData?.current_week_adherence_pct != null
       ? `${Math.round(weekData.current_week_adherence_pct)}%`
       : '–%';
+
+  const showWaiverBadge = currentTier >= 3 && waiverBadges > 0;
+
+  const waiverBadgeIcons = showWaiverBadge ? (
+    <TouchableOpacity
+      style={styles.waiverBadge}
+      activeOpacity={waiverJustUsed ? 1 : 0.7}
+      onPress={waiverJustUsed ? undefined : onWaiverPress}
+      disabled={waiverJustUsed}
+      accessibilityLabel={`${waiverBadges} waiver badge${waiverBadges !== 1 ? 's' : ''} available`}
+    >
+      {Array.from({ length: waiverBadges }).map((_, i) => (
+        <View key={i} style={[styles.waiverIconWrap, i > 0 && { marginLeft: -6 }]}>
+          <Shield size={22} color={colors.cyan} fill="transparent" strokeWidth={2.5} />
+          <Star size={10} color={colors.cyan} fill={colors.cyan} strokeWidth={0} style={styles.waiverStar} />
+        </View>
+      ))}
+    </TouchableOpacity>
+  ) : null;
 
   return (
     <View
@@ -313,12 +348,13 @@ export default function AdherenceCard({
       {/* Header */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Activity size={16} color={colors.cyan} />
-          <Text style={[styles.headerTitle, { color: colors.textSecondary }]}>
+          <Activity size={16} color={colors.chartAccent} />
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
             THIS WEEK
           </Text>
         </View>
         <View style={styles.headerRight}>
+          {!waiverJustUsed && waiverBadgeIcons}
           <Text style={[styles.pctText, { color: colors.textPrimary }]}>
             {adherencePctDisplay}
           </Text>
@@ -367,24 +403,24 @@ export default function AdherenceCard({
         </View>
       )}
 
-      {/* Streak bar */}
-      <StreakBar streakDays={streakDays} />
+      {/* Weekly perfect days bar */}
+      <WeeklyPerfectBar days={weekData?.days ?? []} />
 
       {/* Summary footer */}
-      <SummaryFooter
-        taken={weekData?.total_taken ?? 0}
-        late={weekData?.total_taken_late ?? 0}
-        missed={weekData?.total_missed ?? 0}
-      />
+      <View style={styles.footerWithWaiver}>
+        <SummaryFooter
+          taken={weekData?.total_taken ?? 0}
+          late={weekData?.total_taken_late ?? 0}
+          missed={weekData?.total_missed ?? 0}
+        />
+        {waiverJustUsed && waiverBadgeIcons}
+      </View>
 
       {/* View Month link (Tier 3+) */}
       {currentTier >= 3 && (
         <TouchableOpacity
           style={styles.viewMonthLink}
-          onPress={() =>
-            // TODO: Tier 3 — add MyAdherence to RootStackParamList
-            (navigation as any).navigate('MyAdherence')
-          }
+          onPress={() => navigation.navigate('MyAdherence')}
         >
           <Text style={[styles.viewMonthText, { color: colors.cyan }]}>
             View Month →
@@ -429,8 +465,24 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: 6,
+  },
+  waiverBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginRight: 6,
+  },
+  waiverIconWrap: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waiverStar: {
+    position: 'absolute',
+    top: 5,
   },
   pctText: {
     fontSize: 22,
@@ -459,34 +511,57 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   dayLabel: {
     fontSize: 10,
     fontWeight: '500',
-    marginTop: 6,
+    marginTop: 3,
   },
-  streakBarContainer: {
+  weeklyPerfectContainer: {
     marginBottom: 10,
   },
-  streakLabelRow: {
+  weeklyPerfectLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    gap: 5,
+    marginBottom: 6,
   },
-  streakLabel: {
+  weeklyPerfectLabel: {
     fontSize: 11,
     fontWeight: '500',
+    flex: 1,
   },
-  streakTrack: {
+  weeklyPerfectCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+  },
+  weeklyPerfectTrack: {
     height: 4,
-    borderRadius: 2,
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  streakFill: {
+  weeklyPerfectFillOuter: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  weeklyPerfectGlass: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+  footerWithWaiver: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
   },
   footerRow: {
     flexDirection: 'row',

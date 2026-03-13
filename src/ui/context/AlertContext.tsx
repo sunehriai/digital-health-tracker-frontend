@@ -8,6 +8,8 @@ export interface AlertOptions {
   message?: string;
   messageContent?: React.ReactNode;
   type?: AlertType;
+  /** Override the icon color (e.g. to match a specific UI element) */
+  iconColor?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
@@ -71,6 +73,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         message={options?.message}
         messageContent={options?.messageContent}
         type={options?.type ?? 'info'}
+        iconColor={options?.iconColor}
         confirmLabel={options?.confirmLabel}
         cancelLabel={options?.cancelLabel}
         isConfirmation={isConfirmation}

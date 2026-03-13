@@ -8,13 +8,7 @@ import { formatMedName } from '../../domain/utils';
 import { logActionCenter } from '../../data/utils/notificationDebugLog';
 import type { RitualChip, DoseTimeSlot } from '../../domain/types';
 
-// Amber theme colors for Tier 1 (Minor Glitch)
-const amberColors = {
-  primary: '#F59E0B',
-  glow: 'rgba(245, 158, 11, 0.15)',
-  border: 'rgba(245, 158, 11, 0.4)',
-  bg: 'rgba(245, 158, 11, 0.08)',
-};
+// Amber theme colors removed — now uses colors.warning from theme
 
 interface ActionCenterCardProps {
   missedRitual: RitualChip;
@@ -62,11 +56,11 @@ export default function ActionCenterCard({
   };
 
   return (
-    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={styles.container}>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={[styles.container, { backgroundColor: colors.overlayHeavy, borderColor: colors.cyanGlow }]}>
       {/* Header */}
       <View style={styles.header}>
-        <AlertTriangle color={amberColors.primary} size={20} strokeWidth={2.5} />
-        <Text style={styles.headerText}>MINOR GLITCH DETECTED</Text>
+        <AlertTriangle color={colors.textPrimary} size={20} strokeWidth={2.5} />
+        <Text style={[styles.headerText, { color: colors.textPrimary }]}>MINOR GLITCH DETECTED</Text>
       </View>
 
       {/* Large Fraction */}
@@ -77,13 +71,13 @@ export default function ActionCenterCard({
         <Text style={[styles.fractionText, { color: colors.textPrimary }]}>
           {completedCount}/{totalCount}
         </Text>
-        <Text style={styles.actionRequired}>ACTION REQUIRED</Text>
+        <Text style={[styles.actionRequired, { color: colors.textPrimary }]}>ACTION REQUIRED</Text>
       </Animated.View>
 
       {/* Log Button */}
       <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(200).duration(300)}>
         <TouchableOpacity
-          style={[styles.logButton, isLogging && styles.logButtonLoading]}
+          style={[styles.logButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }, isLogging && styles.logButtonLoading]}
           onPress={handleLogMissedDose}
           activeOpacity={0.8}
           disabled={isLogging}
@@ -155,8 +149,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: amberColors.border,
-    backgroundColor: amberColors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -165,7 +157,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerText: {
-    color: amberColors.primary,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -180,7 +171,6 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   actionRequired: {
-    color: amberColors.primary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
@@ -194,13 +184,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   logButton: {
-    backgroundColor: amberColors.primary,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: amberColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

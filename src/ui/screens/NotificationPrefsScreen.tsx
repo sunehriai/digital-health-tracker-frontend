@@ -151,7 +151,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         {/* OS Permission Banner */}
         {osPermission !== 'granted' && (
           <TouchableOpacity
-            style={styles.permissionBanner}
+            style={[styles.permissionBanner, { backgroundColor: `${colors.warning}1A`, borderColor: `${colors.warning}4D` }]}
             activeOpacity={0.8}
             onPress={() => Linking.openSettings()}
           >
@@ -181,8 +181,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.dose_reminders_enabled}
             onValueChange={(v) => updatePref('dose_reminders_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.dose_reminders_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -215,7 +216,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                     style={[
                       styles.pickerOption,
                       { borderBottomColor: colors.border },
-                      prefs.advance_reminder_minutes === option.value && styles.pickerOptionSelected,
+                      prefs.advance_reminder_minutes === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                     ]}
                     onPress={() => {
                       updatePref('advance_reminder_minutes', option.value);
@@ -248,8 +249,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.snooze_enabled}
                 onValueChange={(v) => updatePref('snooze_enabled', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.snooze_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
 
@@ -282,7 +284,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                         style={[
                           styles.pickerOption,
                           { borderBottomColor: colors.border },
-                          prefs.snooze_duration_minutes === option.value && styles.pickerOptionSelected,
+                          prefs.snooze_duration_minutes === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                         ]}
                         onPress={() => {
                           updatePref('snooze_duration_minutes', option.value);
@@ -321,8 +323,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.refill_alerts_enabled}
             onValueChange={(v) => updatePref('refill_alerts_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.refill_alerts_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -354,7 +357,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                     style={[
                       styles.pickerOption,
                       { borderBottomColor: colors.border },
-                      prefs.low_stock_threshold_days === option.value && styles.pickerOptionSelected,
+                      prefs.low_stock_threshold_days === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                     ]}
                     onPress={() => {
                       updatePref('low_stock_threshold_days', option.value);
@@ -391,8 +394,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.gamification_notifications_enabled}
             onValueChange={(v) => updatePref('gamification_notifications_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.gamification_notifications_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -410,8 +414,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.streak_milestones_enabled}
                 onValueChange={(v) => updatePref('streak_milestones_enabled', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.streak_milestones_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
 
@@ -427,8 +432,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.tier_advancement_enabled}
                 onValueChange={(v) => updatePref('tier_advancement_enabled', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.tier_advancement_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
 
@@ -444,8 +450,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.waiver_prompt_enabled}
                 onValueChange={(v) => updatePref('waiver_prompt_enabled', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.waiver_prompt_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
 
@@ -461,8 +468,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.comeback_boost_enabled}
                 onValueChange={(v) => updatePref('comeback_boost_enabled', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.comeback_boost_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
           </>
@@ -482,8 +490,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.system_notifications_enabled}
             onValueChange={(v) => updatePref('system_notifications_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.system_notifications_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -494,7 +503,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <View style={styles.settingContent}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Safety Alerts</Text>
-              <View style={styles.recommendedBadge}>
+              <View style={[styles.recommendedBadge, { backgroundColor: colors.cyanDim }]}>
                 <Text style={[styles.recommendedText, { color: colors.cyan }]}>Recommended</Text>
               </View>
             </View>
@@ -503,8 +512,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.safety_alerts_enabled}
             onValueChange={(v) => updatePref('safety_alerts_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.safety_alerts_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -519,8 +529,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.medication_end_date_alerts}
             onValueChange={(v) => updatePref('medication_end_date_alerts', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.medication_end_date_alerts ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -538,8 +549,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           <Switch
             value={prefs.quiet_hours_enabled}
             onValueChange={(v) => updatePref('quiet_hours_enabled', v)}
-            trackColor={{ false: colors.border, true: colors.cyan }}
-            thumbColor="#fff"
+            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+            thumbColor="#FFFFFF"
+            {...(prefs.quiet_hours_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
           />
         </View>
 
@@ -573,7 +585,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                       style={[
                         styles.pickerOption,
                         { borderBottomColor: colors.border },
-                        prefs.quiet_hours_start === option.value && styles.pickerOptionSelected,
+                        prefs.quiet_hours_start === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                       ]}
                       onPress={() => {
                         if (option.value !== prefs.quiet_hours_end) {
@@ -626,7 +638,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
                       style={[
                         styles.pickerOption,
                         { borderBottomColor: colors.border },
-                        prefs.quiet_hours_end === option.value && styles.pickerOptionSelected,
+                        prefs.quiet_hours_end === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                       ]}
                       onPress={() => {
                         if (option.value !== prefs.quiet_hours_start) {
@@ -663,8 +675,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
               <Switch
                 value={prefs.critical_bypass_quiet}
                 onValueChange={(v) => updatePref('critical_bypass_quiet', v)}
-                trackColor={{ false: colors.border, true: colors.cyan }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.critical_bypass_quiet ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
               />
             </View>
           </>
@@ -689,7 +702,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
         </TouchableOpacity>
 
         {/* Info Notice */}
-        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
+        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan, backgroundColor: colors.cyanDim }]}>
           <View style={styles.noticeHeader}>
             <Info color={colors.cyan} size={18} />
             <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Local Notifications</Text>
@@ -741,12 +754,10 @@ const styles = StyleSheet.create({
   permissionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 12,
     padding: 14,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   permissionTitle: {
     fontSize: 14,
@@ -809,7 +820,6 @@ const styles = StyleSheet.create({
 
   // Recommended Badge
   recommendedBadge: {
-    backgroundColor: 'rgba(0, 209, 255, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -835,9 +845,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  pickerOptionSelected: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
-  },
+  pickerOptionSelected: {},
   pickerOptionText: {
     fontSize: 15,
   },
@@ -850,7 +858,6 @@ const styles = StyleSheet.create({
 
   // Notice Card
   noticeCard: {
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
     borderRadius: 12,
     padding: 16,
     marginTop: 20,

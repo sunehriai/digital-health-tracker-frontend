@@ -117,7 +117,7 @@ export default function VictorySyncAnimation({
   }));
 
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
+    <Animated.View style={[styles.container, { borderColor: colors.cyanGlow, backgroundColor: colors.cyanDim }, containerStyle]}>
       {/* Header */}
       <View style={styles.header}>
         <Sparkles color={colors.cyan} size={18} strokeWidth={2.5} />
@@ -126,9 +126,9 @@ export default function VictorySyncAnimation({
 
       {/* Circular Glow Background with Badge and Points */}
       <Animated.View style={[styles.glowContainer, glowStyle]}>
-        <View style={[styles.outerGlow, { shadowColor: colors.cyan }]}>
+        <View style={[styles.outerGlow, { shadowColor: colors.cyan, backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }]}>
           {/* Circular Badge with Zap Icon */}
-          <Animated.View style={[styles.circularBadge, badgeStyle]}>
+          <Animated.View style={[styles.circularBadge, { borderColor: colors.cyan, backgroundColor: colors.bgDark }, badgeStyle]}>
             <Zap color={colors.cyan} size={28} strokeWidth={2.5} fill={colors.cyan} />
           </Animated.View>
 
@@ -203,8 +203,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.4)',
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
   },
   header: {
     flexDirection: 'row',
@@ -225,9 +223,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(0, 60, 80, 0.5)',
     borderWidth: 3,
-    borderColor: 'rgba(0, 190, 220, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowOffset: { width: 0, height: 0 },
@@ -240,8 +236,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 3,
-    borderColor: 'rgba(0, 200, 230, 0.9)',
-    backgroundColor: 'rgba(0, 80, 100, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,

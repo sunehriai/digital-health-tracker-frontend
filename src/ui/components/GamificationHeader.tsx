@@ -20,6 +20,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
+import GlowRing from './GlowRing';
 import type { RootStackParamList } from '../navigation/types';
 
 const BADGE_SIZE = 36;
@@ -144,8 +145,11 @@ export default function GamificationHeader() {
           )}
         </View>
 
-        <View style={[styles.progressTrack, { backgroundColor: colors.bgSubtle }]}>
-          <View style={[styles.progressFill, { width: `${progressPercent * 100}%`, backgroundColor: colors.cyan }]} />
+        <View style={{ position: 'relative', overflow: 'visible' }}>
+          <View style={[styles.progressTrack, { backgroundColor: colors.bgSubtle }]}>
+            <View style={[styles.progressFill, { width: `${progressPercent * 100}%`, backgroundColor: colors.cyan }]} />
+          </View>
+          <GlowRing streakDays={streakDays} color={colors.cyanGlow} size={44} strokeWidth={2} />
         </View>
       </View>
 

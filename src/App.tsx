@@ -66,15 +66,15 @@ function AppShell() {
   const security = useSecurity();
   const auth = useAuth();
   const { loading: prefsLoading } = useAppPreferences();
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, loading: themeLoading } = useTheme();
 
   // Run cache cleanup once on mount (fire-and-forget)
   useEffect(() => {
     runCacheCleanup().catch(() => {});
   }, []);
 
-  // While security settings or preferences are loading, show splash to prevent content flash
-  if (security.isLoading || prefsLoading) {
+  // While security settings, preferences, or custom theme are loading, show splash to prevent content flash
+  if (security.isLoading || prefsLoading || themeLoading) {
     return (
       <View style={[styles.splash, { backgroundColor: colors.bg }]}>
         <Image

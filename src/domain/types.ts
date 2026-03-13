@@ -450,3 +450,44 @@ export interface WeeklyAdherenceResponse {
   total_taken_late: number;
   total_missed: number;
 }
+
+// -- Adherence Calendar Types (Tier 3) ------------------------------------
+
+export interface CalendarDoseRecord {
+  medication_id: string;
+  medication_name: string;
+  scheduled_at: string;   // ISO datetime
+  taken_at: string | null;
+  status: 'taken' | 'taken_late' | 'missed' | 'pending' | 'skipped';
+}
+
+export interface DayAdherenceRecord {
+  date: string;            // "2026-03-15"
+  adherence_pct: number | null;  // null = no doses scheduled or future
+  is_on_time_perfect: boolean;
+  taken_count: number;
+  taken_late_count: number;
+  missed_count: number;
+  total_scheduled: number;
+  doses: CalendarDoseRecord[];
+}
+
+export interface MonthSummary {
+  perfect_days: number;
+  imperfect_days: number;
+  missed_days: number;
+  total_scheduled_days: number;
+  best_streak_days: number;
+  best_streak_start: string | null;
+  best_streak_end: string | null;
+  strongest_weekday: string | null;
+  prev_month_adherence_pct: number | null;
+  xp_start: number | null;
+  xp_end: number | null;
+}
+
+export interface MonthAdherenceResponse {
+  year_month: string;
+  days: DayAdherenceRecord[];
+  month_summary: MonthSummary;
+}

@@ -44,7 +44,7 @@ export default function VictoryCard({
   };
 
   return (
-    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={styles.container}>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={[styles.container, { borderColor: colors.cyanGlow, backgroundColor: colors.cyanDim }]}>
       {/* Header */}
       <View style={styles.header}>
         <Sparkles color={colors.cyan} size={18} strokeWidth={2.5} />
@@ -57,9 +57,9 @@ export default function VictoryCard({
         style={styles.glowContainer}
       >
         {/* Outer glow circle */}
-        <View style={[styles.outerGlow, { shadowColor: colors.cyan }]}>
+        <View style={[styles.outerGlow, { shadowColor: colors.cyan, backgroundColor: colors.bgDark, borderColor: colors.cyanGlow }]}>
           {/* Circular Badge with Zap Icon */}
-          <View style={styles.circularBadge}>
+          <View style={[styles.circularBadge, { borderColor: colors.cyan, backgroundColor: colors.bgDark }]}>
             <Zap color={colors.cyan} size={28} strokeWidth={2.5} fill={colors.cyan} />
           </View>
 
@@ -81,7 +81,7 @@ export default function VictoryCard({
       {comebackBoostActive && boostHoursRemaining > 0 && (
         <Animated.Text
           entering={reducedMotion ? undefined : FadeInDown.delay(350).duration(300)}
-          style={styles.boostCallout}
+          style={[styles.boostCallout, { color: colors.warning }]}
         >
           Comeback boost active — today's XP was doubled! {boostHoursRemaining}h left.
         </Animated.Text>
@@ -144,8 +144,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 209, 255, 0.4)',
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
   },
   header: {
     flexDirection: 'row',
@@ -166,9 +164,7 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(0, 60, 80, 0.5)',
     borderWidth: 3,
-    borderColor: 'rgba(0, 190, 220, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowOffset: { width: 0, height: 0 },
@@ -181,8 +177,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 3,
-    borderColor: 'rgba(0, 200, 230, 0.9)',
-    backgroundColor: 'rgba(0, 80, 100, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -206,7 +200,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   boostCallout: {
-    color: '#FFD700',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',

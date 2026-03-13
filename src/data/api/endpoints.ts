@@ -70,6 +70,7 @@ export const ENDPOINTS = {
 
   // Adherence
   ADHERENCE_WEEKLY: '/adherence/weekly',
+  ADHERENCE_CALENDAR: (yearMonth: string) => `/adherence/calendar?year_month=${yearMonth}`,
 
   // Debug (dev-only)
   DEBUG_LOG: '/debug/log',

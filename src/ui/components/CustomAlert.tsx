@@ -26,6 +26,8 @@ interface CustomAlertProps {
   message?: string;
   messageContent?: React.ReactNode;
   type: AlertType;
+  /** Override the default icon color for this alert type */
+  iconColor?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   isConfirmation: boolean;
@@ -40,6 +42,7 @@ export default function CustomAlert({
   message,
   messageContent,
   type,
+  iconColor,
   confirmLabel,
   cancelLabel,
   isConfirmation,
@@ -90,11 +93,12 @@ export default function CustomAlert({
 
   const config = ALERT_CONFIG[type];
   const Icon = config.icon;
+  const finalColor = iconColor ?? config.color;
 
   const content = (
     <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-      <View style={[styles.iconCircle, { backgroundColor: config.bgColor }]}>
-        <Icon color={config.color} size={32} />
+      <View style={[styles.iconCircle, { backgroundColor: iconColor ? `${iconColor}25` : config.bgColor }]}>
+        <Icon color={finalColor} size={32} />
       </View>
 
       <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>

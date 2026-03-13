@@ -740,20 +740,6 @@ export const notifications = {
     return id;
   },
 
-  async scheduleRefillAlert(medication: Medication): Promise<string> {
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Low Stock Alert',
-        body: `${medication.name} has only ${medication.current_stock} doses remaining. Consider refilling soon.`,
-        data: { medicationId: medication.id, type: 'refill_alert' },
-        ...(Platform.OS === 'android' && { channelId: 'refills' }),
-      },
-      trigger: null,
-    });
-
-    return id;
-  },
-
   async cancel(notificationId: string): Promise<void> {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   },
