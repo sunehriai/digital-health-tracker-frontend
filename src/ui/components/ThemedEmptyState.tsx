@@ -1,6 +1,6 @@
 /**
  * ThemedEmptyState — Renders a theme-matched Lucide icon + tagline
- * for screens with no data (Cabinet, Alerts, Archived).
+ * for screens with no data (Cabinet, Insights, Archived).
  *
  * Emergency Vault is explicitly excluded (D7).
  */

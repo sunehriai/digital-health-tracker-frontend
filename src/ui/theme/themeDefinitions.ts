@@ -282,7 +282,7 @@ export const THEME_PALETTES: Record<ThemeId, ColorPalette> = {
     bgDark: '#130A0A',
     textPrimary: '#FFF1F2',
     textSecondary: '#B8A0A4',
-    textMuted: '#7E6368',
+    textMuted: '#8E7378',
     ...STATUS_COLORS,
     border: '#3A2226',
     borderSubtle: 'rgba(244, 114, 182, 0.08)',

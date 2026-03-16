@@ -109,12 +109,11 @@ const TIME_FORMAT_OPTIONS: SegmentOption<'12h' | '24h'>[] = [
   { label: '24h', value: '24h' },
 ];
 
-// Light/System themes not fully supported yet — locked to Dark
-// const THEME_OPTIONS: SegmentOption<'dark' | 'light' | 'system'>[] = [
-//   { label: 'Dark', value: 'dark' },
-//   { label: 'Light', value: 'light' },
-//   { label: 'System', value: 'system' },
-// ];
+const THEME_OPTIONS: SegmentOption<'dark' | 'light' | 'system'>[] = [
+  { label: 'Dark', value: 'dark' },
+  { label: 'Light', value: 'light' },
+  { label: 'System', value: 'system' },
+];
 
 export default function AppPreferencesScreen({ navigation }: RootStackScreenProps<'AppPreferences'>) {
   const { colors, themeId } = useTheme();
@@ -193,7 +192,17 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
               </View>
             </View>
 
-            {/* Theme selector hidden — light/system themes not fully supported yet */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            {/* Theme (Dark / Light / System) */}
+            <View style={styles.controlGroup}>
+              <Text style={[styles.controlLabel, { color: colors.textPrimary }]}>Theme</Text>
+              <SegmentedControl
+                options={THEME_OPTIONS}
+                selected={prefs.theme}
+                onChange={(val) => updatePref('theme', val)}
+              />
+            </View>
           </View>
         </View>
 

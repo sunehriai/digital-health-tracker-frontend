@@ -7,7 +7,7 @@ import { computeStreakFlames } from '../../domain/utils/stickerCalculator';
 import type { MonthAdherenceResponse } from '../../domain/types';
 import type { StickerType } from '../../domain/utils/stickerCalculator';
 
-const DAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const GAP = 4;
 
 interface CalendarHeatMapProps {
@@ -69,7 +69,7 @@ export default function CalendarHeatMap({
               const dayRecord = dateStr ? dayMap.get(dateStr) : undefined;
               const adherenceLevel =
                 data && dateStr && dayRecord
-                  ? computeAdherenceLevel(dayRecord.adherence_pct, dayRecord.is_on_time_perfect)
+                  ? computeAdherenceLevel(dayRecord.adherence_pct, dayRecord.is_on_time_perfect, dayRecord.is_all_taken)
                   : 'none';
               const future = dateStr ? isFutureDate(dateStr) : false;
 
@@ -101,7 +101,7 @@ export default function CalendarHeatMap({
                   style={{
                     width: cellSize,
                     height: cellSize,
-                    borderRadius: 6,
+                    borderRadius: 10,
                     backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
                   }}
                 />

@@ -103,6 +103,8 @@ export function useAuthProvider(): AuthContextType {
       try {
         // Use the profile from GET /auth/me (hits real backend even in dev mode)
         const profile = await profileService.getMe();
+        // Sync real profile fields (e.g. created_at) into dev-mode mock user
+        setUser((prev) => prev ? { ...prev, created_at: profile.created_at } : prev);
         if (profile.is_deactivated) {
           const status = await deletionService.getDeletionStatus();
           if (status?.pending) {

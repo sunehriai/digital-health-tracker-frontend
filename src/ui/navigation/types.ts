@@ -5,7 +5,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 export type TabParamList = {
   Home: undefined;
   Cabinet: undefined;
-  Alerts: undefined;
+  Insights: undefined;
   Profile: undefined;
 };
 

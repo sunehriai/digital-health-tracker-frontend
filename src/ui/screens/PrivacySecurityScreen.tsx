@@ -300,7 +300,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.granularityOptionText, { color: colors.textPrimary }]}>All screens</Text>
-                <Text style={[styles.granularityOptionSub, { color: colors.textMuted }]}>Includes Home, Cabinet, Alerts, and more (11 screens)</Text>
+                <Text style={[styles.granularityOptionSub, { color: colors.textMuted }]}>Includes Home, Cabinet, Insights, and more (11 screens)</Text>
               </View>
             </TouchableOpacity>
           </View>

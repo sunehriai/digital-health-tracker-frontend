@@ -465,6 +465,7 @@ export interface DayAdherenceRecord {
   date: string;            // "2026-03-15"
   adherence_pct: number | null;  // null = no doses scheduled or future
   is_on_time_perfect: boolean;
+  is_all_taken: boolean;   // true if all doses taken (on-time or late), no missed
   taken_count: number;
   taken_late_count: number;
   missed_count: number;
@@ -477,6 +478,7 @@ export interface MonthSummary {
   imperfect_days: number;
   missed_days: number;
   total_scheduled_days: number;
+  has_tracking_data: boolean;
   best_streak_days: number;
   best_streak_start: string | null;
   best_streak_end: string | null;
@@ -484,10 +486,105 @@ export interface MonthSummary {
   prev_month_adherence_pct: number | null;
   xp_start: number | null;
   xp_end: number | null;
+  prev_month_xp_delta: number | null;
 }
 
 export interface MonthAdherenceResponse {
   year_month: string;
   days: DayAdherenceRecord[];
   month_summary: MonthSummary;
+}
+
+export interface QuickStatsResponse {
+  rolling_adherence_pct: number | null;
+  best_streak_days: number;
+  perfect_months: number;
+  total_months_this_year: number;
+  milestone_label: string | null;
+  milestone_progress: number;
+  milestone_target: number | null;
+  milestone_xp_reward: number | null;
+}
+
+// -- Weekly Milestones & Monthly Stats (Tier 4) ----------------------------
+
+export interface WeeklyMilestone {
+  weekNumber: number;
+  label: string;
+  milestoneName: string;
+  iconName: string;
+  unlocked: boolean;
+  daysInWeek: number;
+  perfectDaysInWeek: number;
+  scheduledDaysInWeek: number;
+}
+
+export interface MonthlyStatsData {
+  perfectDays: number;
+  totalScheduledDays: number;
+  bestStreakDays: number;
+  adherencePct: number;
+  motivationalMessage: string;
+}
+
+// -- Insight Trends Types (Tier 4) -----------------------------------------
+
+export interface DayOfWeekEntry {
+  day: string;       // "Sunday", "Monday", etc.
+  day_index: number; // 0=Sun, 6=Sat
+  date: string;      // "YYYY-MM-DD"
+  adherence_pct: number;
+  total: number;
+  taken: number;
+  taken_late: number;
+  missed: number;
+}
+
+export interface TimeOfDayStats {
+  total: number;
+  on_time: number;
+  percentage: number;
+}
+
+export interface TimeOfDayData {
+  morning: TimeOfDayStats | null;
+  afternoon: TimeOfDayStats | null;
+  evening: TimeOfDayStats | null;
+  night: TimeOfDayStats | null;
+}
+
+export interface YearlyTrendEntry {
+  month: string;          // "YYYY-MM"
+  adherence_pct: number;
+  is_perfect_month: boolean;
+}
+
+export interface NeedsAttentionEntry {
+  medication_id: string;
+  medication_name: string;
+  adherence_pct: number;
+  trend: 'improving' | 'declining' | 'stable';
+}
+
+export interface StreakEntry {
+  month: string;
+  best_streak: number;
+}
+
+export interface YearlyTrendResponse {
+  year: number;
+  entries: YearlyTrendEntry[] | null;
+  min_year: number;
+  max_year: number;
+}
+
+export interface InsightTrendsResponse {
+  tier_unlocked: boolean;
+  day_of_week: DayOfWeekEntry[];
+  time_of_day: TimeOfDayData | null;
+  yearly_trend: YearlyTrendEntry[] | null;
+  yearly_trend_year: number | null;
+  needs_attention: NeedsAttentionEntry[] | null;
+  needs_attention_overflow: number;
+  streak_trajectory: StreakEntry[] | null;
 }

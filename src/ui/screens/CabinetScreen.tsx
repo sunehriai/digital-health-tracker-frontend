@@ -26,6 +26,7 @@ import type { Medication } from '../../domain/types';
 import type { RootStackParamList } from '../navigation/types';
 import { formatTime, getNextDoseInfoString, formatOccurrence } from '../../domain/utils';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import AnimatedPressable from '../components/AnimatedPressable';
 import ThemedEmptyState from '../components/ThemedEmptyState';
 import {
   INVENTORY_CONFIG,
@@ -64,7 +65,7 @@ function PulsingCard({ children, isLowStock, borderSubtle }: { children: React.R
   const animatedStyle = useAnimatedStyle(() => ({
     borderColor: isLowStock ? `rgba(251, 146, 60, ${pulseOpacity.value})` : borderSubtle,
     shadowColor: isLowStock ? '#FB923C' : 'transparent',
-    shadowOpacity: isLowStock ? pulseOpacity.value * 0.5 : 0,
+    shadowOpacity: isLowStock ? pulseOpacity.value * 0.35 : 0,
     shadowRadius: isLowStock ? 8 : 0,
     shadowOffset: { width: 0, height: 0 },
   }));
@@ -105,6 +106,14 @@ export default function CabinetScreen() {
   const [refillAmount, setRefillAmount] = useState('');
   const [refillLoading, setRefillLoading] = useState(false);
   const [selectedMedForRefill, setSelectedMedForRefill] = useState<Medication | null>(null);
+
+  // Low stock banner: active, non-paused, non-PRN medications with <= 7 doses
+  // Threshold is 7 absolute doses, not 7 days. Multi-dose-per-day medications will trigger sooner in calendar time.
+  const lowStockMeds = useMemo(() => {
+    return activeMedications
+      .filter(m => !m.is_paused && !m.is_as_needed && m.current_stock <= 7)
+      .sort((a, b) => a.current_stock - b.current_stock);
+  }, [activeMedications]);
 
   // Filter medications based on search and filter
   const filteredActiveMedications = useMemo(() => {
@@ -483,15 +492,16 @@ export default function CabinetScreen() {
     const isVeryLowStock = med.current_stock <= STOCK_THRESHOLDS.critical; // For pulsing animation
     const rawAccent = getStockAccentColor(stockPct);
     // Use theme cyan for normal stock, keep clinical red/orange for low/critical
-    const accentColor = stockPct > STOCK_THRESHOLDS.lowPercent ? colors.chartAccent : rawAccent;
+    const accentColor = stockPct > STOCK_THRESHOLDS.lowPercent ? colors.cyan : rawAccent;
     const isSelected = selectedIds.has(med.id);
 
     const cardContent = (
-      <TouchableOpacity
+      <AnimatedPressable
         style={[
           styles.medCard,
           { backgroundColor: colors.bgSubtle, borderColor: colors.cyanDim },
           med.is_paused && [styles.medCardPaused, { borderColor: colors.borderSubtle }],
+          med.is_critical && !med.is_paused && { borderColor: '#FB7185', borderWidth: 3 },
           isSelectMode && isSelected && { borderColor: colors.cyan, backgroundColor: colors.cyanDim },
         ]}
         onPress={() => handleMedicationPress(med)}
@@ -503,6 +513,7 @@ export default function CabinetScreen() {
         }}
         activeOpacity={0.7}
         delayLongPress={400}
+        hapticOnPress={false}
       >
         {/* Header row with icon and name */}
         <View style={styles.medHeaderRow}>
@@ -518,7 +529,11 @@ export default function CabinetScreen() {
               )}
             </TouchableOpacity>
           )}
-          <View style={[styles.medIcon, { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow }]}>
+          <View style={[
+            styles.medIcon,
+            { backgroundColor: colors.cyanDim, borderColor: colors.cyanGlow },
+            !med.is_paused && { shadowColor: colors.cyan, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+          ]}>
             <Pill color={med.is_paused ? colors.textMuted : colors.cyan} size={24} strokeWidth={3} />
           </View>
           <View style={styles.medNameSection}>
@@ -582,7 +597,7 @@ export default function CabinetScreen() {
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
 
     return (
@@ -640,6 +655,21 @@ export default function CabinetScreen() {
             )}
           </View>
 
+        {/* Low Stock Banner */}
+        {lowStockMeds.length > 0 && !isSelectMode && (
+          <TouchableOpacity
+            style={[styles.lowStockBanner, { backgroundColor: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}
+            onPress={() => navigation.navigate('MedicationDetails', { medicationId: lowStockMeds[0].id })}
+            activeOpacity={0.7}
+          >
+            <AlertTriangle size={16} color={colors.warning} strokeWidth={2.5} />
+            <Text style={[styles.lowStockText, { color: colors.warning }]} numberOfLines={1}>
+              Low Stock: {lowStockMeds[0].name} — {lowStockMeds[0].current_stock} doses left
+              {lowStockMeds.length > 1 ? ` +${lowStockMeds.length - 1} more` : ''}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInputWrapper, { backgroundColor: colors.bgInput }]}>
@@ -669,7 +699,7 @@ export default function CabinetScreen() {
               { key: 'paused', label: 'Paused' },
               { key: 'low', label: 'Low Stock' },
             ] as const).map((filter) => (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={filter.key}
                 style={[
                   styles.filterChip,
@@ -677,6 +707,7 @@ export default function CabinetScreen() {
                   activeFilter === filter.key && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                 ]}
                 onPress={() => setActiveFilter(filter.key)}
+                hapticOnPress={false}
               >
                 <Text style={[
                   styles.filterChipText,
@@ -685,7 +716,7 @@ export default function CabinetScreen() {
                 ]}>
                   {filter.label}
                 </Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </View>
         )}
@@ -835,6 +866,7 @@ const styles = StyleSheet.create({
   // Archive icon button
   archiveIconBtn: {
     padding: 8,
+    opacity: 0.4,
   },
 
   // Select mode header
@@ -851,6 +883,23 @@ const styles = StyleSheet.create({
 
   // Checkbox
   checkboxContainer: { marginRight: 8 },
+
+  // Low stock banner
+  lowStockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  lowStockText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
 
   // Search
   searchContainer: { marginBottom: 16 },
@@ -886,6 +935,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+    minHeight: 48,
+    justifyContent: 'center' as const,
   },
   filterChipActive: {},
   filterChipText: {

@@ -1,25 +1,28 @@
-export type AdherenceLevel = 'perfect' | 'partial' | 'missed' | 'none';
+export type AdherenceLevel = 'perfect' | 'delayed' | 'partial' | 'missed' | 'none';
 
 /**
- * Maps adherence percentage + on-time-perfect flag to a 3-state display level.
- * 'perfect' = all doses taken on time (solid cyan block).
- * 'partial' = some taken, some missed/late (amber half-fill block).
- * 'missed'  = 0% adherence (gray outline block).
- * 'none'    = no doses scheduled or future day.
+ * Maps adherence data to a 4-state display level.
+ * 'perfect'  = all doses taken on time (solid cyan block).
+ * 'delayed'  = all doses taken but some late (solid orange block).
+ * 'partial'  = some taken, some missed (lighter teal block with border).
+ * 'missed'   = 0% adherence (gray outline block).
+ * 'none'     = no doses scheduled or future day.
  */
 export function computeAdherenceLevel(
   pct: number | null,
   isOnTimePerfect: boolean,
+  isAllTaken: boolean = false,
 ): AdherenceLevel {
   if (pct === null || pct === undefined) return 'none';
   if (isOnTimePerfect && pct === 100) return 'perfect';
-  if (pct > 0) return 'partial';
+  if (isAllTaken) return 'delayed'; // all taken, some late
+  if (pct > 0) return 'partial';    // some taken, some missed
   return 'missed'; // pct === 0
 }
 
 /**
  * Builds a month grid for calendar display.
- * Returns 5 or 6 week rows, each a 7-element array (Mon=0 ... Sun=6).
+ * Returns 5 or 6 week rows, each a 7-element array (Sun=0 ... Sat=6).
  * Each cell is an ISO date string ("2026-03-05") or null for padding.
  */
 export function buildMonthGrid(yearMonth: string): (string | null)[][] {
@@ -28,9 +31,8 @@ export function buildMonthGrid(yearMonth: string): (string | null)[][] {
   const month = parseInt(monthStr, 10); // 1-based
 
   const daysInMonth = new Date(year, month, 0).getDate();
-  // JS getDay(): 0=Sun, 1=Mon ... 6=Sat
-  // We want Mon=0 ... Sun=6
-  const firstDayOfWeek = (new Date(year, month - 1, 1).getDay() + 6) % 7; // Mon=0
+  // JS getDay(): 0=Sun, 1=Mon ... 6=Sat — Sunday-start grid, no offset needed
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // Sun=0
 
   const grid: (string | null)[][] = [];
   let currentRow: (string | null)[] = [];

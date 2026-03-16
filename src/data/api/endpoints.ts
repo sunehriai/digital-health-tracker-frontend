@@ -71,6 +71,11 @@ export const ENDPOINTS = {
   // Adherence
   ADHERENCE_WEEKLY: '/adherence/weekly',
   ADHERENCE_CALENDAR: (yearMonth: string) => `/adherence/calendar?year_month=${yearMonth}`,
+  ADHERENCE_QUICK_STATS: '/adherence/quick-stats',
+
+  // Insight Trends
+  INSIGHT_TRENDS: '/insights/trends',
+  INSIGHT_YEARLY_TREND: '/insights/yearly-trend',
 
   // Debug (dev-only)
   DEBUG_LOG: '/debug/log',

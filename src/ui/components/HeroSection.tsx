@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import AnimatedPressable from './AnimatedPressable';
 import { Clock, CheckCircle2, Plus, Utensils, ChevronDown, ChevronUp, AlertCircle, AlertTriangle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -247,11 +248,11 @@ export default function HeroSection({
           </View>
         ) : (
           <View style={{ position: 'relative' }}>
-            <TouchableOpacity style={[styles.takeButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} onPress={handleTakeNow} activeOpacity={0.8}>
+            <AnimatedPressable style={[styles.takeButton, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]} onPress={handleTakeNow} activeOpacity={0.8}>
               <Text style={[styles.takeButtonText, { color: colors.bg }]}>
                 {isMultipleMeds ? `TAKE ALL ${medCount}` : 'TAKE NOW'}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
             <GlowRing
               streakDays={streakDays}
               color={colors.cyanGlow}

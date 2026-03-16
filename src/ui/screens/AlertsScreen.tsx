@@ -1,3 +1,5 @@
+// DEPRECATED: Removed from TabNavigator in Tier 4 implementation (Step 3).
+// Retained for git history only. Do not re-add to navigation.
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

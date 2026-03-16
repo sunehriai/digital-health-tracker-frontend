@@ -57,7 +57,7 @@ export default function WaiverPrompt({
           </Text>
 
           <View style={styles.badgeCountRow}>
-            <Shield color="#FFD700" size={16} strokeWidth={2} />
+            <Shield color="#FF6B35" size={16} strokeWidth={2} />
             <Text style={styles.badgeCountText}>
               {waiverBadges} badge{waiverBadges !== 1 ? 's' : ''} remaining
             </Text>
@@ -75,7 +75,7 @@ export default function WaiverPrompt({
               onPress={handleUseBadge} activeOpacity={0.8} disabled={activating}
             >
               {activating ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <Text style={styles.useText}>Use Badge</Text>
               )}
@@ -91,22 +91,22 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   card: {
     borderRadius: 24, padding: 28, alignItems: 'center',
-    width: '100%', maxWidth: 360, borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.2)',
+    width: '100%', maxWidth: 360, borderWidth: 1, borderColor: 'rgba(255, 107, 53, 0.2)',
   },
   iconContainer: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255, 107, 53, 0.1)',
     justifyContent: 'center', alignItems: 'center', marginBottom: 20,
   },
   badgeImage: { width: 56, height: 56 },
   title: { fontSize: 20, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
   subtitle: { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 16 },
-  streakHighlight: { color: '#F59E0B', fontWeight: '700' },
+  streakHighlight: { color: '#FF6B35', fontWeight: '700' },
   badgeCountRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255, 215, 0, 0.08)', paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.08)', paddingHorizontal: 12,
     paddingVertical: 6, borderRadius: 12, marginBottom: 20,
   },
-  badgeCountText: { color: '#FFD700', fontSize: 13, fontWeight: '600' },
+  badgeCountText: { color: '#FF6B35', fontSize: 13, fontWeight: '600' },
   errorText: { fontSize: 12, marginBottom: 12, textAlign: 'center' },
   buttonRow: { flexDirection: 'row', gap: 12, width: '100%' },
   dismissBtn: {
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dismissText: { fontSize: 14, fontWeight: '600' },
-  useBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#FFD700', alignItems: 'center' },
+  useBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: '#00BCD4', alignItems: 'center' },
   useBtnDisabled: { opacity: 0.6 },
   useText: { color: '#000', fontSize: 14, fontWeight: '700' },
 });

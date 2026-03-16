@@ -7,6 +7,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing as REasing,
+} from 'react-native-reanimated';
+import { useAppPreferences } from '../hooks/useAppPreferences';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,7 +31,6 @@ import type {
 
 // --- Constants ---
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const BAR_MAX_HEIGHT = 100;
 const BAR_WIDTH = 28;
 const BAR_MIN_HEIGHT = 6; // visible minimum for 0% days with scheduled doses
@@ -69,6 +77,44 @@ function getBarGradient(
 
 // --- Sub-components ---
 
+function TodayPulseWrapper({ children, isToday, pulseColor }: { children: React.ReactNode; isToday: boolean; pulseColor: string }) {
+  const { prefs } = useAppPreferences();
+  const pulseOpacity = useSharedValue(0.3);
+  const pulseRadius = useSharedValue(6);
+
+  useEffect(() => {
+    if (isToday && !prefs.reducedMotion) {
+      pulseOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.8, { duration: 1500, easing: REasing.inOut(REasing.ease) }),
+          withTiming(0.3, { duration: 1500, easing: REasing.inOut(REasing.ease) })
+        ),
+        -1,
+        true
+      );
+      pulseRadius.value = withRepeat(
+        withSequence(
+          withTiming(14, { duration: 1500, easing: REasing.inOut(REasing.ease) }),
+          withTiming(6, { duration: 1500, easing: REasing.inOut(REasing.ease) })
+        ),
+        -1,
+        true
+      );
+    }
+  }, [isToday, prefs.reducedMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    shadowColor: pulseColor,
+    shadowOpacity: isToday ? pulseOpacity.value : 0,
+    shadowRadius: isToday ? pulseRadius.value : 0,
+    shadowOffset: { width: 0, height: 0 },
+  }));
+
+  if (!isToday) return <>{children}</>;
+
+  return <ReAnimated.View style={animatedStyle}>{children}</ReAnimated.View>;
+}
+
 function DayBar({
   day,
   isToday,
@@ -103,62 +149,66 @@ function DayBar({
 
   return (
     <View style={styles.barColumnContainer}>
-      <View style={styles.barTrack}>
-        <Animated.View
-          style={[
-            styles.bar,
-            {
-              height: heightAnim,
-              overflow: 'hidden',
-              // Glow effect on bars with doses
-              ...(hasDoses && {
-                shadowColor: colors.cyan,
-                shadowOpacity: 0.3,
-                shadowRadius: 6,
-                shadowOffset: { width: 0, height: 0 },
-                elevation: 4,
-              }),
-              ...(isToday && hasDoses && {
-                shadowColor: colors.chartAccent,
-                shadowOpacity: 0.6,
-                shadowRadius: 10,
-                elevation: 6,
-              }),
-              ...(isToday && { borderWidth: 1.5, borderColor: `${colors.chartAccent}99` }),
-            },
-          ]}
-        >
-          {/* Gradient fill */}
-          <LinearGradient
-            colors={[gradientTop, gradientBottom]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-          {/* Glass highlight strip on left edge */}
-          {hasDoses && (
-            <View
-              style={{
-                position: 'absolute',
-                left: 2,
-                top: 4,
-                bottom: 4,
-                width: 3,
-                borderRadius: 2,
-                backgroundColor: 'rgba(255,255,255,0.25)',
-              }}
+      <TodayPulseWrapper isToday={isToday && hasDoses} pulseColor={colors.chartAccent}>
+        <View style={styles.barTrack}>
+          <Animated.View
+            style={[
+              styles.bar,
+              {
+                height: heightAnim,
+                overflow: 'hidden',
+                // Glow effect on bars with doses
+                ...(hasDoses && {
+                  shadowColor: colors.cyan,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 0 },
+                  elevation: 4,
+                }),
+                ...(isToday && hasDoses && {
+                  shadowColor: colors.chartAccent,
+                  shadowOpacity: 0.6,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }),
+                ...(isToday && { borderWidth: 1.5, borderColor: `${colors.chartAccent}99` }),
+              },
+            ]}
+          >
+            {/* Gradient fill */}
+            <LinearGradient
+              colors={[gradientTop, gradientBottom]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
             />
-          )}
-        </Animated.View>
-      </View>
+            {/* Glass highlight strip on left edge */}
+            {hasDoses && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 2,
+                  top: 4,
+                  bottom: 4,
+                  width: 3,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                }}
+              />
+            )}
+          </Animated.View>
+        </View>
+      </TodayPulseWrapper>
       <Text
         style={[
           styles.dayLabel,
-          { color: colors.textMuted },
+          { color: colors.textSecondary },
           isToday && { color: colors.chartAccent, fontWeight: '700' },
         ]}
       >
-        {DAY_LABELS[index]}
+        {day.date
+          ? `${new Date(day.date + 'T12:00:00').getMonth() + 1}/${new Date(day.date + 'T12:00:00').getDate()}`
+          : ''}
       </Text>
     </View>
   );
@@ -283,10 +333,15 @@ export default function AdherenceCard({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [waiverJustUsed]);
 
-  // Determine today's ISO date for highlighting
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Hide the entire card when there's no data (new account, no medications added yet)
+  const hasAnyData = weekData?.days?.some((d) => d.total_scheduled > 0) ?? false;
+  if (!loading && !hasAnyData) return null;
+
+  // Determine today's local date for highlighting (matches backend's timezone-aware date)
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   // Trend arrow
   let trendText = '–';
@@ -350,7 +405,7 @@ export default function AdherenceCard({
         <View style={styles.headerLeft}>
           <Activity size={16} color={colors.chartAccent} />
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            THIS WEEK
+            LAST 7 DAYS
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -578,7 +633,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewMonthLink: {
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
     marginTop: 8,
   },
   viewMonthText: {

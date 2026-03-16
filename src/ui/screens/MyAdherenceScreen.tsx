@@ -12,12 +12,18 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronLeft, ChevronRight, ArrowLeft, WifiOff } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
 import { useGamification } from '../hooks/useGamification';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
+import { computeAdherencePct, getDaysInMonth } from '../../domain/utils/adherenceUtils';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
+import RitualTree from '../components/RitualTree';
 import CalendarHeatMap from '../components/CalendarHeatMap';
 import DayDetailModal from '../components/DayDetailModal';
-import MonumentBanner from '../components/MonumentBanner';
+import XpGrowthCard from '../components/XpGrowthCard';
+import CalendarLegend from '../components/CalendarLegend';
+import WeeklyMilestones from '../components/WeeklyMilestones';
+import MonthlyStatsCard from '../components/MonthlyStatsCard';
 import { adherenceCalendarService } from '../../data/services/adherenceCalendarService';
 import { offlineCache } from '../../data/utils/offlineCache';
 import { computeStickers } from '../../domain/utils/stickerCalculator';
@@ -34,7 +40,15 @@ import type { RootStackParamList } from '../navigation/types';
 export default function MyAdherenceScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { profile } = useAuth();
   const { currentTier, totalXp, loading: gamLoading } = useGamification();
+
+  // Earliest navigable month = account creation month
+  const accountStartMonth = useMemo(() => {
+    if (!profile?.created_at) return null;
+    const d = new Date(profile.created_at);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, [profile?.created_at]);
 
   // Month navigation state
   const [selectedYearMonth, setSelectedYearMonth] = useState(currentYearMonth());
@@ -61,12 +75,14 @@ export default function MyAdherenceScreen() {
         setCalendarData(cached);
         setDataLoading(false);
       } else if (!cancelled) {
+        setCalendarData(null);
         setDataLoading(true);
       }
 
       // 2. Always fetch fresh data
       try {
         const fresh = await adherenceCalendarService.getCalendar(selectedYearMonth);
+        console.log('[Adherence] month=', selectedYearMonth, 'summary=', JSON.stringify(fresh.month_summary), 'days_count=', fresh.days.length);
         if (!cancelled) {
           setCalendarData(fresh);
           offlineCache.set(`adherence_calendar_${selectedYearMonth}`, fresh);
@@ -112,8 +128,11 @@ export default function MyAdherenceScreen() {
   // Month navigation
   const isCurrentMonth = selectedYearMonth === currentYearMonth();
   const canGoForward = !isCurrentMonth;
+  const canGoBack = !accountStartMonth || selectedYearMonth > accountStartMonth;
 
-  const goBack = () => setSelectedYearMonth(prevYearMonth(selectedYearMonth));
+  const goBack = () => {
+    if (canGoBack) setSelectedYearMonth(prevYearMonth(selectedYearMonth));
+  };
   const goForward = () => {
     if (canGoForward) setSelectedYearMonth(nextYearMonth(selectedYearMonth));
   };
@@ -166,25 +185,63 @@ export default function MyAdherenceScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Month navigation */}
+        {/* Month navigation — centered cluster to avoid confusion with back arrow */}
         <View style={styles.monthNav}>
-          <TouchableOpacity onPress={goBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <ChevronLeft size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.monthLabel, { color: colors.textPrimary }]}>
-            {formatMonthLabel(selectedYearMonth)}
-          </Text>
-          <TouchableOpacity
-            onPress={goForward}
-            disabled={!canGoForward}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <ChevronRight
-              size={24}
-              color={canGoForward ? colors.textPrimary : colors.textMuted}
-            />
-          </TouchableOpacity>
+          <View style={styles.monthNavCluster}>
+            <TouchableOpacity
+              onPress={goBack}
+              disabled={!canGoBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ChevronLeft
+                size={24}
+                color={canGoBack ? colors.textPrimary : colors.textMuted}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.monthLabel, { color: colors.textPrimary }]}>
+              {formatMonthLabel(selectedYearMonth)}
+            </Text>
+            <TouchableOpacity
+              onPress={goForward}
+              disabled={!canGoForward}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ChevronRight
+                size={24}
+                color={canGoForward ? colors.textPrimary : colors.textMuted}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Ritual Tree — Tier 4+ only, hidden while data loads (no bare flash).
+            Reads from live calendarData.month_summary (AdherenceCalendarService).
+            MonthlyScoreCard reads from monthly_adherence (cron-written).
+            These may diverge for the current month by up to 1 day — this is expected. */}
+        {isFeatureUnlocked('ritual_tree', currentTier) && calendarData !== null && (calendarData.month_summary.has_tracking_data ?? calendarData.month_summary.total_scheduled_days > 0) && (
+          <RitualTree
+            key={selectedYearMonth}
+            adherencePct={computeAdherencePct(
+              calendarData.month_summary.perfect_days,
+              calendarData.month_summary.imperfect_days,
+              calendarData.month_summary.missed_days,
+              getDaysInMonth(selectedYearMonth),
+            )}
+            delayedDays={calendarData.month_summary.imperfect_days}
+            missedDays={calendarData.month_summary.missed_days}
+          />
+        )}
+
+        {/* XP Growth Card — above calendar */}
+        {calendarData && (
+          <XpGrowthCard
+            xpStart={calendarData.month_summary.xp_start}
+            xpEnd={calendarData.month_summary.xp_end}
+            prevMonthXpDelta={calendarData.month_summary.prev_month_xp_delta ?? null}
+            currentTier={currentTier}
+            totalXp={totalXp}
+          />
+        )}
 
         {/* Loading state */}
         {dataLoading && !calendarData && (
@@ -212,8 +269,29 @@ export default function MyAdherenceScreen() {
           />
         )}
 
-        {/* Monument banner: progress + XP journey */}
-        <MonumentBanner summary={calendarData?.month_summary ?? null} />
+        {/* Calendar legend */}
+        <CalendarLegend />
+
+        {/* Weekly Milestones & Monthly Stats — Tier 4+ only */}
+        {isFeatureUnlocked('ritual_tree', currentTier) && calendarData && (
+          <>
+            <WeeklyMilestones
+              days={calendarData.days}
+              yearMonth={selectedYearMonth}
+            />
+            <MonthlyStatsCard
+              monthSummary={calendarData.month_summary}
+            />
+          </>
+        )}
+
+        {/* No doses scheduled message */}
+        {calendarData && calendarData.month_summary.total_scheduled_days === 0 && (
+          <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13, marginTop: 12 }}>
+            No doses scheduled
+          </Text>
+        )}
+
       </ScrollView>
 
       {/* Day detail modal */}
@@ -264,12 +342,19 @@ const styles = StyleSheet.create({
   monthNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 16,
+  },
+  monthNavCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   monthLabel: {
     fontSize: 16,
     fontWeight: '600',
+    minWidth: 120,
+    textAlign: 'center',
   },
   loadingContainer: {
     height: 200,

@@ -83,12 +83,6 @@ export function useAppPreferencesProvider(): AppPreferencesContextType {
           }
         }
 
-        // Force dark theme — light theme is not fully supported yet
-        if (loaded.theme && loaded.theme !== 'dark') {
-          loaded.theme = 'dark';
-          AsyncStorage.setItem(KEYS.theme, 'dark').catch(() => {});
-        }
-
         const merged = { ...DEFAULTS, ...loaded };
 
         if (mountedRef.current) {

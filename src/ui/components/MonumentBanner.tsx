@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Trophy, TrendingUp } from 'lucide-react-native';
+import { Trophy } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { MonthSummary } from '../../domain/types';
 
@@ -21,16 +21,24 @@ export default function MonumentBanner({ summary }: MonumentBannerProps) {
     );
   }
 
-  const { perfect_days, xp_start, xp_end } = summary;
+  const { perfect_days, total_scheduled_days } = summary;
+
+  // No medications were scheduled this month
+  if (total_scheduled_days === 0) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+        <Text style={[styles.progressLabel, { color: colors.textMuted, textAlign: 'center' }]}>
+          No doses scheduled
+        </Text>
+      </View>
+    );
+  }
+
   const goalMet = perfect_days >= MONUMENT_THRESHOLD_DAYS;
   const progressPct = Math.min(1, perfect_days / MONUMENT_THRESHOLD_DAYS);
 
-  const hasXpData = xp_start != null && xp_end != null;
-  const xpDelta = hasXpData ? xp_end! - xp_start! : 0;
-
   return (
     <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-      {/* Monument progress */}
       {goalMet ? (
         <View style={styles.goalRow}>
           <Trophy size={20} color="#F59E0B" fill="#F59E0B" />
@@ -55,23 +63,6 @@ export default function MonumentBanner({ summary }: MonumentBannerProps) {
           </View>
         </View>
       )}
-
-      {/* XP journey */}
-      <View style={styles.xpRow}>
-        <TrendingUp size={14} color={colors.textMuted} />
-        {hasXpData ? (
-          <Text style={[styles.xpText, { color: colors.textSecondary }]}>
-            {xp_start!.toLocaleString()} XP → {xp_end!.toLocaleString()} XP{' '}
-            <Text style={{ color: xpDelta > 0 ? colors.cyan : colors.textMuted }}>
-              (+{xpDelta.toLocaleString()} this month)
-            </Text>
-          </Text>
-        ) : (
-          <Text style={[styles.xpText, { color: colors.textMuted }]}>
-            XP data not available for this month
-          </Text>
-        )}
-      </View>
     </View>
   );
 }
@@ -113,15 +104,5 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 2,
-  },
-  xpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  xpText: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
   },
 });

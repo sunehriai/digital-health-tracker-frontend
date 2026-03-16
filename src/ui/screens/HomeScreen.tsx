@@ -51,6 +51,7 @@ import { apiClient } from '../../data/api/client';
 import { ENDPOINTS } from '../../data/api/endpoints';
 import ScreenshotToast from '../components/ScreenshotToast';
 import DoseToast from '../components/DoseToast';
+import AnimatedPressable from '../components/AnimatedPressable';
 import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
 import { logEndOfDay } from '../../data/utils/notificationDebugLog';
 
@@ -1021,13 +1022,13 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <TouchableOpacity
+      <AnimatedPressable
         style={[styles.fab, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate('AddMedication')}
       >
         <Plus color={colors.bg} size={24} strokeWidth={2.5} />
-      </TouchableOpacity>
+      </AnimatedPressable>
 
       {/* Step 36: Tier Celebration overlay */}
       <TierCelebration
@@ -1072,12 +1073,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '700' },
   date: { ...typography.bodySmall, marginTop: 2 },
   tierBadgeBtn: { alignItems: 'center', gap: 4 },
-  tierBadgeImg: { width: 80, height: 80 },
+  tierBadgeImg: { width: 68, height: 68 },
   gamificationHeaderWrap: { position: 'relative', marginBottom: 16 },
   grid: { gap: 16 },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 12,
     right: 20,
     width: 56,
     height: 56,

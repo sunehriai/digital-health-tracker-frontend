@@ -20,7 +20,7 @@ export const SCREEN_SECURITY_REGISTRY: Record<string, SecurityLevel> = {
   // Medium — contains health-related summaries
   Home: 'medium',
   Cabinet: 'medium',
-  Alerts: 'medium',
+  Insights: 'medium',
   RitualPreview: 'medium',
 } as const;
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Zap, Shield, Dumbbell, Star } from 'lucide-react-native';
+import { Zap, Shield, Dumbbell, Star, Clock } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { AdherenceLevel } from '../../domain/utils/calendarUtils';
 import type { StickerType } from '../../domain/utils/stickerCalculator';
@@ -31,6 +31,9 @@ const STICKER_COLORS: Record<StickerType, string> = {
   perfect_week: '#F97316',
 };
 
+const DELAYED_COLOR = '#F59E0B';
+const MISSED_BORDER = '#F87171'; // light red
+
 export default function DayCell({
   dateStr,
   adherenceLevel,
@@ -53,10 +56,28 @@ export default function DayCell({
   const StickerIcon = sticker ? STICKER_ICONS[sticker] : null;
   const stickerColor = sticker ? STICKER_COLORS[sticker] : undefined;
 
-  // 3-state background rendering
+  // 4-state background rendering
   const isPerfect = adherenceLevel === 'perfect';
+  const isDelayed = adherenceLevel === 'delayed';
   const isPartial = adherenceLevel === 'partial';
   const isMissed = adherenceLevel === 'missed';
+
+  // Determine background color
+  // Perfect = solid cyan, Delayed = solid orange, Partial = dimmed cyan, Missed = transparent
+  let bgColor = 'transparent';
+  if (isPerfect) bgColor = colors.cyan;
+  else if (isDelayed) bgColor = DELAYED_COLOR;
+  else if (isPartial) bgColor = colors.cyanDim;
+
+  // Determine text color
+  let textColor = colors.textMuted;
+  if (isPerfect || isDelayed) textColor = colors.bg;
+  else if (isPartial) textColor = colors.textPrimary;
+  else if (isMissed) textColor = colors.textSecondary;
+  else if (!isBlank) textColor = colors.textSecondary;
+
+  // Half-circle icon size for partial days
+  const halfCircleSize = Math.round(size * 0.28);
 
   return (
     <TouchableOpacity
@@ -68,16 +89,24 @@ export default function DayCell({
         {
           width: size,
           height: size,
-          borderRadius: 6,
-          backgroundColor: isBlank
-            ? 'transparent'
-            : isPerfect
-              ? colors.chartAccent
-              : 'transparent',
+          borderRadius: 10,
+          backgroundColor: bgColor,
+        },
+        isPartial && {
+          borderWidth: 1,
+          borderColor: colors.cyan,
         },
         isMissed && {
           borderWidth: 1,
-          borderColor: colors.error,
+          borderColor: MISSED_BORDER,
+        },
+        isBlank && !isFuture && adherenceLevel === 'none' && {
+          // No border for truly blank days
+        },
+        isFuture && {
+          borderWidth: 1,
+          borderColor: colors.textMuted,
+          opacity: 0.4,
         },
         isToday && {
           borderWidth: 1.5,
@@ -85,46 +114,67 @@ export default function DayCell({
         },
       ]}
     >
-      {/* Partial: bottom-half amber fill */}
-      {isPartial && (
-        <View
-          style={[
-            styles.partialFill,
-            { backgroundColor: colors.warning, borderBottomLeftRadius: 6, borderBottomRightRadius: 6 },
-          ]}
-        />
-      )}
-
       {/* Inner highlight strip for perfect days */}
       {isPerfect && (
-        <View style={styles.innerHighlight} />
+        <View style={[styles.innerHighlight, { borderRadius: 1 }]} />
       )}
 
       <Text
         style={[
           styles.dayText,
           {
-            color: isBlank
-              ? colors.textMuted
-              : isPerfect
-                ? colors.bg
-                : colors.textSecondary,
+            color: textColor,
             fontSize: size > 36 ? 11 : 9,
           },
-          isPerfect && { fontWeight: '700' },
+          (isPerfect || isDelayed) && { fontWeight: '700' },
         ]}
       >
         {dayNumber}
       </Text>
 
-      {/* Streak indicator removed — color alone communicates adherence state */}
+      {/* Today clock icon (top-right) */}
+      {isToday && (
+        <Clock
+          size={10}
+          color={colors.cyan}
+          style={styles.topRight}
+        />
+      )}
+
+      {/* Half-circle icon for partial days (bottom-right) */}
+      {isPartial && !StickerIcon && (
+        <View
+          style={[
+            styles.bottomRight,
+            {
+              width: halfCircleSize,
+              height: halfCircleSize,
+              borderRadius: halfCircleSize / 2,
+              backgroundColor: colors.textPrimary,
+              overflow: 'hidden',
+            },
+          ]}
+        >
+          {/* Right half is transparent to create half-black circle */}
+          <View
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              width: halfCircleSize / 2,
+              height: halfCircleSize,
+              backgroundColor: colors.cyanDim,
+            }}
+          />
+        </View>
+      )}
 
       {/* Sticker (bottom-right) */}
       {StickerIcon && !isBlank && (
         <StickerIcon
           size={12}
           color={stickerColor}
-          style={styles.sticker}
+          style={styles.bottomRight}
         />
       )}
     </TouchableOpacity>
@@ -138,27 +188,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  partialFill: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-  },
   innerHighlight: {
     position: 'absolute',
     top: 2,
     left: 2,
     right: 2,
     height: 2,
-    borderRadius: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   dayText: {
     fontWeight: '500',
     zIndex: 1,
   },
-  sticker: {
+  topRight: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+  },
+  bottomRight: {
     position: 'absolute',
     bottom: 2,
     right: 2,

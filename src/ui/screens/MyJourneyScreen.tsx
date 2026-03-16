@@ -112,9 +112,11 @@ export default function MyJourneyScreen() {
   const handleTierPress = (tier: TierInfo) => {
     if (!tier.is_unlocked) {
       setSelectedLockedTier(selectedLockedTier === tier.tier ? null : tier.tier);
-    } else if (tier.tier === 3) {
+    } else if (tier.tier === 3 || tier.tier === 4) {
       navigation.navigate('MyAdherence');
     }
+    // TODO Tier 5: navigate to SageWisdomScreen when that feature is implemented.
+    // TODO Tier 1/2: consider navigating to the relevant feature screen (Themes, etc.)
   };
 
   return (
