@@ -21,25 +21,25 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
 import { gamificationService } from '../../data/services/gamificationService';
-import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
+import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS, getTierAsset } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
-import type { TierInfo, MilestoneInfo } from '../../domain/types';
+import type { TierInfo, MilestoneInfo, ConsistencyBonusInfo } from '../../domain/types';
 
 const TIER_FEATURES: Record<number, string> = {
   1: 'Dashboard, medication logging, Emergency Vault',
-  2: 'Custom Themes (color themes + icon packs)',
-  3: 'Monthly Adherence Calendar + Waiver Badge',
-  4: 'Ritual Tree + Insight Trends',
-  5: 'Sage Wisdom',
+  2: 'Monthly Adherence Calendar + Waiver Badge',
+  3: 'Insight Trends + Waiver Badge',
+  4: 'Coming Soon',
+  5: 'Coming Soon',
 };
 
 const TIER_DESCRIPTIONS: Record<number, string> = {
   1: 'Your starting point. Track medications, build your daily ritual, and access your Emergency Vault — your safety-critical health info, always accessible.',
-  2: 'Personalize your app with 6 color themes and 3 icon packs. Make it yours.',
-  3: 'Tap to view your monthly adherence heat map. See your streaks, milestone stickers, and month-in-review insights.',
-  4: 'Grow your Ritual Tree and explore Insight Trends to visualize adherence patterns.',
-  5: 'You have mastered the art of health stewardship. All features are yours.',
+  2: 'Tap to view your monthly adherence heat map. See your streaks, milestone stickers, and month-in-review insights.',
+  3: 'Explore Insight Trends to visualize adherence patterns and discover deeper health insights.',
+  4: 'More features coming soon.',
+  5: 'More features coming soon.',
 };
 
 /** Milestone display colors by name */
@@ -52,11 +52,12 @@ const MILESTONE_COLORS: Record<string, string> = {
 export default function MyJourneyScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { totalXp, currentTier, perfectMonthsStreak, loading: statusLoading } = useGamification();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [journeyTiers, setJourneyTiers] = useState<TierInfo[] | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(true);
   const [selectedLockedTier, setSelectedLockedTier] = useState<number | null>(null);
   const [milestones, setMilestones] = useState<MilestoneInfo[] | null>(null);
+  const [consistencyBonus, setConsistencyBonus] = useState<ConsistencyBonusInfo | null>(null);
   const [milestonesLoading, setMilestonesLoading] = useState(true);
 
   const fetchJourney = useCallback(async () => {
@@ -90,14 +91,17 @@ export default function MyJourneyScreen() {
     try {
       const data = await gamificationService.getMilestones();
       setMilestones(data.milestones);
+      setConsistencyBonus(data.consistency_bonus ?? null);
     } catch {
       // Fallback milestones using local data
+      // R17: Pre-existing bug — is_achieved hardcoded false. OUT OF SCOPE.
       const fallback: MilestoneInfo[] = [
         { name: 'Dedicated', required_months: 3, xp_reward: 100, current_streak: perfectMonthsStreak, is_achieved: false },
         { name: 'Committed', required_months: 6, xp_reward: 250, current_streak: perfectMonthsStreak, is_achieved: false },
         { name: 'Devoted', required_months: 12, xp_reward: 500, current_streak: perfectMonthsStreak, is_achieved: false },
       ];
       setMilestones(fallback);
+      setConsistencyBonus(null);
     } finally {
       setMilestonesLoading(false);
     }
@@ -112,11 +116,13 @@ export default function MyJourneyScreen() {
   const handleTierPress = (tier: TierInfo) => {
     if (!tier.is_unlocked) {
       setSelectedLockedTier(selectedLockedTier === tier.tier ? null : tier.tier);
-    } else if (tier.tier === 3 || tier.tier === 4) {
+    } else if (tier.tier === 1) {
+      navigation.navigate('EmergencyVault');
+    } else if (tier.tier === 2) {
       navigation.navigate('MyAdherence');
+    } else if (tier.tier === 3) {
+      navigation.navigate('MainTabs', { screen: 'Insights', params: { fromScreen: 'MyJourney' } } as any);
     }
-    // TODO Tier 5: navigate to SageWisdomScreen when that feature is implemented.
-    // TODO Tier 1/2: consider navigating to the relevant feature screen (Themes, etc.)
   };
 
   return (
@@ -130,10 +136,15 @@ export default function MyJourneyScreen() {
       </View>
 
       <View style={[styles.xpSummary, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.xpTotal, { color: colors.cyan }]}>{totalXp.toLocaleString()} XP</Text>
-        <Text style={[styles.xpSummaryLabel, { color: colors.textMuted }]}>
-          {TIER_NAMES[currentTier] ?? 'Observer'} — Tier {currentTier}
-        </Text>
+        <View style={styles.xpRow}>
+          <View style={styles.xpTextCol}>
+            <Text style={[styles.xpTotal, { color: colors.cyan }]}>{totalXp.toLocaleString()} XP</Text>
+            <Text style={[styles.xpSummaryLabel, { color: colors.textMuted }]}>
+              {TIER_NAMES[currentTier] ?? 'Observer'} — Tier {currentTier}
+            </Text>
+          </View>
+          <Image source={getTierAsset(currentTier, isDark)} style={styles.xpTierBadge} resizeMode="contain" />
+        </View>
       </View>
 
       {loading ? (
@@ -152,19 +163,19 @@ export default function MyJourneyScreen() {
               <View key={tier.tier}>
                 {index > 0 && (
                   <View style={styles.connectorContainer}>
-                    <View style={[styles.connectorLine, { backgroundColor: colors.bgSubtle }, isUnlocked && styles.connectorLineUnlocked]} />
+                    <View style={[styles.connectorLine, { backgroundColor: colors.border }, isUnlocked && { backgroundColor: colors.cyanGlow }]} />
                   </View>
                 )}
 
                 <TouchableOpacity
-                  style={[styles.tierCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, isUnlocked && styles.tierCardUnlocked, isCurrent && [styles.tierCardCurrent, { borderColor: colors.cyan, shadowColor: colors.cyan }]]}
+                  style={[styles.tierCard, { backgroundColor: isDark ? colors.bgCard : colors.bgElevated, borderColor: colors.border }, isUnlocked && [styles.tierCardUnlocked, { borderColor: isDark ? colors.cyanDim : colors.border }], isCurrent && [styles.tierCardCurrent, { borderColor: colors.cyan, shadowColor: colors.cyan }]]}
                   activeOpacity={isUnlocked ? 1 : 0.7}
                   onPress={() => handleTierPress(tier)}
                 >
                   <View style={styles.tierRow}>
-                    <View style={[styles.badgeWrap, isCurrent && [styles.badgeWrapCurrent, { shadowColor: colors.cyan }]]}>
+                    <View style={styles.badgeWrap}>
                       <Image
-                        source={TIER_ASSETS[tier.tier]}
+                        source={getTierAsset(tier.tier, isDark)}
                         style={[styles.badgeImage, !isUnlocked && styles.badgeImageLocked]}
                         resizeMode="contain"
                       />
@@ -181,7 +192,7 @@ export default function MyJourneyScreen() {
                           {tier.name}
                         </Text>
                         {isCurrent && (
-                          <View style={styles.currentBadge}>
+                          <View style={[styles.currentBadge, { backgroundColor: colors.cyanDim }]}>
                             <Star color={colors.cyan} size={9} strokeWidth={2.5} fill={colors.cyan} />
                             <Text style={[styles.currentBadgeText, { color: colors.cyan }]}>CURRENT</Text>
                           </View>
@@ -233,7 +244,7 @@ export default function MyJourneyScreen() {
                     key={milestone.name}
                     style={[
                       styles.milestoneCard,
-                      { backgroundColor: colors.bgCard, borderColor: colors.border },
+                      { backgroundColor: isDark ? colors.bgCard : colors.bgElevated, borderColor: colors.border },
                       milestone.is_achieved && styles.milestoneCardAchieved,
                     ]}
                   >
@@ -281,6 +292,49 @@ export default function MyJourneyScreen() {
                 );
               })
             )}
+
+            {/* Consistency Bonus card (post-Devoted recurring reward) */}
+            {consistencyBonus && (
+              <View
+                style={[
+                  styles.milestoneCard,
+                  { backgroundColor: isDark ? colors.bgCard : colors.bgElevated, borderColor: '#06B6D4' },
+                ]}
+              >
+                <View style={styles.milestoneHeader}>
+                  <View style={styles.milestoneNameRow}>
+                    <View style={[styles.milestoneIconCircle, { borderColor: '#06B6D4' }]}>
+                      <Award color="#06B6D4" size={14} strokeWidth={2} />
+                    </View>
+                    <Text style={[styles.milestoneName, { color: '#06B6D4' }]}>
+                      Consistency Bonus
+                    </Text>
+                  </View>
+                  <Text style={[styles.milestoneReward, { color: '#06B6D4' }]}>+{consistencyBonus.xp_reward} XP</Text>
+                </View>
+
+                <Text style={[styles.milestoneRequirement, { color: colors.textMuted }]}>
+                  {consistencyBonus.months_until_next === 3
+                    ? 'New cycle started — keep going!'
+                    : `${3 - consistencyBonus.months_until_next} / 3 perfect months`}
+                  {consistencyBonus.total_awarded > 0
+                    ? ` (earned ${consistencyBonus.total_awarded}x = +${consistencyBonus.total_xp_earned} XP)`
+                    : ''}
+                </Text>
+
+                <View style={[styles.milestoneProgressTrack, { backgroundColor: colors.bgSubtle }]}>
+                  <View
+                    style={[
+                      styles.milestoneProgressFill,
+                      {
+                        width: `${((3 - consistencyBonus.months_until_next) / 3) * 100}%`,
+                        backgroundColor: '#06B6D4',
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={{ height: 40 }} />
@@ -296,30 +350,28 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center' },
   headerRight: { width: 36 },
-  xpSummary: { alignItems: 'center', paddingBottom: 20, borderBottomWidth: 1, marginHorizontal: 20, marginBottom: 8 },
+  xpSummary: { paddingBottom: 20, borderBottomWidth: 1, marginHorizontal: 20, marginBottom: 8 },
+  xpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
+  xpTextCol: { alignItems: 'center' },
   xpTotal: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
   xpSummaryLabel: { fontSize: 13, fontWeight: '500', marginTop: 2 },
+  xpTierBadge: { width: 64, height: 64 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
   connectorContainer: { alignItems: 'center', height: 24 },
   connectorLine: { width: 2, flex: 1, borderRadius: 1 },
-  connectorLineUnlocked: { backgroundColor: 'rgba(0, 209, 255, 0.3)' },
+  connectorLineUnlocked: {},
   tierCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
-  tierCardUnlocked: { borderColor: 'rgba(0, 209, 255, 0.15)' },
+  tierCardUnlocked: {},
   tierCardCurrent: {
     borderWidth: 2,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   tierRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  badgeWrap: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  badgeWrapCurrent: {
-    backgroundColor: 'rgba(0, 209, 255, 0.08)', borderWidth: 2,
-    borderColor: 'rgba(0, 209, 255, 0.3)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4, shadowRadius: 10, elevation: 4,
-  },
-  badgeImage: { width: 40, height: 40 },
+  badgeWrap: { width: 80, height: 80, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  badgeWrapCurrent: {},
+  badgeImage: { width: 80, height: 80 },
   badgeImageLocked: { opacity: 0.3 },
   lockOverlay: { position: 'absolute', bottom: 0, right: 0, borderRadius: 10, padding: 2 },
   tierInfo: { flex: 1, gap: 2 },
@@ -329,7 +381,7 @@ const styles = StyleSheet.create({
   tierFeature: { fontSize: 11, fontWeight: '500', marginTop: 2 },
   currentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: 'rgba(0, 209, 255, 0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
   },
   currentBadgeText: { fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
   expandedPreview: { marginTop: 12, paddingTop: 12, borderTopWidth: 1 },

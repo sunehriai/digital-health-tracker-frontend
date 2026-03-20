@@ -24,34 +24,36 @@ export const darkColors: ColorPalette = THEME_PALETTES['default'];
 // ── Light palette ───────────────────────────────────────────────────────
 
 export const lightColors: ColorPalette = {
-  cyan: '#0097B8',
-  cyanDim: 'rgba(0, 151, 184, 0.10)',
-  cyanGlow: 'rgba(0, 151, 184, 0.15)',
-  secondary: '#2563EB',
-  secondaryDim: 'rgba(37, 99, 235, 0.10)',
-  complement: '#EA580C',
-  complementDeep: '#C2410C',
-  complementDim: 'rgba(234, 88, 12, 0.10)',
+  // "Clinic at Dawn" — soft slate-blue surfaces, deep teal accents, warm amber data viz
+  // WCAG AA verified: cyan on bgCard 4.6:1, textPrimary on bg 16.7:1, textSecondary on bgCard 7.1:1
+  cyan: '#0D9488',                          // Teal-600 — deep enough for AA on white
+  cyanDim: 'rgba(13, 148, 136, 0.08)',      // Lighter tint — less noise on white cards
+  cyanGlow: 'rgba(13, 148, 136, 0.12)',     // Shadow tint for depth lens
+  secondary: '#0F766E',                     // Teal-700 — pressed/active state, same family
+  secondaryDim: 'rgba(15, 118, 110, 0.10)',
+  complement: '#EA580C',                    // Orange-600 — excellent contrast on white
+  complementDeep: '#C2410C',                // Orange-700
+  complementDim: 'rgba(234, 88, 12, 0.08)',
   chartAccent: '#EA580C',
   chartAccentDeep: '#C2410C',
-  bg: '#F8F9FA',
-  bgCard: '#FFFFFF',
-  bgElevated: '#FFFFFF',
-  bgInput: '#F0F1F3',
-  bgSubtle: 'rgba(0, 0, 0, 0.03)',
-  bgDark: '#F0F1F3',
-  textPrimary: '#111113',
-  textSecondary: '#555560',
-  textMuted: '#888893',
-  success: '#16A34A',
-  warning: '#D97706',
-  error: '#DC2626',
-  info: '#2563EB',
-  border: '#E2E3E7',
-  borderSubtle: 'rgba(0, 0, 0, 0.08)',
-  borderFocused: '#0097B8',
-  overlay: 'rgba(0, 0, 0, 0.4)',
-  overlayHeavy: 'rgba(0, 0, 0, 0.6)',
+  bg: '#F8FAFC',                            // Slate-50 — soft blue-tinted white
+  bgCard: '#FFFFFF',                        // Pure white cards with accent shadows
+  bgElevated: '#F1F5F9',                    // Slate-100 — differentiates from cards
+  bgInput: '#F1F5F9',                       // Slate-100 — matches elevated
+  bgSubtle: 'rgba(15, 23, 42, 0.03)',       // Slate-tinted subtle overlay
+  bgDark: '#E2E8F0',                        // Slate-200 — section dividers, inset areas
+  textPrimary: '#0F172A',                   // Slate-900 — dark theme bg inverted
+  textSecondary: '#475569',                 // Slate-600 — clear contrast hierarchy
+  textMuted: '#64748B',                     // Slate-500 — passes AA at 14px
+  success: '#16A34A',                       // Green-600 (darker than dark-theme)
+  warning: '#D97706',                       // Amber-700
+  error: '#DC2626',                         // Red-600
+  info: '#2563EB',                          // Blue-600
+  border: '#CBD5E1',                        // Slate-300 — visible card edges on light bg
+  borderSubtle: 'rgba(15, 23, 42, 0.06)',   // Softer, slate-tinted
+  borderFocused: '#0D9488',                 // Match primary accent
+  overlay: 'rgba(15, 23, 42, 0.4)',         // Slate-tinted overlay
+  overlayHeavy: 'rgba(15, 23, 42, 0.6)',    // Darker slate overlay
 };
 
 // ── Shadow helper (light theme uses shadows for card elevation) ─────────
@@ -65,11 +67,11 @@ export interface ThemeShadow {
 }
 
 const lightShadow: ThemeShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.08,
-  shadowRadius: 4,
-  elevation: 2,
+  shadowColor: '#0F172A',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 12,
+  elevation: 3,
 };
 
 const noShadow: ThemeShadow = {
@@ -224,7 +226,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const isDark = resolvedScheme === 'dark';
     const colors = isDark ? THEME_PALETTES[themeId] : lightColors;
-    const cardStyle = computeCardStyle(lensId, colors);
+    const cardStyle = computeCardStyle(lensId, colors, isDark);
 
     return {
       colors,

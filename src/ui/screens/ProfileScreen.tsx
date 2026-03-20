@@ -1,12 +1,14 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2 } from 'lucide-react-native';
+import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2, HelpCircle } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useOnboarding } from '../hooks/useOnboarding';
+import { measureElement } from '../utils/measureElement';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -80,6 +82,12 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
+  const { resetAll, setTargetRect, isTourActive } = useOnboarding();
+
+  const handleTakeAppTour = useCallback(async () => {
+    await resetAll();
+    navigation.navigate('MainTabs', { screen: 'Home' } as any);
+  }, [resetAll, navigation]);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLongPressing, setIsLongPressing] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
@@ -107,14 +115,14 @@ export default function ProfileScreen() {
   const isSearching = searchQuery.trim().length > 0;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
         {/* Settings Header */}
         <Text style={[styles.settingsHeading, { color: colors.textPrimary }]}>Settings</Text>
 
         {/* Search Bar */}
-        <View style={[styles.searchBar, { backgroundColor: colors.bgElevated }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
           <Search color={colors.textMuted} size={18} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
@@ -140,7 +148,7 @@ export default function ProfileScreen() {
               filteredResults.map((result, index) => (
                 <TouchableOpacity
                   key={`${result.screen}-${index}`}
-                  style={[styles.searchResultItem, { backgroundColor: colors.bgElevated }]}
+                  style={[styles.searchResultItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}
                   activeOpacity={0.7}
                   onPress={() => {
                     setSearchQuery('');
@@ -162,14 +170,14 @@ export default function ProfileScreen() {
           <>
             {/* Hero Profile Section */}
             <TouchableOpacity
-              style={[styles.heroSection, { backgroundColor: colors.bgElevated }]}
+              style={[styles.heroSection, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('PersonalInfo')}
             >
               {profilePhoto ? (
                 <Image source={{ uri: profilePhoto }} style={[styles.heroAvatar, { borderColor: colors.cyan }]} />
               ) : (
-                <View style={[styles.heroAvatarPlaceholder, { borderColor: colors.cyan }]}>
+                <View style={[styles.heroAvatarPlaceholder, { borderColor: colors.cyan, backgroundColor: colors.bgElevated }]}>
                   <User color={colors.textMuted} size={36} />
                 </View>
               )}
@@ -188,9 +196,14 @@ export default function ProfileScreen() {
                 return (
                   <TouchableOpacity
                     key={section.id}
-                    style={[styles.sectionItem, { backgroundColor: colors.bgElevated }, isVault && styles.sectionItemVault]}
+                    style={[styles.sectionItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }, isVault && styles.sectionItemVault]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate(section.id)}
+                    onLayout={isVault && isTourActive ? (e: any) => {
+                      measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+                        if (w > 0 && h > 0) setTargetRect(3, { x, y, width: w, height: h });
+                      });
+                    } : undefined}
                   >
                     <View style={styles.sectionRow}>
                       <View style={[styles.sectionIcon, isVault && styles.sectionIconVault]}>
@@ -205,6 +218,24 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 );
               })}
+
+              {/* Take App Tour */}
+              <TouchableOpacity
+                style={[styles.sectionItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}
+                activeOpacity={0.7}
+                onPress={handleTakeAppTour}
+              >
+                <View style={styles.sectionRow}>
+                  <View style={styles.sectionIcon}>
+                    <HelpCircle color={colors.cyan} size={20} strokeWidth={2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>Take App Tour</Text>
+                    <Text style={styles.sectionDesc}>Replay the welcome walkthrough</Text>
+                  </View>
+                  <ChevronRight color="#8E9196" size={20} strokeWidth={2} />
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Version (admin entry point) */}
@@ -232,7 +263,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 24 },
 
   // Settings Header
@@ -253,7 +284,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   searchInput: {
     flex: 1,
@@ -275,7 +305,6 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   searchResultLabel: {
     fontSize: 14,
@@ -312,7 +341,6 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   heroAvatar: {
     width: 80,
@@ -324,7 +352,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#1E2633',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -349,7 +376,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sectionIcon: {

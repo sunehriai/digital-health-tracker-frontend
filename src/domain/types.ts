@@ -339,6 +339,59 @@ export interface NotificationPreferencesUpdate {
   medication_overrides?: Record<string, MedicationNotificationOverride | null>;
 }
 
+// -- Onboarding Types -----------------------------------------------------
+
+export type HintId = 'H1' | 'H2' | 'H3' | 'H4' | 'H5';
+
+export interface OnboardingFlags {
+  onboarding_complete: boolean;
+  tour_complete: boolean;
+  hint_H1_shown: boolean;
+  hint_H2_shown: boolean;
+  hint_H3_shown: boolean;
+  hint_H4_shown: boolean;
+  hint_H5_shown: boolean;
+}
+
+export interface TargetRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OnboardingContextType {
+  // State
+  isWelcomeVisible: boolean;
+  isTourActive: boolean;
+  tourStep: number;
+  layoutReady: boolean;
+  activeHint: HintId | null;
+  flags: OnboardingFlags;
+  isLoaded: boolean;
+  targetRects: (TargetRect | null)[];
+
+  // Actions
+  completeWelcome: () => Promise<void>;
+  advanceTour: () => void;
+  skipTour: () => Promise<void>;
+  completeTour: () => Promise<void>;
+  reportLayoutReady: () => void;
+  setTargetRect: (step: number, rect: TargetRect) => void;
+  checkHint: (id: HintId, condition: boolean) => boolean;
+  activateHint: (id: HintId) => void;
+  dismissHint: (id: HintId) => Promise<void>;
+  resetAll: () => Promise<void>;
+}
+
+// -- Refill Activity Types ------------------------------------------------
+
+export interface RefillActivity {
+  last_refill_at: string | null;
+  days_since_last_refill: number | null;
+  has_refilled_this_month: boolean;
+}
+
 // -- Export Types ---------------------------------------------------------
 
 export type DateRangePreset = '7d' | '30d' | '90d' | '6mo' | 'all';
@@ -414,10 +467,22 @@ export interface MilestoneInfo {
   is_achieved: boolean;
 }
 
+/** Recurring consistency bonus info (post-Devoted). */
+export interface ConsistencyBonusInfo {
+  xp_reward: number;
+  months_until_next: number;
+  next_trigger_streak: number;
+  total_awarded: number;
+  total_xp_earned: number;
+  last_awarded_streak: number | null;
+  current_streak: number;
+}
+
 /** GET /gamification/milestones -- monthly adherence milestones. */
 export interface MilestonesResponse {
   milestones: MilestoneInfo[];
   perfect_months_streak: number;
+  consistency_bonus: ConsistencyBonusInfo | null;
 }
 
 // --- 7-Day Adherence Card ---
@@ -449,6 +514,7 @@ export interface WeeklyAdherenceResponse {
   total_taken: number;
   total_taken_late: number;
   total_missed: number;
+  sufficient_history: boolean;
 }
 
 // -- Adherence Calendar Types (Tier 3) ------------------------------------

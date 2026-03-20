@@ -391,8 +391,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     icon: React.ReactNode,
     options?: { keyboardType?: 'default' | 'phone-pad' | 'number-pad'; error?: string }
   ) => (
-    <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, options?.error && { borderColor: colors.error }]}>
-      <View style={styles.fieldIcon}>{icon}</View>
+    <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }, options?.error && { borderColor: colors.error }]}>
+      <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>{icon}</View>
       <View style={styles.fieldContent}>
         <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>{label}</Text>
         {isEditMode ? (
@@ -427,11 +427,11 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   ) => (
     <>
       <TouchableOpacity
-        style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, error && isEditMode && { borderColor: colors.error }]}
+        style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }, error && isEditMode && { borderColor: colors.error }]}
         activeOpacity={isEditMode ? 0.8 : 1}
         onPress={() => openPicker(pickerType)}
       >
-        <View style={styles.fieldIcon}>{icon}</View>
+        <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>{icon}</View>
         <View style={styles.fieldContent}>
           <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>{label}</Text>
           <Text style={[styles.fieldValue, { color: colors.textPrimary }, !value && { color: colors.textMuted }]}>
@@ -447,7 +447,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           {options.map((opt) => (
             <TouchableOpacity
               key={opt}
-              style={[styles.pickerOption, value === opt && styles.pickerOptionSelected]}
+              style={[styles.pickerOption, { borderBottomColor: colors.border }, value === opt && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }]]}
               onPress={() => {
                 onSelect(opt);
                 markChanged();
@@ -466,7 +466,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.cyan} size="large" />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your details...</Text>
@@ -476,7 +476,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -512,12 +512,12 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
               {profilePhoto ? (
                 <Image source={{ uri: profilePhoto }} style={[styles.profilePhoto, { borderColor: colors.cyan }]} />
               ) : (
-                <View style={styles.photoPlaceholder}>
+                <View style={[styles.photoPlaceholder, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
                   <User color={colors.textMuted} size={40} />
                 </View>
               )}
               {isEditMode && (
-                <View style={[styles.cameraBadge, { backgroundColor: colors.cyan }]}>
+                <View style={[styles.cameraBadge, { backgroundColor: colors.cyan, borderColor: colors.bg }]}>
                   <Camera color="#000" size={14} />
                 </View>
               )}
@@ -558,8 +558,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 
           {/* Date of Birth */}
           {isEditMode ? (
-            <View style={[styles.dateInputWrapper, { backgroundColor: colors.bgElevated }]}>
-              <View style={styles.fieldIcon}>
+            <View style={[styles.dateInputWrapper, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+              <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>
                 <Calendar color={colors.cyan} size={20} />
               </View>
               <View style={styles.fieldContent}>
@@ -572,8 +572,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
               </View>
             </View>
           ) : (
-            <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
-              <View style={styles.fieldIcon}>
+            <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+              <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>
                 <Calendar color={colors.cyan} size={20} />
               </View>
               <View style={styles.fieldContent}>
@@ -622,8 +622,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Weight */}
-          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
-            <View style={styles.fieldIcon}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+            <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>
               <Scale color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
@@ -655,8 +655,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Allergies */}
-          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
-            <View style={styles.fieldIcon}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+            <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>
               <AlertCircle color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
@@ -705,8 +705,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           </View>
 
           {/* Chronic Conditions */}
-          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }]}>
-            <View style={styles.fieldIcon}>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+            <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}>
               <Activity color={colors.cyan} size={20} />
             </View>
             <View style={styles.fieldContent}>
@@ -785,8 +785,8 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           )}
 
           {/* Phone Number */}
-          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated }, errors.contactPhone && isEditMode && { borderColor: colors.error }]}>
-            <View style={styles.fieldIcon}><Phone color={colors.cyan} size={20} /></View>
+          <View style={[styles.fieldCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }, errors.contactPhone && isEditMode && { borderColor: colors.error }]}>
+            <View style={[styles.fieldIcon, { backgroundColor: colors.cyanDim }]}><Phone color={colors.cyan} size={20} /></View>
             <View style={styles.fieldContent}>
               <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>PHONE NUMBER</Text>
               {isEditMode ? (
@@ -808,7 +808,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
           </View>
 
           {/* Medical Requirement Notice */}
-          <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
+          <View style={[styles.noticeCard, { borderLeftColor: colors.cyan, backgroundColor: colors.cyanDim }]}>
             <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Medical Requirement:</Text>
             <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
               Emergency contact information is required for App Store Health compliance and can be accessed by first responders in case of emergency.
@@ -825,7 +825,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080A0F' },
+  safe: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
 
@@ -906,11 +906,9 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#1E2633',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#2A3444',
   },
   cameraBadge: {
     position: 'absolute',
@@ -922,7 +920,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#080A0F',
   },
   photoName: {
     fontSize: 18,
@@ -973,7 +970,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
   fieldCardError: {
   },
@@ -981,7 +977,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -1027,10 +1022,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2633',
   },
   pickerOptionSelected: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
   },
   pickerOptionText: {
     fontSize: 15,
@@ -1130,12 +1123,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#1E2633',
   },
 
   // Notice Card
   noticeCard: {
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
     borderRadius: 12,
     padding: 16,
     marginTop: 8,

@@ -35,7 +35,7 @@ export default function NeedsAttentionCard({ entries, overflow }: NeedsAttention
           </View>
           <Text style={[styles.allClearTitle, { color: '#22C55E' }]}>All On Track</Text>
           <Text style={[styles.allClearSubtitle, { color: colors.textMuted }]}>
-            Every medication is above 80% adherence
+            Every medication is above 95% adherence
           </Text>
         </View>
       ) : (
@@ -44,7 +44,7 @@ export default function NeedsAttentionCard({ entries, overflow }: NeedsAttention
           <View style={styles.summaryBadge}>
             <AlertTriangle size={14} color="#EF4444" />
             <Text style={styles.summaryText}>
-              {entries!.length + (overflow ?? 0)} medication{entries!.length + (overflow ?? 0) !== 1 ? 's' : ''} below 80%
+              {entries!.length + (overflow ?? 0)} medication{entries!.length + (overflow ?? 0) !== 1 ? 's' : ''} below 95%
             </Text>
           </View>
 

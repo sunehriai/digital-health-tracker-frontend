@@ -7,7 +7,7 @@ import TimeInput from '../components/TimeInput';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useGamification } from '../hooks/useGamification';
-import { isFeatureUnlocked } from '../../domain/utils/tierGating';
+
 import { THEME_LABELS } from '../theme/themeDefinitions';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -35,7 +35,7 @@ function SegmentedControl<T extends string>({ options, selected, onChange }: Seg
             key={opt.value}
             style={[
               segStyles.option,
-              { backgroundColor: active ? 'rgba(0, 209, 255, 0.15)' : colors.bgElevated,
+              { backgroundColor: active ? colors.cyanDim : colors.bgElevated,
                 borderColor: active ? colors.cyan : colors.border,
                 borderWidth: 1 },
             ]}
@@ -119,7 +119,7 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
   const { colors, themeId } = useTheme();
   const { prefs, updatePref } = useAppPreferences();
   const { currentTier } = useGamification();
-  const hasCustomThemes = isFeatureUnlocked('custom_themes', currentTier);
+  const hasCustomThemes = false; // Custom Themes deferred to V2
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
@@ -137,7 +137,7 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
         <View style={[styles.section, { borderTopColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>ACCESSIBILITY</Text>
 
-          <View style={[styles.card, { backgroundColor: colors.bgElevated }]}>
+          <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
             <PrefRow
               label="Haptic Feedback"
               value={prefs.hapticFeedback}
@@ -168,7 +168,7 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
         <View style={[styles.section, { borderTopColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>DISPLAY</Text>
 
-          <View style={[styles.card, { backgroundColor: colors.bgElevated }]}>
+          <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
             {/* Time Format */}
             <View style={styles.controlGroup}>
               <Text style={[styles.controlLabel, { color: colors.textPrimary }]}>Time Format</Text>
@@ -210,7 +210,7 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
         <View style={[styles.section, { borderTopColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>THEME</Text>
 
-          <View style={[styles.card, { backgroundColor: colors.bgElevated }]}>
+          <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
             {hasCustomThemes ? (
               <TouchableOpacity
                 style={styles.navRow}
@@ -264,6 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderWidth: 1,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

@@ -23,9 +23,9 @@ export function useInsightTrends() {
       }
     }
 
-    // 2. Always fetch fresh from server (with refresh=true to bypass server cache)
+    // 2. Fetch from server — use cache on initial mount, bypass only on explicit refresh
     try {
-      const fresh = await insightTrendsService.getTrends(true);
+      const fresh = await insightTrendsService.getTrends(refresh);
       setData(fresh);
       dataRef.current = fresh;
       offlineCache.set(CACHE_KEY, fresh);

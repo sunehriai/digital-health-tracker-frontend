@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronLeft, ChevronRight, ArrowLeft, WifiOff } from 'lucide-react-native';
@@ -15,15 +15,14 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useGamification } from '../hooks/useGamification';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
-import { computeAdherencePct, getDaysInMonth } from '../../domain/utils/adherenceUtils';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
-import RitualTree from '../components/RitualTree';
+// RitualTree deferred to V2
 import CalendarHeatMap from '../components/CalendarHeatMap';
 import DayDetailModal from '../components/DayDetailModal';
 import XpGrowthCard from '../components/XpGrowthCard';
 import CalendarLegend from '../components/CalendarLegend';
-import WeeklyMilestones from '../components/WeeklyMilestones';
-import MonthlyStatsCard from '../components/MonthlyStatsCard';
+// WeeklyMilestones & MonthlyStatsCard deferred to V2
+import MilestoneBanner from '../components/MilestoneBanner';
 import { adherenceCalendarService } from '../../data/services/adherenceCalendarService';
 import { offlineCache } from '../../data/utils/offlineCache';
 import { computeStickers } from '../../domain/utils/stickerCalculator';
@@ -41,7 +40,7 @@ export default function MyAdherenceScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useAuth();
-  const { currentTier, totalXp, loading: gamLoading } = useGamification();
+  const { currentTier, totalXp, perfectMonthsStreak, loading: gamLoading } = useGamification();
 
   // Earliest navigable month = account creation month
   const accountStartMonth = useMemo(() => {
@@ -214,23 +213,9 @@ export default function MyAdherenceScreen() {
           </View>
         </View>
 
-        {/* Ritual Tree — Tier 4+ only, hidden while data loads (no bare flash).
-            Reads from live calendarData.month_summary (AdherenceCalendarService).
-            MonthlyScoreCard reads from monthly_adherence (cron-written).
-            These may diverge for the current month by up to 1 day — this is expected. */}
-        {isFeatureUnlocked('ritual_tree', currentTier) && calendarData !== null && (calendarData.month_summary.has_tracking_data ?? calendarData.month_summary.total_scheduled_days > 0) && (
-          <RitualTree
-            key={selectedYearMonth}
-            adherencePct={computeAdherencePct(
-              calendarData.month_summary.perfect_days,
-              calendarData.month_summary.imperfect_days,
-              calendarData.month_summary.missed_days,
-              getDaysInMonth(selectedYearMonth),
-            )}
-            delayedDays={calendarData.month_summary.imperfect_days}
-            missedDays={calendarData.month_summary.missed_days}
-          />
-        )}
+        {/* Ritual Tree hidden — deferred to V2.
+            Original: Tier 4+ only, reads calendarData.month_summary for tree growth states.
+            Re-enable when Ritual Tree is brought back from V2. */}
 
         {/* XP Growth Card — above calendar */}
         {calendarData && (
@@ -240,6 +225,16 @@ export default function MyAdherenceScreen() {
             prevMonthXpDelta={calendarData.month_summary.prev_month_xp_delta ?? null}
             currentTier={currentTier}
             totalXp={totalXp}
+          />
+        )}
+
+        {/* Milestone Banner — between XpGrowthCard and calendar */}
+        {calendarData && (
+          <MilestoneBanner
+            perfectMonthsStreak={perfectMonthsStreak}
+            imperfectDays={calendarData.month_summary.imperfect_days}
+            currentMonthHasMissedDays={calendarData.month_summary.missed_days > 0}
+            isCurrentMonth={isCurrentMonth}
           />
         )}
 
@@ -272,18 +267,9 @@ export default function MyAdherenceScreen() {
         {/* Calendar legend */}
         <CalendarLegend />
 
-        {/* Weekly Milestones & Monthly Stats — Tier 4+ only */}
-        {isFeatureUnlocked('ritual_tree', currentTier) && calendarData && (
-          <>
-            <WeeklyMilestones
-              days={calendarData.days}
-              yearMonth={selectedYearMonth}
-            />
-            <MonthlyStatsCard
-              monthSummary={calendarData.month_summary}
-            />
-          </>
-        )}
+        {/* Weekly Milestones & Monthly Stats hidden — deferred to V2.
+            Original: Tier 4+ only, showed WeeklyMilestones + MonthlyStatsCard.
+            Re-enable when Tier 4 features are brought back from V2. */}
 
         {/* No doses scheduled message */}
         {calendarData && calendarData.month_summary.total_scheduled_days === 0 && (
@@ -299,6 +285,7 @@ export default function MyAdherenceScreen() {
         visible={selectedDate !== null}
         date={selectedDate}
         doses={selectedDoses}
+        sticker={selectedDate ? (stickers.get(selectedDate) ?? null) : null}
         onClose={() => setSelectedDate(null)}
       />
     </SafeAreaView>

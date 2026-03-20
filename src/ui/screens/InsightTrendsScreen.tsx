@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import {
   CalendarDays,
   Clock,
@@ -26,6 +27,7 @@ import {
   X,
   WifiOff,
   RefreshCw,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useGamification } from '../hooks/useGamification';
@@ -365,7 +367,10 @@ function ReportModal({
 
 export default function InsightTrendsScreen() {
   const { colors } = useTheme();
-  const { totalXp } = useGamification();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const fromScreen = (route.params as any)?.fromScreen as string | undefined;
+  const { totalXp, currentTier } = useGamification();
   const { data, loading, error, isOnline, refresh } = useInsightTrends();
 
   const tierUnlocked = data?.tier_unlocked ?? false;
@@ -452,12 +457,50 @@ export default function InsightTrendsScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Insight Trends</Text>
+        {fromScreen ? (
+          <View style={styles.headerBackRow}>
+            <TouchableOpacity
+              onPress={() => {
+                // Clear the param so it doesn't persist on tab re-visit
+                navigation.setParams({ fromScreen: undefined } as any);
+                navigation.goBack();
+              }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ChevronLeft color={colors.textSecondary} size={24} strokeWidth={2} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Insight Trends</Text>
+          </View>
+        ) : (
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Insight Trends</Text>
+        )}
         <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
           Discover patterns in your medication routine
         </Text>
       </View>
 
+      {/* Tier 3 gate — Insights requires Guardian tier */}
+      {currentTier < 3 ? (
+        <View style={[styles.tierGateContainer, { backgroundColor: colors.bg }]}>
+          <View style={[styles.tierGateCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Lock size={32} color={colors.textMuted} strokeWidth={1.5} />
+            <Text style={[styles.tierGateTitle, { color: colors.textPrimary }]}>
+              Insights Locked
+            </Text>
+            <Text style={[styles.tierGateSubtitle, { color: colors.textSecondary }]}>
+              Reach Guardian (Tier 3) to unlock Insight Trends
+            </Text>
+            <View style={[styles.tierGateXpBadge, { backgroundColor: colors.cyanDim }]}>
+              <TrendingUp size={14} color={colors.cyan} />
+              <Text style={[styles.tierGateXpText, { color: colors.cyan }]}>
+                {Math.max(0, (TIER_THRESHOLDS[3] ?? 1250) - totalXp)} XP to go
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : (
+      <>
       {/* Offline banner */}
       {!isOnline && (
         <View style={[styles.offlineBanner, { backgroundColor: colors.bgElevated }]}>
@@ -521,29 +564,14 @@ export default function InsightTrendsScreen() {
                         width: chipWidth,
                         height: chipHeight,
                         backgroundColor: locked ? colors.bgCard : chip.cardBg,
-                        borderColor: locked ? colors.borderSubtle : chip.borderColor,
-                      },
-                      !locked && {
-                        shadowColor: chip.iconColor,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.35,
-                        shadowRadius: 12,
-                        elevation: 8,
-                      },
+                                              },
                       locked && styles.chipLocked,
                     ]}
                   >
-                    {/* Tinted icon background with glow */}
+                    {/* Tinted icon background */}
                     <View style={[
                       styles.iconBg,
                       { backgroundColor: locked ? colors.bgElevated : chip.iconBg },
-                      !locked && {
-                        shadowColor: chip.iconColor,
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 0.5,
-                        shadowRadius: 8,
-                        elevation: 6,
-                      },
                     ]}>
                       {chip.renderIcon(locked ? colors.textMuted : chip.iconColor, 24)}
                     </View>
@@ -589,28 +617,13 @@ export default function InsightTrendsScreen() {
                       {
                         height: chipHeight,
                         backgroundColor: locked ? colors.bgCard : lastChip.cardBg,
-                        borderColor: locked ? colors.borderSubtle : lastChip.borderColor,
-                      },
-                      !locked && {
-                        shadowColor: lastChip.iconColor,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.35,
-                        shadowRadius: 12,
-                        elevation: 8,
-                      },
+                                              },
                       locked && styles.chipLocked,
                     ]}
                   >
                     <View style={[
                       styles.iconBg,
                       { backgroundColor: locked ? colors.bgElevated : lastChip.iconBg },
-                      !locked && {
-                        shadowColor: lastChip.iconColor,
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 0.5,
-                        shadowRadius: 8,
-                        elevation: 6,
-                      },
                     ]}>
                       {lastChip.renderIcon(locked ? colors.textMuted : lastChip.iconColor, 24)}
                     </View>
@@ -660,6 +673,8 @@ export default function InsightTrendsScreen() {
 
       {/* Lock toast */}
       <LockToast key={lockToastKey.current} visible={showLockToast} xpNeeded={xpToTier4} />
+      </>
+      )}
     </SafeAreaView>
   );
 }
@@ -668,10 +683,53 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  tierGateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SCREEN_PAD,
+  },
+  tierGateCard: {
+    alignItems: 'center',
+    padding: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    width: '100%',
+  },
+  tierGateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  tierGateSubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  tierGateXpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  tierGateXpText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   header: {
     paddingHorizontal: SCREEN_PAD,
     paddingTop: 12,
     paddingBottom: 4,
+  },
+  headerBackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 22,
@@ -704,7 +762,6 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderRadius: 14,
-    borderWidth: 1,
     padding: 12,
     justifyContent: 'center',
     alignItems: 'flex-start',

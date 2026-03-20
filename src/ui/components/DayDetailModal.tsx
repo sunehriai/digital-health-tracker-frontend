@@ -8,16 +8,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Check, Clock, X, Minus } from 'lucide-react-native';
+import { Check, Clock, X, Minus, Zap, Shield, Dumbbell, Star } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { CalendarDoseRecord } from '../../domain/types';
+import type { StickerType } from '../../domain/utils/stickerCalculator';
 
 interface DayDetailModalProps {
   visible: boolean;
   date: string | null; // ISO date string
   doses: CalendarDoseRecord[];
+  sticker: StickerType | null;
   onClose: () => void;
 }
+
+const STICKER_INFO: Record<StickerType, { icon: typeof Zap; color: string; label: string; description: string }> = {
+  sprint: { icon: Zap, color: '#F59E0B', label: 'Sprint', description: '7 consecutive perfect days' },
+  warrior: { icon: Shield, color: '#8B5CF6', label: 'Warrior', description: '14 consecutive perfect days' },
+  resilience: { icon: Dumbbell, color: '#22C55E', label: 'Resilience', description: '3 perfect days after a break' },
+  perfect_week: { icon: Star, color: '#F97316', label: 'Perfect Week', description: 'Every dose on time Mon–Sun' },
+};
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = [
@@ -82,9 +91,11 @@ export default function DayDetailModal({
   visible,
   date,
   doses,
+  sticker,
   onClose,
 }: DayDetailModalProps) {
   const { colors } = useTheme();
+  const stickerInfo = sticker ? STICKER_INFO[sticker] : null;
 
   return (
     <Modal
@@ -107,6 +118,17 @@ export default function DayDetailModal({
               <X size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
+
+          {/* Sticker badge */}
+          {stickerInfo && (
+            <View style={[styles.stickerBanner, { backgroundColor: `${stickerInfo.color}15` }]}>
+              <stickerInfo.icon size={18} color={stickerInfo.color} />
+              <View style={styles.stickerText}>
+                <Text style={[styles.stickerLabel, { color: stickerInfo.color }]}>{stickerInfo.label}</Text>
+                <Text style={[styles.stickerDesc, { color: colors.textSecondary }]}>{stickerInfo.description}</Text>
+              </View>
+            </View>
+          )}
 
           {/* Dose list */}
           {doses.length === 0 ? (
@@ -161,6 +183,25 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  stickerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  stickerText: {
+    flex: 1,
+  },
+  stickerLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  stickerDesc: {
+    fontSize: 12,
+    marginTop: 2,
   },
   emptyText: {
     fontSize: 14,

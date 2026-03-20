@@ -36,7 +36,13 @@ import {
 } from '../../domain/medicationConfig';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import { useAlert } from '../context/AlertContext';
+import { useOnboarding } from '../hooks/useOnboarding';
+import { measureElement } from '../utils/measureElement';
 import ScreenshotToast from '../components/ScreenshotToast';
+import LowStockModal from '../components/LowStockBottomSheet';
+import type { LowStockModalRef } from '../components/LowStockBottomSheet';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
+import { calculateLowStockDoses, getOccurrenceCount } from '../../domain/medicationConfig';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = 80;
@@ -83,6 +89,7 @@ export default function CabinetScreen() {
   const { showAlert } = useAlert();
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark, shadow } = useTheme();
+  const { setTargetRect, isTourActive } = useOnboarding();
   const {
     activeMedications,
     archivedMedications,
@@ -94,6 +101,7 @@ export default function CabinetScreen() {
     restoreMedication,
     deleteMedication,
   } = useMedications();
+  const firstCardMeasuredRef = useRef(false);
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -101,19 +109,48 @@ export default function CabinetScreen() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'paused' | 'low' | 'critical'>('all');
   const [takenTodayIds, setTakenTodayIds] = useState<Set<string>>(new Set());
 
+  // Bug 3 fix: parse chipIds into per-medication taken dose indices
+  // Cache stores "medId" for single-dose, "medId_dose_N" for multi-dose
+  const takenIndicesMap = useMemo(() => {
+    const map = new Map<string, Set<number>>();
+    for (const chipId of takenTodayIds) {
+      const match = chipId.match(/^(.+)_dose_(\d+)$/);
+      if (match) {
+        // Multi-dose: medId_dose_0, medId_dose_1, etc.
+        const medId = match[1];
+        const idx = parseInt(match[2], 10);
+        if (!map.has(medId)) map.set(medId, new Set());
+        map.get(medId)!.add(idx);
+      } else {
+        // Single-dose: chipId = medId, index 0
+        if (!map.has(chipId)) map.set(chipId, new Set());
+        map.get(chipId)!.add(0);
+      }
+    }
+    return map;
+  }, [takenTodayIds]);
+
+  const { prefs: notifPrefs } = useNotificationPrefs();
+  const lowStockModalRef = useRef<LowStockModalRef>(null);
+
   // Refill modal state
   const [refillModalVisible, setRefillModalVisible] = useState(false);
   const [refillAmount, setRefillAmount] = useState('');
   const [refillLoading, setRefillLoading] = useState(false);
   const [selectedMedForRefill, setSelectedMedForRefill] = useState<Medication | null>(null);
 
-  // Low stock banner: active, non-paused, non-PRN medications with <= 7 doses
-  // Threshold is 7 absolute doses, not 7 days. Multi-dose-per-day medications will trigger sooner in calendar time.
+  // Low stock banner: uses notification prefs threshold (same as HomeScreen badge)
+  const thresholdDays = notifPrefs?.low_stock_threshold_days ?? 7;
   const lowStockMeds = useMemo(() => {
-    return activeMedications
-      .filter(m => !m.is_paused && !m.is_as_needed && m.current_stock <= 7)
-      .sort((a, b) => a.current_stock - b.current_stock);
-  }, [activeMedications]);
+    return activeMedications.filter((m) => {
+      if (m.is_paused || m.is_as_needed) return false;
+      const dosesPerDay = (m.dose_times && m.dose_times.length > 0)
+        ? m.dose_times.length
+        : getOccurrenceCount(m.occurrence);
+      const threshold = calculateLowStockDoses(m.dose_size, dosesPerDay, thresholdDays);
+      return m.current_stock < threshold;
+    }).sort((a, b) => a.current_stock - b.current_stock);
+  }, [activeMedications, thresholdDays]);
 
   // Filter medications based on search and filter
   const filteredActiveMedications = useMemo(() => {
@@ -486,7 +523,7 @@ export default function CabinetScreen() {
     );
   };
 
-  const renderActiveMed = (med: Medication) => {
+  const renderActiveMed = (med: Medication, index: number) => {
     const stockPct = calculateStockPercentage(med.current_stock, med.initial_stock);
     const isLow = stockPct < STOCK_THRESHOLDS.veryLowPercent;
     const isVeryLowStock = med.current_stock <= STOCK_THRESHOLDS.critical; // For pulsing animation
@@ -575,7 +612,7 @@ export default function CabinetScreen() {
           ) : (
             <View style={styles.nextDoseRow}>
               <Clock color={colors.cyan} size={14} strokeWidth={3} />
-              <Text style={[styles.nextDoseText, { color: colors.cyan }]}>{getNextDoseInfoString(med, takenTodayIds.has(med.id) ? new Set([0]) : new Set(), timeFormat)}</Text>
+              <Text style={[styles.nextDoseText, { color: colors.cyan }]}>{getNextDoseInfoString(med, takenIndicesMap.get(med.id) ?? new Set(), timeFormat)}</Text>
             </View>
           )}
           <View style={styles.footerActions}>
@@ -601,7 +638,21 @@ export default function CabinetScreen() {
     );
 
     return (
-      <Animated.View key={med.id} entering={FadeInDown.duration(300)} exiting={FadeOut.duration(200)} layout={Layout.springify()}>
+      <Animated.View
+        key={med.id}
+        entering={FadeInDown.duration(300)}
+        exiting={FadeOut.duration(200)}
+        layout={Layout.springify()}
+        onLayout={index === 0 && isTourActive ? (e: any) => {
+          if (firstCardMeasuredRef.current) return;
+          measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+            if (w > 0 && h > 0 && !firstCardMeasuredRef.current) {
+              firstCardMeasuredRef.current = true;
+              setTargetRect(3, { x, y, width: w, height: h });
+            }
+          });
+        } : undefined}
+      >
         <PulsingCard isLowStock={isVeryLowStock} borderSubtle={colors.borderSubtle}>
           <SwipeableCard
             onPause={() => handlePause(med.id)}
@@ -659,7 +710,7 @@ export default function CabinetScreen() {
         {lowStockMeds.length > 0 && !isSelectMode && (
           <TouchableOpacity
             style={[styles.lowStockBanner, { backgroundColor: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}
-            onPress={() => navigation.navigate('MedicationDetails', { medicationId: lowStockMeds[0].id })}
+            onPress={() => lowStockModalRef.current?.expand()}
             activeOpacity={0.7}
           >
             <AlertTriangle size={16} color={colors.warning} strokeWidth={2.5} />
@@ -722,7 +773,14 @@ export default function CabinetScreen() {
         )}
 
         {/* Med list */}
-        <GestureHandlerRootView style={styles.medList}>
+        <GestureHandlerRootView
+          style={styles.medList}
+          onLayout={isTourActive && filteredActiveMedications.length === 0 ? (e: any) => {
+            measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+              if (w > 0 && h > 0) setTargetRect(3, { x, y, width: w, height: h });
+            });
+          } : undefined}
+        >
           {filteredActiveMedications.map(renderActiveMed)}
           {filteredActiveMedications.length === 0 && !loading && (
             searchQuery || activeFilter !== 'all'
@@ -848,6 +906,12 @@ export default function CabinetScreen() {
         </View>
       </Modal>
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+      <LowStockModal
+        ref={lowStockModalRef}
+        medications={lowStockMeds}
+        thresholdDays={thresholdDays}
+      />
+      {/* Onboarding hint H1 */}
     </SafeAreaView>
   );
 }

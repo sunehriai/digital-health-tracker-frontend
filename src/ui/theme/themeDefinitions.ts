@@ -296,39 +296,68 @@ export const THEME_PALETTES: Record<ThemeId, ColorPalette> = {
 // Surface Lens recipes — computed from colors at runtime
 // ---------------------------------------------------------------------------
 
-/** Returns computed CardSurfaceStyle for a given lens + color palette. */
-export function computeCardStyle(lensId: LensId, colors: ColorPalette): CardSurfaceStyle {
+/** Returns computed CardSurfaceStyle for a given lens + color palette.
+ *  `isDark` defaults to true for backward-compat (existing callers). */
+export function computeCardStyle(lensId: LensId, colors: ColorPalette, isDark = true): CardSurfaceStyle {
   switch (lensId) {
     case 'glass':
-      // Premium frosted glass: semi-transparent bg, thin luminous border, soft radius
+      if (isDark) {
+        // Dark: premium frosted glass — semi-transparent bg, thin luminous border
+        return {
+          backgroundColor: 'rgba(255, 255, 255, 0.06)',
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.10)',
+          shadowColor: 'transparent',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          elevation: 0,
+        };
+      }
+      // Light: frosted white with teal-tinted accent border + soft shadow
       return {
-        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        backgroundColor: 'rgba(255, 255, 255, 0.75)',
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.10)',
-        shadowColor: 'transparent',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
+        borderColor: 'rgba(13, 148, 136, 0.12)',
+        shadowColor: 'rgba(13, 148, 136, 0.10)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        elevation: 2,
       };
 
     case 'depth':
-      // Deep & tactile: opaque bg, accent glow shadow, gradient-like border
+      if (isDark) {
+        // Dark: accent glow shadow, gradient-like border
+        return {
+          backgroundColor: colors.bgCard,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.cyanDim,
+          shadowColor: colors.cyan,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          elevation: 8,
+        };
+      }
+      // Light: floating card with soft bottom shadow + accent top highlight
       return {
         backgroundColor: colors.bgCard,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.cyanDim,
-        shadowColor: colors.cyan,
+        borderColor: 'rgba(13, 148, 136, 0.15)',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
       };
 
     case 'minimal':
-      // Sharp utility: flat, high-contrast edges, no shadow
+      // Sharp utility: flat, high-contrast edges, no shadow (same for both modes)
       return {
         backgroundColor: colors.bgCard,
         borderRadius: 6,

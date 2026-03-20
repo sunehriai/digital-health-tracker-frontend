@@ -90,17 +90,22 @@ export function buildTodaysRituals(
   // Sort chronologically (earliest first)
   chips.sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
 
-  // Mark the next actionable chip as "next".
-  // Prefer future pending doses over past due doses — a due dose at 5:05 PM
-  // should not block the hero from showing the 9:40 PM dose.
-  // Fall back to due only if no pending doses remain.
-  let nextIndex = chips.findIndex((c) => c.status === 'pending');
-  if (nextIndex === -1) {
-    nextIndex = chips.findIndex((c) => c.status === 'due');
-  }
-  if (nextIndex !== -1) {
-    chips[nextIndex].status = 'next';
-    chips[nextIndex].isNextDose = true;
+  // Mark the next actionable chip using the handoff logic.
+  // getActiveDose respects: 60-min expiry, 15-min handoff to next dose, taken status.
+  const activeChip = getActiveDose(chips, takenTodayIds, now);
+  if (activeChip) {
+    const activeIndex = chips.findIndex((c) => c.id === activeChip.id);
+    if (activeIndex !== -1) {
+      // All earlier non-taken, non-completed chips that expired (including via handoff)
+      // should be marked as missed — handoff = expired.
+      for (let i = 0; i < activeIndex; i++) {
+        if (chips[i].status === 'due') {
+          chips[i].status = 'missed';
+        }
+      }
+      chips[activeIndex].status = 'next';
+      chips[activeIndex].isNextDose = true;
+    }
   }
 
   return chips;

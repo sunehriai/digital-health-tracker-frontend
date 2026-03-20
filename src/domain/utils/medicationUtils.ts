@@ -19,7 +19,7 @@ import type { TimeFormat } from './dateTimeUtils';
  */
 export function getDoseTimes(med: Medication): string[] {
   if (med.dose_times && med.dose_times.length > 0) {
-    return med.dose_times;
+    return [...med.dose_times].sort(); // HH:MM strings sort correctly lexically
   }
   return [med.time_of_day || '08:00'];
 }

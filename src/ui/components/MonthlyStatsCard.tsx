@@ -1,25 +1,43 @@
 /**
  * MonthlyStatsCard — Three-stat summary (Perfect Days, Day Streak, Adherence %)
- * plus a motivational message. Visible on MyAdherenceScreen for Tier 4+ users.
+ * plus a motivational message and next milestone progress.
+ * Visible on MyAdherenceScreen for Tier 4+ users.
  */
 
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CheckCircle, Flame, Award } from 'lucide-react-native';
+import { CheckCircle, Flame, Award, Target } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { computeMonthlyStats } from '../../domain/utils/monthlyStatsUtils';
 import type { MonthSummary } from '../../domain/types';
 
 interface MonthlyStatsCardProps {
   monthSummary: MonthSummary;
+  perfectMonthsStreak?: number;
+}
+
+const MILESTONES = [
+  { name: 'Dedicated', requiredMonths: 3, xpReward: 100 },
+  { name: 'Committed', requiredMonths: 6, xpReward: 250 },
+  { name: 'Devoted', requiredMonths: 12, xpReward: 500 },
+];
+
+function getNextMilestone(streak: number) {
+  for (const m of MILESTONES) {
+    if (streak < m.requiredMonths) {
+      return { ...m, remaining: m.requiredMonths - streak };
+    }
+  }
+  return null; // All milestones achieved
 }
 
 const STREAK_ORANGE = '#FF6B35';
 const STREAK_ORANGE_DIM = 'rgba(255, 107, 53, 0.12)';
 
-export default function MonthlyStatsCard({ monthSummary }: MonthlyStatsCardProps) {
+export default function MonthlyStatsCard({ monthSummary, perfectMonthsStreak = 0 }: MonthlyStatsCardProps) {
   const { colors } = useTheme();
   const stats = useMemo(() => computeMonthlyStats(monthSummary), [monthSummary]);
+  const nextMilestone = useMemo(() => getNextMilestone(perfectMonthsStreak), [perfectMonthsStreak]);
 
   const noData = stats.totalScheduledDays === 0;
 
@@ -74,6 +92,55 @@ export default function MonthlyStatsCard({ monthSummary }: MonthlyStatsCardProps
           {stats.motivationalMessage}
         </Text>
       </View>
+
+      {/* Next milestone progress */}
+      {nextMilestone && (
+        <View style={[styles.milestoneRow, { borderTopColor: colors.border }]}>
+          <View style={styles.milestoneLeft}>
+            <View style={[styles.milestoneIcon, { backgroundColor: 'rgba(255, 215, 0, 0.12)' }]}>
+              <Target size={16} color="#FFD700" />
+            </View>
+            <View>
+              <Text style={[styles.milestoneName, { color: colors.textPrimary }]}>
+                {nextMilestone.name}
+              </Text>
+              <Text style={[styles.milestoneDetail, { color: colors.textMuted }]}>
+                {nextMilestone.remaining} perfect month{nextMilestone.remaining !== 1 ? 's' : ''} to go
+              </Text>
+            </View>
+          </View>
+          <View style={styles.milestoneRight}>
+            <Text style={[styles.milestoneXp, { color: '#FFD700' }]}>
+              +{nextMilestone.xpReward} XP
+            </Text>
+            <View style={[styles.progressBarBg, { backgroundColor: colors.bgElevated }]}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    backgroundColor: '#FFD700',
+                    width: `${Math.min(100, (perfectMonthsStreak / nextMilestone.requiredMonths) * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* All milestones achieved */}
+      {!nextMilestone && perfectMonthsStreak >= 12 && (
+        <View style={[styles.milestoneRow, { borderTopColor: colors.border }]}>
+          <View style={styles.milestoneLeft}>
+            <View style={[styles.milestoneIcon, { backgroundColor: 'rgba(255, 215, 0, 0.12)' }]}>
+              <Award size={16} color="#FFD700" />
+            </View>
+            <Text style={[styles.milestoneName, { color: '#FFD700' }]}>
+              All milestones achieved!
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -122,5 +189,54 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Milestone
+  milestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  milestoneLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  milestoneIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  milestoneDetail: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  milestoneRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  milestoneXp: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  progressBarBg: {
+    width: 60,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 });

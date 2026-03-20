@@ -1,7 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import type { Medication, NotificationPreferences, MedicationNotificationOverride } from '../../domain/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Medication, NotificationPreferences, MedicationNotificationOverride, RefillActivity } from '../../domain/types';
 import { medicationService } from '../services/medicationService';
 import { doseStatusCache } from './doseStatusCache';
 import { medicationEvents } from './medicationEvents';
@@ -571,6 +572,12 @@ export function registerNotificationActionHandler(
       snoozeCount?: number;
     };
 
+    // Monthly restock nudge — just opening the app is enough (badge will be visible)
+    if (data.type === 'monthly_restock_nudge') {
+      nlog('[Tap] monthly_restock_nudge — app opened to Home');
+      return;
+    }
+
     if (data.type !== 'dose_reminder' || !data.medicationId || !data.doseTime) {
       return;
     }
@@ -710,6 +717,81 @@ export function registerNotificationActionHandler(
       }
     }
   });
+}
+
+// ── Monthly Restock Nudge ────────────────────────────────────────────
+
+const MONTHLY_NUDGE_KEY_PREFIX = '@vision_monthly_nudge_';
+
+/**
+ * Schedule a once-per-month restock nudge on the 1st of next month at 10:00 AM.
+ * Suppression rules:
+ *   - refill_alerts_enabled === false → skip
+ *   - has_refilled_this_month === true → skip (user already engaged)
+ *   - activeMedsCount === 0 → skip (nothing to restock)
+ *   - already scheduled for this calendar month → skip (AsyncStorage dedup)
+ */
+export async function scheduleMonthlyRestockNudge(
+  prefs: NotificationPreferences,
+  refillActivity: RefillActivity | null,
+  activeMedsCount: number,
+): Promise<void> {
+  nlog('scheduleMonthlyRestockNudge() called');
+
+  if (!prefs.refill_alerts_enabled) {
+    nlog('  SKIP: refill_alerts_enabled is false');
+    return;
+  }
+  if (activeMedsCount === 0) {
+    nlog('  SKIP: no active medications');
+    return;
+  }
+  if (refillActivity?.has_refilled_this_month) {
+    nlog('  SKIP: has_refilled_this_month is true');
+    return;
+  }
+
+  // Compute next 1st of month
+  const now = new Date();
+  let targetYear = now.getFullYear();
+  let targetMonth = now.getMonth() + 1; // next month (0-indexed)
+  if (targetMonth > 11) {
+    targetMonth = 0;
+    targetYear += 1;
+  }
+  const nextFirst = new Date(targetYear, targetMonth, 1, 10, 0, 0, 0);
+
+  if (nextFirst <= now) {
+    nlog('  SKIP: next first-of-month is in the past');
+    return;
+  }
+
+  // AsyncStorage dedup: one nudge per calendar month
+  const monthKey = `${MONTHLY_NUDGE_KEY_PREFIX}${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+  const alreadyScheduled = await AsyncStorage.getItem(monthKey);
+  if (alreadyScheduled) {
+    nlog('  SKIP: already scheduled for', monthKey);
+    return;
+  }
+
+  nlog('  SCHEDULING nudge for', nextFirst.toISOString());
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Time to check your stock',
+      body: 'Have you restocked any medications this month? Tap to update your counts.',
+      data: { type: 'monthly_restock_nudge' },
+      sound: 'default',
+      ...(Platform.OS === 'android' && { channelId: 'refills' }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: nextFirst,
+    },
+  });
+
+  await AsyncStorage.setItem(monthKey, new Date().toISOString());
+  nlog('  Nudge scheduled and dedup key written:', monthKey);
 }
 
 // ── Legacy API (backwards compatibility) ───────────────────────────────

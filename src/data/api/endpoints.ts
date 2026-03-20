@@ -31,6 +31,7 @@ export const ENDPOINTS = {
   MEDICATION_RESTORE: (id: string) => `/medications/${id}/restore`,
   MEDICATION_REFILL: (id: string) => `/medications/${id}/refill`,
   MEDICATION_DOSES: (id: string) => `/medications/${id}/doses`,
+  REFILL_ACTIVITY: '/medications/refill-activity',
   MEDICATION_DOSE_REVERT: (medicationId: string, doseId: string) =>
     `/medications/${medicationId}/doses/${doseId}`,
 

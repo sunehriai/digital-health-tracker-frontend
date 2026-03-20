@@ -24,6 +24,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeContext';
 import type { ColorPalette } from '../theme/ThemeContext';
 import { adherenceWeeklyService } from '../../data/services/adherenceWeeklyService';
+import { medicationEvents } from '../../data/utils/medicationEvents';
 import type {
   WeekDayRecord,
   WeeklyAdherenceResponse,
@@ -33,7 +34,7 @@ import type {
 
 const BAR_MAX_HEIGHT = 100;
 const BAR_WIDTH = 28;
-const BAR_MIN_HEIGHT = 6; // visible minimum for 0% days with scheduled doses
+const BAR_MIN_HEIGHT = 14; // visible stub for 0% days with scheduled doses
 
 // --- Props ---
 
@@ -112,7 +113,7 @@ function TodayPulseWrapper({ children, isToday, pulseColor }: { children: React.
 
   if (!isToday) return <>{children}</>;
 
-  return <ReAnimated.View style={animatedStyle}>{children}</ReAnimated.View>;
+  return <ReAnimated.View style={[animatedStyle, { width: '100%' }]}>{children}</ReAnimated.View>;
 }
 
 function DayBar({
@@ -149,27 +150,25 @@ function DayBar({
 
   return (
     <View style={styles.barColumnContainer}>
-      <TodayPulseWrapper isToday={isToday && hasDoses} pulseColor={colors.chartAccent}>
-        <View style={styles.barTrack}>
+      <View style={styles.barTrack}>
+        <TodayPulseWrapper isToday={isToday && hasDoses} pulseColor={colors.chartAccent}>
           <Animated.View
             style={[
               styles.bar,
               {
                 height: heightAnim,
                 overflow: 'hidden',
-                // Glow effect on bars with doses
+                // Glow effect on bars with doses (no elevation — it adds a white backdrop on Android)
                 ...(hasDoses && {
                   shadowColor: colors.cyan,
                   shadowOpacity: 0.3,
                   shadowRadius: 6,
                   shadowOffset: { width: 0, height: 0 },
-                  elevation: 4,
                 }),
                 ...(isToday && hasDoses && {
                   shadowColor: colors.chartAccent,
                   shadowOpacity: 0.6,
                   shadowRadius: 10,
-                  elevation: 6,
                 }),
                 ...(isToday && { borderWidth: 1.5, borderColor: `${colors.chartAccent}99` }),
               },
@@ -197,8 +196,8 @@ function DayBar({
               />
             )}
           </Animated.View>
-        </View>
-      </TodayPulseWrapper>
+        </TodayPulseWrapper>
+      </View>
       <Text
         style={[
           styles.dayLabel,
@@ -279,8 +278,8 @@ function SummaryFooter({
   return (
     <View style={styles.footerRow}>
       <View style={styles.footerItem}>
-        <Check size={14} color={colors.chartAccent} />
-        <Text style={[styles.footerCount, { color: colors.chartAccent }]}>
+        <Check size={14} color={colors.success} />
+        <Text style={[styles.footerCount, { color: colors.success }]}>
           {taken}
         </Text>
       </View>
@@ -314,6 +313,18 @@ export default function AdherenceCard({
   );
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  // Listen for dose_taken / dose_reverted events to refresh the chart
+  useEffect(() => {
+    const onDoseChange = () => setRefreshToken((t) => t + 1);
+    medicationEvents.on('dose_taken', onDoseChange);
+    medicationEvents.on('dose_reverted', onDoseChange);
+    return () => {
+      medicationEvents.off('dose_taken', onDoseChange);
+      medicationEvents.off('dose_reverted', onDoseChange);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -333,11 +344,10 @@ export default function AdherenceCard({
     return () => {
       mounted = false;
     };
-  }, [waiverJustUsed]);
+  }, [waiverJustUsed, refreshToken]);
 
-  // Hide the entire card when there's no data (new account, no medications added yet)
-  const hasAnyData = weekData?.days?.some((d) => d.total_scheduled > 0) ?? false;
-  if (!loading && !hasAnyData) return null;
+  // Hide card until 7 full days have passed since the user's first medication
+  if (!loading && !weekData?.sufficient_history) return null;
 
   // Determine today's local date for highlighting (matches backend's timezone-aware date)
   const now = new Date();
@@ -373,12 +383,12 @@ export default function AdherenceCard({
 
   const showWaiverBadge = currentTier >= 3 && waiverBadges > 0;
 
+  // Header badges: remaining badges, still tappable
   const waiverBadgeIcons = showWaiverBadge ? (
     <TouchableOpacity
       style={styles.waiverBadge}
-      activeOpacity={waiverJustUsed ? 1 : 0.7}
-      onPress={waiverJustUsed ? undefined : onWaiverPress}
-      disabled={waiverJustUsed}
+      activeOpacity={0.7}
+      onPress={onWaiverPress}
       accessibilityLabel={`${waiverBadges} waiver badge${waiverBadges !== 1 ? 's' : ''} available`}
     >
       {Array.from({ length: waiverBadges }).map((_, i) => (
@@ -388,6 +398,16 @@ export default function AdherenceCard({
         </View>
       ))}
     </TouchableOpacity>
+  ) : null;
+
+  // Footer badge: single dimmed "used" badge shown after waiver activation
+  const usedBadgeIcon = waiverJustUsed ? (
+    <View style={styles.waiverBadge} accessibilityLabel="Waiver badge used">
+      <View style={[styles.waiverIconWrap, { opacity: 0.35 }]}>
+        <Shield size={22} color={colors.cyan} fill="transparent" strokeWidth={2.5} />
+        <Star size={10} color={colors.cyan} fill={colors.cyan} strokeWidth={0} style={styles.waiverStar} />
+      </View>
+    </View>
   ) : null;
 
   return (
@@ -409,7 +429,7 @@ export default function AdherenceCard({
           </Text>
         </View>
         <View style={styles.headerRight}>
-          {!waiverJustUsed && waiverBadgeIcons}
+          {waiverBadgeIcons}
           <Text style={[styles.pctText, { color: colors.textPrimary }]}>
             {adherencePctDisplay}
           </Text>
@@ -468,7 +488,7 @@ export default function AdherenceCard({
           late={weekData?.total_taken_late ?? 0}
           missed={weekData?.total_missed ?? 0}
         />
-        {waiverJustUsed && waiverBadgeIcons}
+        {usedBadgeIcon}
       </View>
 
       {/* View Month link (Tier 3+) */}
@@ -563,6 +583,7 @@ const styles = StyleSheet.create({
     height: BAR_MAX_HEIGHT,
     justifyContent: 'flex-end',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   bar: {
     width: '100%',
@@ -637,8 +658,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   viewMonthText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   errorText: {
     fontSize: 11,

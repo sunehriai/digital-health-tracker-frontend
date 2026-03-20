@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Flame, Trophy } from 'lucide-react-native';
+import { Flame, Trophy, TrendingUp, TrendingDown } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { StreakEntry } from '../../domain/types';
 
@@ -92,14 +92,17 @@ function MonthRow({
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.deltaText,
-                  { color: delta > 0 ? colors.cyan : '#EF4444' },
-                ]}
-              >
-                {delta > 0 ? `+${delta} days` : `${delta} days`}
-              </Text>
+              {delta > 0 ? (
+                <View style={styles.deltaInner}>
+                  <TrendingUp size={13} color={colors.cyan} strokeWidth={2.5} />
+                  <Text style={[styles.deltaText, { color: colors.cyan }]}>{delta}</Text>
+                </View>
+              ) : (
+                <View style={styles.deltaInner}>
+                  <TrendingDown size={13} color="#EF4444" strokeWidth={2.5} />
+                  <Text style={[styles.deltaText, { color: '#EF4444' }]}>{Math.abs(delta)}</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -122,10 +125,17 @@ function MonthRow({
 
 function getSummaryMessage(entries: StreakEntry[]): string | null {
   if (entries.length < 2) return null;
-  const first = entries[0].best_streak;
-  const last = entries[entries.length - 1].best_streak;
+
+  // Exclude the current (incomplete) month from the comparison
+  const now = new Date();
+  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const complete = entries.filter((e) => e.month !== currentYM);
+  if (complete.length < 2) return null;
+
+  const first = complete[0].best_streak;
+  const last = complete[complete.length - 1].best_streak;
   const diff = last - first;
-  const months = entries.length;
+  const months = complete.length;
 
   if (diff > 0) {
     return `Your streak has grown by +${diff} days over ${months} months.\nYou're building incredible consistency!`;
@@ -147,6 +157,10 @@ export default function StreakTrajectoryCard({ entries }: StreakTrajectoryCardPr
   const allTimeBest = entries.reduce((a, b) => (a.best_streak > b.best_streak ? a : b));
   const latest = entries[entries.length - 1];
   const summary = getSummaryMessage(entries);
+
+  // Current month YYYY-MM — suppress delta for in-progress month
+  const now = new Date();
+  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   return (
     <View style={styles.container}>
@@ -175,9 +189,10 @@ export default function StreakTrajectoryCard({ entries }: StreakTrajectoryCardPr
         Monthly Streak Details
       </Text>
 
-      {/* Month rows */}
+      {/* Month rows — no delta for the current (incomplete) month */}
       {entries.map((entry, idx) => {
-        const delta = idx > 0
+        const isCurrentMonth = entry.month === currentYM;
+        const delta = idx > 0 && !isCurrentMonth
           ? entry.best_streak - entries[idx - 1].best_streak
           : null;
         return (
@@ -278,6 +293,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+  },
+  deltaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   deltaText: {
     fontSize: 11,

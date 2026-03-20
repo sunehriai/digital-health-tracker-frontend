@@ -185,7 +185,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
                 style={[
                   styles.pickerOption,
                   { borderBottomColor: colors.border },
-                  security.autoLockTimeout === option.value && styles.pickerOptionSelected,
+                  security.autoLockTimeout === option.value && [styles.pickerOptionSelected, { backgroundColor: colors.cyanDim }],
                 ]}
                 onPress={() => handleAutoLockChange(option.value)}
               >
@@ -307,7 +307,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
         )}
 
         {/* Health Data Protection Notice */}
-        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan }]}>
+        <View style={[styles.noticeCard, { borderLeftColor: colors.cyan, backgroundColor: colors.cyanDim }]}>
           <View style={styles.noticeHeader}>
             <Info color={colors.cyan} size={18} />
             <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Health Data Protection</Text>
@@ -435,9 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  pickerOptionSelected: {
-    backgroundColor: 'rgba(0, 209, 255, 0.1)',
-  },
+  pickerOptionSelected: {},
   pickerOptionText: {
     fontSize: 15,
   },
@@ -521,7 +519,6 @@ const styles = StyleSheet.create({
 
   // Notice Card
   noticeCard: {
-    backgroundColor: 'rgba(0, 209, 255, 0.08)',
     borderRadius: 12,
     padding: 16,
     marginTop: 20,

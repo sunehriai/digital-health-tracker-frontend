@@ -19,6 +19,23 @@ export const TIER_ASSETS: Record<number, any> = {
   5: require('../../../assets/tiers/sage.png'),
 } as const;
 
+// Light theme variants (where available)
+export const TIER_ASSETS_LIGHT: Record<number, any> = {
+  1: require('../../../assets/tiers/observer-light.png'),
+  2: require('../../../assets/tiers/practitioner-light.png'),
+  3: require('../../../assets/tiers/guardian-light.png'),
+  4: require('../../../assets/tiers/visionary-light.png'),
+  5: require('../../../assets/tiers/sage-light.png'),
+} as const;
+
+/** Get tier asset for the current theme */
+export function getTierAsset(tier: number, isDark: boolean): any {
+  if (!isDark && TIER_ASSETS_LIGHT[tier]) {
+    return TIER_ASSETS_LIGHT[tier];
+  }
+  return TIER_ASSETS[tier];
+}
+
 // Waiver Badge asset ("Protector" chain-lock icon)
 // Used in WaiverPrompt modal and badge count display
 export const WAIVER_BADGE_ASSET = require('../../../assets/tiers/waiver-badge.png');

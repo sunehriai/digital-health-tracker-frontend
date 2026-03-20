@@ -62,8 +62,37 @@ const MOCK_USER: AuthUser = {
   deletion_type: null,
 };
 
+// Dedicated E2E test user — separate identity from dev user for clean-slate testing.
+// Switch to this by setting USE_TEST_USER = true below.
+const TEST_USER: AuthUser = {
+  id: 'e2e-test-user',
+  email: 'e2e-tester@vision.app',
+  display_name: 'E2E Test User',
+  date_of_birth: null,
+  gender: null,
+  primary_health_goal: null,
+  primary_physician: null,
+  created_at: new Date().toISOString(),
+  total_xp: 0,
+  current_tier: 1,
+  streak_days: 0,
+  timezone: 'America/New_York',
+  streak_start_date: null,
+  last_active_at: new Date().toISOString(),
+  comeback_boost_until: null,
+  waiver_badges: 0,
+  perfect_months_streak: 0,
+  is_deactivated: false,
+  deletion_requested_at: null,
+  deletion_type: null,
+};
+
+// Toggle this to true to use the E2E test user instead of the dev user
+const USE_TEST_USER = false;
+const ACTIVE_MOCK_USER = USE_TEST_USER ? TEST_USER : MOCK_USER;
+
 export function useAuthProvider(): AuthContextType {
-  const [user, setUser] = useState<AuthUser | null>(DEV_SKIP_AUTH ? MOCK_USER : null);
+  const [user, setUser] = useState<AuthUser | null>(DEV_SKIP_AUTH ? ACTIVE_MOCK_USER : null);
   const [loading, setLoading] = useState(!DEV_SKIP_AUTH);
   const [error, setError] = useState<string | null>(null);
   const [deactivationInfo, setDeactivationInfo] = useState<DeactivationInfo | null>(null);
@@ -103,8 +132,8 @@ export function useAuthProvider(): AuthContextType {
       try {
         // Use the profile from GET /auth/me (hits real backend even in dev mode)
         const profile = await profileService.getMe();
-        // Sync real profile fields (e.g. created_at) into dev-mode mock user
-        setUser((prev) => prev ? { ...prev, created_at: profile.created_at } : prev);
+        // Sync all real profile fields into dev-mode mock user
+        setUser((prev) => prev ? { ...prev, ...profile } : prev);
         if (profile.is_deactivated) {
           const status = await deletionService.getDeletionStatus();
           if (status?.pending) {
@@ -129,7 +158,7 @@ export function useAuthProvider(): AuthContextType {
   }, []);
 
   const signIn = useCallback(async (_email: string, _password: string) => {
-    setUser(MOCK_USER);
+    setUser(ACTIVE_MOCK_USER);
     return { success: true };
   }, []);
 

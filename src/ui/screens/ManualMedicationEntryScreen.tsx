@@ -11,6 +11,8 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronDown, ChevronUp, Minus, Plus, UtensilsCrossed, AlertTriangle, AlertCircle, ArrowUp, ArrowDown, Sparkles } from 'lucide-react-native';
@@ -79,6 +81,8 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
     if (confidence === undefined) return null;
     return getConfidenceLevel(confidence);
   };
+
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Basic Info - initialize from AI data when in AI mode
   const [name, setName] = useState(() => getInitialValue(aiFormData?.name, ''));
@@ -557,7 +561,11 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: `${colors.cyan}1A` }]}>
@@ -622,7 +630,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               <Text style={[styles.criticalHint, { color: colors.textMuted }]}>Essential - never skip this one</Text>
             </View>
           </View>
-          <View style={[styles.toggleSwitch, { backgroundColor: isDark ? '#1E293B' : '#D1D5DB' }, isCritical && styles.toggleSwitchActive]}>
+          <View style={[styles.toggleSwitch, { backgroundColor: isDark ? '#1E293B' : '#CBD5E1' }, isCritical && styles.toggleSwitchActive]}>
             <View style={[styles.toggleKnob, { backgroundColor: colors.textMuted }, isCritical && styles.toggleKnobActive]} />
           </View>
         </TouchableOpacity>
@@ -664,9 +672,9 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           <Switch
             value={isOngoing}
             onValueChange={setIsOngoing}
-            trackColor={{ false: isDark ? '#1E293B' : '#D1D5DB', true: colors.cyan }}
+            trackColor={{ false: isDark ? '#1E293B' : '#CBD5E1', true: colors.cyan }}
             thumbColor={isOngoing ? '#FFFFFF' : colors.textSecondary}
-            ios_backgroundColor={isDark ? '#1E293B' : '#D1D5DB'}
+            ios_backgroundColor={isDark ? '#1E293B' : '#CBD5E1'}
           />
         </View>
 
@@ -975,7 +983,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
           ))}
         </View>
 
-        <View style={[styles.dosePerIntakeRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle }]}>
+        <View style={[styles.dosePerIntakeRow, { backgroundColor: colors.bgDark, borderColor: colors.borderSubtle, marginTop: 12 }]}>
           <Text style={[styles.stepperLabelSmall, { color: colors.textPrimary }]}>Inventory in stock</Text>
           <TouchableOpacity
             style={[styles.dosePickerButton, { backgroundColor: `${colors.cyan}1A` }]}
@@ -1161,6 +1169,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               onChangeText={setAllergies}
               placeholder="Sulfa drugs, penicillin..."
               placeholderTextColor={colors.textMuted}
+              onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300)}
             />
 
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Doctor Name</Text>
@@ -1170,6 +1179,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               onChangeText={setDoctorName}
               placeholder="Dr. Smith"
               placeholderTextColor={colors.textMuted}
+              onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300)}
             />
 
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Pharmacy Name</Text>
@@ -1179,6 +1189,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
               onChangeText={setPharmacyName}
               placeholder="CVS Pharmacy"
               placeholderTextColor={colors.textMuted}
+              onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300)}
             />
 
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Brand Name</Text>
@@ -1217,7 +1228,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, paddingBottom: 350 },
 
   // Header
   headerRow: {
@@ -1294,7 +1305,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   fieldMargin: {
-    marginTop: 8,
+    marginTop: 14,
   },
   dateTimeRow: {
     flexDirection: 'row',

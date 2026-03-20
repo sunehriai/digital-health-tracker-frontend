@@ -57,9 +57,9 @@ function getStatusColors(status: RitualStatus, colors: ColorPalette) {
     default: // pending
       return {
         border: 'rgba(142,145,150,0.2)',
-        bg: 'rgba(18,23,33,0.5)',
-        icon: '#8E9196',
-        text: '#8E9196',
+        bg: colors.bgElevated,
+        icon: colors.textMuted,
+        text: colors.textSecondary,
       };
   }
 }
@@ -135,7 +135,7 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
         <Text style={[styles.tileName, { color: sc.text }]} numberOfLines={1}>
           {formatMedName(item.name, 'tile')}
         </Text>
-        <Text style={styles.tileTime}>{item.timeDisplay}</Text>
+        <Text style={[styles.tileTime, { color: colors.textMuted }]}>{item.timeDisplay}</Text>
         <View style={styles.doseRow}>
           <View
             style={[
@@ -148,9 +148,9 @@ function RitualTile({ item, index, onTap, onRevert, canRevert, disabled, isLoadi
               },
             ]}
           />
-          <Text style={styles.doseInfo}>{item.doseInfo}</Text>
+          <Text style={[styles.doseInfo, { color: colors.textMuted }]}>{item.doseInfo}</Text>
         </View>
-        {item.mealInfo && <Text style={styles.mealInfo}>{item.mealInfo}</Text>}
+        {item.mealInfo && <Text style={[styles.mealInfo, { color: colors.textMuted }]}>{item.mealInfo}</Text>}
       </View>
     </View>
   );
@@ -291,10 +291,13 @@ const RitualsCarousel = forwardRef<RitualsCarouselRef, RitualsCarouselProps>(
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={[styles.heading, { color: colors.textPrimary }]}>Today's Rituals</Text>
-          <Text style={styles.counter}>0/0</Text>
         </View>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No medications scheduled for today</Text>
+        <View style={[styles.emptyState, { borderColor: `${colors.cyan}20`, backgroundColor: `${colors.bgCard}80` }]}>
+          <Pill color={colors.textMuted} size={24} strokeWidth={1.5} />
+          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No doses scheduled today</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+            Add a medication to start your health ritual
+          </Text>
         </View>
       </View>
     );
@@ -435,24 +438,27 @@ const styles = StyleSheet.create({
   },
   tileInfo: { flex: 1, justifyContent: 'flex-end' },
   tileName: { fontSize: 11, fontWeight: '700', marginBottom: 2 },
-  tileTime: { color: '#8E9196', fontSize: 9, fontWeight: '500', marginBottom: 4 },
+  tileTime: { fontSize: 9, fontWeight: '500', marginBottom: 4 },
   doseRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   doseDot: { width: 4, height: 4, borderRadius: 2 },
-  doseInfo: { color: '#8E9196', fontSize: 8, fontWeight: '500' },
-  mealInfo: { color: '#8E9196', fontSize: 7, fontWeight: '400', marginTop: 2 },
+  doseInfo: { fontSize: 8, fontWeight: '500' },
+  mealInfo: { fontSize: 7, fontWeight: '400', marginTop: 2 },
   emptyState: {
-    height: 110,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(142,145,150,0.2)',
-    backgroundColor: 'rgba(18,23,33,0.5)',
+    gap: 6,
   },
-  emptyText: {
-    color: '#8E9196',
-    fontSize: 12,
-    fontWeight: '500',
+  emptyTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  emptySubtitle: {
+    fontSize: 11,
+    fontWeight: '400',
   },
   counterComplete: {
     fontSize: 10,

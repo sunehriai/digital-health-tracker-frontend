@@ -7,6 +7,10 @@ const logger = createLogger('ApiClient');
 // TODO: Re-enable Firebase token — temporarily disabled for development
 const DEV_SKIP_AUTH = true;
 
+// E2E test user identity — when true, sends X-Dev-User-Id header so backend
+// uses the test user instead of the default dev user. Must match USE_TEST_USER in useAuth.ts.
+const USE_TEST_USER = false;
+
 /** Step 38: Dev-only API base override for environment switching. */
 let apiBaseOverride: string | null = null;
 
@@ -66,6 +70,7 @@ class ApiClient {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(DEV_SKIP_AUTH && USE_TEST_USER && { 'X-Dev-User-Id': 'e2e-test-user' }),
         ...options.headers,
       };
 

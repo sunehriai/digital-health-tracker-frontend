@@ -9,6 +9,7 @@ import { AppPreferencesContext, useAppPreferencesProvider, useAppPreferences } f
 import { ThemeProvider, useTheme } from './ui/theme/ThemeContext';
 import { AIUploadProvider } from './data/contexts/AIUploadContext';
 import { AlertProvider } from './ui/context/AlertContext';
+import { OnboardingProvider } from './ui/hooks/useOnboarding';
 import AppNavigator from './ui/navigation/AppNavigator';
 import LockScreen from './ui/components/LockScreen';
 import PrivacyOverlay from './ui/components/PrivacyOverlay';
@@ -93,7 +94,7 @@ function AppShell() {
         backgroundColor={colors.bg}
       />
       <View
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: colors.bg }}
         onTouchStart={security.resetInactivityTimer}
       >
         <AIUploadProvider>
@@ -157,7 +158,9 @@ export default function App() {
               <GamificationContext.Provider value={gamification}>
                 <SecurityContext.Provider value={security}>
                   <AlertProvider>
-                    <AppShell />
+                    <OnboardingProvider>
+                      <AppShell />
+                    </OnboardingProvider>
                   </AlertProvider>
                 </SecurityContext.Provider>
               </GamificationContext.Provider>

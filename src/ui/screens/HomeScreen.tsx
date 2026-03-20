@@ -16,7 +16,11 @@ import XpAnimation from '../components/XpAnimation';
 import TierCelebration from '../components/TierCelebration';
 import WaiverPrompt from '../components/WaiverPrompt';
 import WelcomeBackModal, { shouldShowWelcomeBack, markWelcomeBackShown } from '../components/WelcomeBackModal';
+import LowStockBadge from '../components/LowStockBadge';
+import LowStockBottomSheet from '../components/LowStockBottomSheet';
+import type { LowStockModalRef } from '../components/LowStockBottomSheet';
 import { useMedications } from '../hooks/useMedications';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { useAlert } from '../context/AlertContext';
 import { useGamification } from '../hooks/useGamification';
 import { useAppPreferences } from '../hooks/useAppPreferences';
@@ -25,8 +29,9 @@ import { typography } from '../theme/typography';
 import { doseStatusCache } from '../../data/utils/doseStatusCache';
 import { medicationEvents } from '../../data/utils/medicationEvents';
 import { estimateDailyXp } from '../../domain/utils/xpCalculator';
-import { TIER_ASSETS, TIER_NAMES } from '../../domain/constants/tierAssets';
+import { TIER_ASSETS, TIER_NAMES, getTierAsset } from '../../domain/constants/tierAssets';
 import type { RootStackParamList } from '../navigation/types';
+import { calculateLowStockDoses, getOccurrenceCount } from '../../domain/medicationConfig';
 import type { Medication, DoseTimeSlot, RevertableDose } from '../../domain/types';
 import {
   getNextDoseTime,
@@ -52,16 +57,28 @@ import { ENDPOINTS } from '../../data/api/endpoints';
 import ScreenshotToast from '../components/ScreenshotToast';
 import DoseToast from '../components/DoseToast';
 import AnimatedPressable from '../components/AnimatedPressable';
+import { useOnboarding } from '../hooks/useOnboarding';
+import { measureElement } from '../utils/measureElement';
+import SpotlightHint from '../components/onboarding/SpotlightHint';
+import type { TargetRect } from '../../domain/types';
 import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
 import { logEndOfDay } from '../../data/utils/notificationDebugLog';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { showAlert } = useAlert();
-  const { activeMedications, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
+  const { activeMedications, loading: medsLoading, fetchMedications, logDoseBatch, logDose, revertDose } = useMedications();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Home');
   const { prefs: { timeFormat } } = useAppPreferences();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { prefs: notifPrefs } = useNotificationPrefs();
+  const lowStockSheetRef = useRef<LowStockModalRef>(null);
+
+  // Onboarding: layout ready signal + hints + FAB measurement
+  const { reportLayoutReady, setTargetRect, checkHint, activateHint, dismissHint, activeHint, isTourActive } = useOnboarding();
+  const layoutReportedRef = useRef(false);
+  const [rootLayoutDone, setRootLayoutDone] = useState(false);
+  const [tierBadgeRect, setTierBadgeRect] = useState<TargetRect | null>(null);
 
   // Step 40: Gamification hook for XP estimation, tier detection, waiver, etc.
   const {
@@ -126,10 +143,47 @@ export default function HomeScreen() {
     visible: false, title: '', body: '',
   });
 
+  // Onboarding: report layout ready once data is loaded and layout is measured
+  useEffect(() => {
+    if (layoutReportedRef.current) return;
+    if (rootLayoutDone && !medsLoading) {
+      layoutReportedRef.current = true;
+      reportLayoutReady();
+    }
+  }, [rootLayoutDone, medsLoading, reportLayoutReady]);
+
+  // Journey icon hint — only shows on 2nd+ session (not immediately after tour)
+  // checkHint blocks if tour_complete is false, so this only fires on subsequent app opens
+  const tourJustFinishedRef = useRef(false);
+  useEffect(() => {
+    // Track if tour was active this session — if so, skip hint this session
+    if (isTourActive) tourJustFinishedRef.current = true;
+  }, [isTourActive]);
+
+  useFocusEffect(useCallback(() => {
+    if (tourJustFinishedRef.current) return; // Don't show hint same session as tour
+    if (checkHint('H2', true)) {
+      const t = setTimeout(() => activateHint('H2'), 500);
+      return () => clearTimeout(t);
+    }
+  }, [checkHint, activateHint]));
+
   // Load persisted taken IDs and revertable doses on mount
   useEffect(() => {
     const loadPersistedState = async () => {
-      await doseStatusCache.cleanupOldData();
+      // Version gate: clear stale cache after dose_times sort-order change (Bug 4D)
+      const CACHE_VERSION_KEY = 'vision_cache_v2';
+      const cacheVersion = await AsyncStorage.getItem(CACHE_VERSION_KEY);
+      if (!cacheVersion) {
+        console.info('[HomeScreen] vision_cache_v2 gate: clearing dose status cache for sort-order migration');
+        await doseStatusCache.cleanupOldData();
+        const todayKey = `vision_dose_status_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+        await AsyncStorage.removeItem(todayKey);
+        await AsyncStorage.setItem(CACHE_VERSION_KEY, '1');
+      } else {
+        await doseStatusCache.cleanupOldData();
+      }
+
       const persisted = await doseStatusCache.getTakenToday();
       if (persisted.size > 0) {
         const persistedArray = Array.from(persisted);
@@ -213,6 +267,13 @@ export default function HomeScreen() {
     const unsubRestored = medicationEvents.on('medication_restored', () => {
       fetchMedications();
     });
+    const unsubUpdated = medicationEvents.on('medication_updated', async () => {
+      fetchMedications();
+      // Also reload persisted dose status to prevent taken chips from unchecking
+      const persisted = await doseStatusCache.getTakenToday();
+      setTakenTodayArray(Array.from(persisted));
+      setStateVersion((v) => v + 1);
+    });
     // Reload persisted dose status when a dose is taken from a notification action
     const unsubDoseTaken = medicationEvents.on('dose_taken', async () => {
       console.log('[HomeScreen] dose_taken event received — reloading persisted state');
@@ -227,6 +288,7 @@ export default function HomeScreen() {
       unsubDeleted();
       unsubArchived();
       unsubRestored();
+      unsubUpdated();
       unsubDoseTaken();
     };
   }, [fetchMedications]);
@@ -503,6 +565,23 @@ export default function HomeScreen() {
       ritualsCarouselRef.current?.scrollToRitual(criticalMissedRitual.id);
     }
   }, [criticalMissedRitual]);
+
+  // Low stock badge: filter active medications below user's threshold
+  const thresholdDays = notifPrefs?.low_stock_threshold_days ?? 7;
+  const lowStockMeds = useMemo(() => {
+    return activeMedications.filter((m) => {
+      if (m.is_paused || m.is_archived || m.is_as_needed) return false;
+      const dosesPerDay = (m.dose_times && m.dose_times.length > 0)
+        ? m.dose_times.length
+        : getOccurrenceCount(m.occurrence);
+      const threshold = calculateLowStockDoses(m.dose_size, dosesPerDay, thresholdDays);
+      return m.current_stock < threshold;
+    }).sort((a, b) => a.current_stock - b.current_stock);
+  }, [activeMedications, thresholdDays]);
+
+  const openLowStockSheet = useCallback(() => {
+    lowStockSheetRef.current?.expand();
+  }, []);
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -903,7 +982,7 @@ export default function HomeScreen() {
     } else if (waiverBadges === 0) {
       showAlert({ title: 'No Waiver Badges', message: 'No waiver badges remaining. Earn more by reaching higher tiers.', type: 'info', iconColor: colors.chartAccent });
     } else {
-      showAlert({ title: 'Streak Safe', message: 'Your streak is safe! No missed doses to waive.', type: 'info', iconColor: colors.chartAccent });
+      showAlert({ title: 'Streak Safe', message: 'No missed doses in the last 3 days to waive.', type: 'info', iconColor: colors.chartAccent });
     }
   }, [hasMissedYesterday, waiverBadges, showAlert, colors.chartAccent]);
 
@@ -913,7 +992,13 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.bg }]}
+      edges={['top']}
+      onLayout={() => {
+        setRootLayoutDone(true);
+      }}
+    >
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -921,18 +1006,33 @@ export default function HomeScreen() {
             <Text style={[styles.title, { color: colors.textPrimary }]}>Vision</Text>
             <Text style={[styles.date, { color: colors.textMuted }]}>{today}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.tierBadgeBtn}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('MyJourney')}
-            accessibilityLabel={`${TIER_NAMES[currentTier] ?? 'Observer'} tier. Tap to view your journey.`}
-          >
-            <Image source={TIER_ASSETS[currentTier]} style={styles.tierBadgeImg} resizeMode="contain" />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <LowStockBadge count={lowStockMeds.length} onPress={openLowStockSheet} />
+            <TouchableOpacity
+              style={styles.tierBadgeBtn}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('MyJourney')}
+              accessibilityLabel={`${TIER_NAMES[currentTier] ?? 'Observer'} tier. Tap to view your journey.`}
+              onLayout={(e) => {
+                measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+                  if (w > 0 && h > 0) setTierBadgeRect({ x, y, width: w, height: h });
+                });
+              }}
+            >
+              <Image source={getTierAsset(currentTier, isDark)} style={styles.tierBadgeImg} resizeMode="contain" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Gamification status bar (self-contained -- isolated re-renders R5.3) */}
-        <View style={styles.gamificationHeaderWrap}>
+        <View
+          style={styles.gamificationHeaderWrap}
+          onLayout={(e) => {
+            measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+              if (w > 0 && h > 0) setTargetRect(2, { x, y, width: w, height: h });
+            });
+          }}
+        >
           <GamificationHeader />
           {/* Step 35: XP Animation floats above the header */}
           <XpAnimation
@@ -1022,13 +1122,32 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <AnimatedPressable
-        style={[styles.fab, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('AddMedication')}
+      <View
+        style={styles.fab}
+        onLayout={(e) => {
+          measureElement(e.target, (x: number, y: number, w: number, h: number) => {
+            if (w > 0 && h > 0) setTargetRect(1, { x, y, width: w, height: h });
+          });
+        }}
       >
-        <Plus color={colors.bg} size={24} strokeWidth={2.5} />
-      </AnimatedPressable>
+        <AnimatedPressable
+          style={[styles.fabInner, { backgroundColor: colors.cyan, shadowColor: colors.cyan }]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('AddMedication')}
+        >
+          <Plus color={colors.bg} size={24} strokeWidth={2.5} />
+        </AnimatedPressable>
+      </View>
+
+      {/* Post-tour hint: journey icon */}
+      {activeHint === 'H2' && tierBadgeRect && (
+        <SpotlightHint
+          targetRect={tierBadgeRect}
+          title="Your Journey"
+          message="Tap this icon to view your full journey — tiers, XP history, and milestones."
+          onDismiss={() => dismissHint('H2')}
+        />
+      )}
 
       {/* Step 36: Tier Celebration overlay */}
       <TierCelebration
@@ -1061,6 +1180,13 @@ export default function HomeScreen() {
         onDismiss={() => setDoseToast((prev) => ({ ...prev, visible: false }))}
       />
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+
+      {/* Low Stock Bottom Sheet — outside ScrollView to overlay correctly */}
+      <LowStockBottomSheet
+        ref={lowStockSheetRef}
+        medications={lowStockMeds}
+        thresholdDays={thresholdDays}
+      />
     </SafeAreaView>
   );
 }
@@ -1072,6 +1198,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 24 },
   title: { fontSize: 28, fontWeight: '700' },
   date: { ...typography.bodySmall, marginTop: 2 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tierBadgeBtn: { alignItems: 'center', gap: 4 },
   tierBadgeImg: { width: 68, height: 68 },
   gamificationHeaderWrap: { position: 'relative', marginBottom: 16 },
@@ -1080,6 +1207,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     right: 20,
+    width: 56,
+    height: 56,
+  },
+  fabInner: {
     width: 56,
     height: 56,
     borderRadius: 28,

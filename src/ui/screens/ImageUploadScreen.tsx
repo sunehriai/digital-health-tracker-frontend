@@ -15,12 +15,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -391,16 +391,12 @@ export function ImageUploadScreen() {
         onPress={handleAnalyze}
         disabled={!canAnalyze}
         activeOpacity={0.8}
+        style={{ width: '100%' }}
       >
-        <LinearGradient
-          colors={canAnalyze ? (isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']) : ['#333', '#444']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.analyzeButton}
-        >
-          <Camera size={20} color="#FFFFFF" />
-          <Text style={styles.analyzeButtonText}>{AI_UPLOAD_COPY.UPLOAD_BUTTON}</Text>
-        </LinearGradient>
+        <View style={[styles.analyzeButton, { backgroundColor: canAnalyze ? colors.cyan : '#555' }, !canAnalyze && { opacity: 0.5 }]}>
+          <Camera size={20} color={isDark ? '#0A0A0B' : '#FFFFFF'} />
+          <Text style={[styles.analyzeButtonText, { color: isDark ? '#0A0A0B' : '#FFFFFF' }]}>{AI_UPLOAD_COPY.UPLOAD_BUTTON}</Text>
+        </View>
       </TouchableOpacity>
 
       {/* Manual entry link */}
@@ -533,7 +529,6 @@ const styles = StyleSheet.create({
   analyzeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   manualLink: {
     marginTop: 20,

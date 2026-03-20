@@ -27,7 +27,7 @@ export default function ActionCenterCard({
   tomorrowSlot,
   onLogMissedDose,
 }: ActionCenterCardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { prefs: { reducedMotion } } = useAppPreferences();
   const [isLogging, setIsLogging] = useState(false);
   const [showNextDose, setShowNextDose] = useState(false);
@@ -56,11 +56,11 @@ export default function ActionCenterCard({
   };
 
   return (
-    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={[styles.container, { backgroundColor: colors.overlayHeavy, borderColor: colors.cyanGlow }]}>
+    <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(400)} style={[styles.container, { backgroundColor: isDark ? colors.overlayHeavy : colors.bgElevated, borderColor: isDark ? colors.cyanGlow : colors.border }]}>
       {/* Header */}
       <View style={styles.header}>
-        <AlertTriangle color={colors.textPrimary} size={20} strokeWidth={2.5} />
-        <Text style={[styles.headerText, { color: colors.textPrimary }]}>MINOR GLITCH DETECTED</Text>
+        <AlertTriangle color={isDark ? '#FBBF24' : '#F59E0B'} size={24} strokeWidth={2.5} />
+        <Text style={[styles.headerText, { color: isDark ? '#FBBF24' : '#F59E0B', fontSize: 14 }]}>MINOR GLITCH DETECTED</Text>
       </View>
 
       {/* Large Fraction */}

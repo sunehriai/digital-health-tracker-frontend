@@ -52,7 +52,7 @@ export function AIErrorDisplay({
         {isSoft && (
           <TouchableOpacity onPress={onManualEntry} activeOpacity={0.8}>
             <LinearGradient
-              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0D9488', '#0F766E']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryButton}
@@ -67,7 +67,7 @@ export function AIErrorDisplay({
         {isHard && (
           <TouchableOpacity onPress={onRetry} activeOpacity={0.8}>
             <LinearGradient
-              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0097B8', '#007A96']}
+              colors={isDark ? ['#00D1FF', '#0099CC'] : ['#0D9488', '#0F766E']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryButton}

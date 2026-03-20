@@ -18,7 +18,7 @@ import { Flame, Zap } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
-import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
+import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS, getTierAsset } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
 import GlowRing from './GlowRing';
 import type { RootStackParamList } from '../navigation/types';
@@ -42,7 +42,7 @@ function formatBoostCountdown(hoursLeft: number): string {
 
 export default function GamificationHeader() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const {
     totalXp,
     currentTier,
@@ -117,7 +117,7 @@ export default function GamificationHeader() {
     progressPercent = range > 0 ? Math.min(1, Math.max(0, progress / range)) : 1;
   }
 
-  const badgeSource = TIER_ASSETS[currentTier];
+  const badgeSource = getTierAsset(currentTier, isDark);
 
   if (loading) {
     return (

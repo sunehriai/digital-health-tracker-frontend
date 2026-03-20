@@ -154,9 +154,18 @@ export default function HeroSection({
             }}
             activeOpacity={0.8}
           >
-            <View style={[styles.criticalMissBadge, { backgroundColor: colors.error, shadowColor: colors.error }]}>
-              <AlertTriangle color={colors.textPrimary} size={12} strokeWidth={2.5} />
-              <Text style={[styles.criticalMissText, { color: colors.textPrimary }]}>CRITICAL MISS</Text>
+            <View style={[styles.criticalMissBadge, {
+              backgroundColor: isDark ? colors.error : '#FFF',
+              borderColor: isDark ? colors.error : 'rgba(239, 68, 68, 0.4)',
+              borderWidth: isDark ? 0 : 1,
+              shadowColor: isDark ? colors.error : undefined,
+              shadowOffset: isDark ? { width: 0, height: 2 } : undefined,
+              shadowOpacity: isDark ? 0.5 : 0,
+              shadowRadius: isDark ? 6 : 0,
+              elevation: isDark ? 6 : 0,
+            }]}>
+              <AlertTriangle color={isDark ? '#FFF' : '#EF4444'} size={12} strokeWidth={2.5} />
+              <Text style={[styles.criticalMissText, { color: isDark ? '#FFF' : '#EF4444' }]}>CRITICAL MISS</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -291,10 +300,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 6,
   },
   criticalMissText: {
     fontSize: 10,

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { rescheduleAll, registerNotificationActionHandler } from '../../data/utils/notifications';
+import { rescheduleAll, registerNotificationActionHandler, scheduleMonthlyRestockNudge } from '../../data/utils/notifications';
 import { medicationEvents } from '../../data/utils/medicationEvents';
+import { medicationService } from '../../data/services/medicationService';
 import { registerToken } from '../../data/services/pushService';
 import type { Medication, NotificationPreferences } from '../../domain/types';
 // Activity log calls are in notifications.ts (rescheduleAll) — no direct calls needed here
@@ -64,6 +65,17 @@ export function useNotificationScheduler(
         await rescheduleAll(currentMeds, currentPrefs);
       } catch (err) {
         nlog('rescheduleAll ERROR:', err);
+      }
+
+      // Monthly nudge: fetch refill activity and schedule if needed
+      try {
+        const refillActivity = await medicationService.getRefillActivity();
+        const activeMedsCount = currentMeds.filter(
+          (m) => !m.is_paused && !m.is_archived,
+        ).length;
+        await scheduleMonthlyRestockNudge(currentPrefs, refillActivity, activeMedsCount);
+      } catch (e) {
+        nlog('Monthly nudge scheduling failed (non-fatal):', e);
       }
     }, DEBOUNCE_MS);
   }, []);

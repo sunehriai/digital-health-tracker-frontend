@@ -8,6 +8,7 @@ import type {
   DoseLog,
   DoseLogInsert,
   RefillLog,
+  RefillActivity,
 } from '../../domain/types';
 
 export const medicationService = {
@@ -103,5 +104,9 @@ export const medicationService = {
     await apiClient.request(ENDPOINTS.MEDICATION_DOSE_REVERT(medicationId, doseId), {
       method: 'DELETE',
     });
+  },
+
+  async getRefillActivity(): Promise<RefillActivity> {
+    return apiClient.request(ENDPOINTS.REFILL_ACTIVITY);
   },
 };

@@ -9,21 +9,18 @@
  */
 
 /** Feature names that can be tier-gated. */
-export type GatedFeature = 'custom_themes' | 'monthly_calendar' | 'ritual_tree' | 'insight_trends' | 'sage_wisdom';
+export type GatedFeature = 'monthly_calendar' | 'insight_trends';
 
 /** Maps each gated feature to the tier number required to unlock it. */
 const FEATURE_TIER_REQUIREMENTS: Record<GatedFeature, number> = {
-  custom_themes: 2,     // Practitioner (500 XP)
-  monthly_calendar: 3,  // Guardian (1,250 XP)
-  ritual_tree: 4,       // Visionary (2,500 XP)
+  monthly_calendar: 2,  // Practitioner (500 XP)
   // insight_trends: Tab-level access is NOT gated by this key. This key gates
   // the premium analytics cards only. Use the tier_unlocked flag from
   // GET /insights/trends to gate individual cards within InsightTrendsScreen.
   // ANTI-PATTERN: Do NOT add isFeatureUnlocked('insight_trends', ...) as a
   // LockedFeatureScreen guard in InsightTrendsScreen — it would lock the
-  // entire tab for Tier 1-3 users, violating the progressive unlock design.
-  insight_trends: 4,    // Visionary (2,500 XP)
-  sage_wisdom: 5,       // Sage (5,000 XP)
+  // entire tab for Tier 1-2 users, violating the progressive unlock design.
+  insight_trends: 3,    // Guardian (1,250 XP)
 };
 
 /**

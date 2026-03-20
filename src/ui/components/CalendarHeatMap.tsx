@@ -78,6 +78,7 @@ export default function CalendarHeatMap({
                   key={dayIdx}
                   dateStr={dateStr}
                   adherenceLevel={future ? 'none' : adherenceLevel}
+                  adherencePct={dayRecord?.adherence_pct ?? null}
                   sticker={dateStr ? (stickers.get(dateStr) ?? null) : null}
                   streakIndicator={dateStr ? (streakFlames.get(dateStr) ?? null) : null}
                   isToday={dateStr === today}

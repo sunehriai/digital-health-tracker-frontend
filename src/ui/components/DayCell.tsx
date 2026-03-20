@@ -9,6 +9,7 @@ import type { StreakIndicator } from '../../domain/utils/stickerCalculator';
 interface DayCellProps {
   dateStr: string | null;
   adherenceLevel: AdherenceLevel;
+  adherencePct: number | null;
   sticker: StickerType | null;
   streakIndicator: StreakIndicator | null;
   isToday: boolean;
@@ -37,6 +38,7 @@ const MISSED_BORDER = '#F87171'; // light red
 export default function DayCell({
   dateStr,
   adherenceLevel,
+  adherencePct,
   sticker,
   streakIndicator,
   isToday,
@@ -141,7 +143,7 @@ export default function DayCell({
         />
       )}
 
-      {/* Half-circle icon for partial days (bottom-right) */}
+      {/* Adherence indicator for partial days (bottom-right) — black fill proportional to % */}
       {isPartial && !StickerIcon && (
         <View
           style={[
@@ -150,20 +152,20 @@ export default function DayCell({
               width: halfCircleSize,
               height: halfCircleSize,
               borderRadius: halfCircleSize / 2,
-              backgroundColor: colors.textPrimary,
+              backgroundColor: colors.border,
               overflow: 'hidden',
             },
           ]}
         >
-          {/* Right half is transparent to create half-black circle */}
+          {/* Accent fill from left, width driven by adherence % */}
           <View
             style={{
               position: 'absolute',
-              right: 0,
+              left: 0,
               top: 0,
-              width: halfCircleSize / 2,
+              width: halfCircleSize * Math.max(0.1, (adherencePct ?? 50) / 100),
               height: halfCircleSize,
-              backgroundColor: colors.cyanDim,
+              backgroundColor: colors.cyan,
             }}
           />
         </View>
@@ -172,8 +174,9 @@ export default function DayCell({
       {/* Sticker (bottom-right) */}
       {StickerIcon && !isBlank && (
         <StickerIcon
-          size={12}
-          color={stickerColor}
+          size={16}
+          color="#FFFFFF"
+          strokeWidth={2.5}
           style={styles.bottomRight}
         />
       )}
