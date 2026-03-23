@@ -13,9 +13,10 @@ interface SpotlightHintProps {
   title: string;
   message: string;
   onDismiss: () => void;
+  borderRadius?: number;
 }
 
-export default function SpotlightHint({ targetRect, title, message, onDismiss }: SpotlightHintProps) {
+export default function SpotlightHint({ targetRect, title, message, onDismiss, borderRadius = 2 }: SpotlightHintProps) {
   const { prefs: { reducedMotion } } = useAppPreferences();
   const { width: SW, height: SH } = useWindowDimensions();
   const opacity = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
@@ -78,7 +79,7 @@ export default function SpotlightHint({ targetRect, title, message, onDismiss }:
       </TouchableWithoutFeedback>
 
       {/* Mint border */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: cy, left: cx, width: cw, height: ch, borderRadius: 10, borderWidth: 2, borderColor: '#2DD4BF', backgroundColor: 'transparent' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', top: cy, left: cx, width: cw, height: ch, borderRadius, borderWidth: 2, borderColor: '#2DD4BF', backgroundColor: 'transparent' }} />
 
       {/* Tooltip */}
       <View

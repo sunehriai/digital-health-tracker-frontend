@@ -75,10 +75,13 @@ export default function HomeScreen() {
   const lowStockSheetRef = useRef<LowStockModalRef>(null);
 
   // Onboarding: layout ready signal + hints + FAB measurement
-  const { reportLayoutReady, setTargetRect, checkHint, activateHint, dismissHint, activeHint, isTourActive } = useOnboarding();
+  const { reportLayoutReady, setTargetRect, checkHint, activateHint, dismissHint, activeHint, isTourActive, isWelcomeVisible, flags, sessionCount } = useOnboarding();
   const layoutReportedRef = useRef(false);
   const [rootLayoutDone, setRootLayoutDone] = useState(false);
   const [tierBadgeRect, setTierBadgeRect] = useState<TargetRect | null>(null);
+  const tierBadgeRef = useRef<View>(null);
+  const adherenceCardRef = useRef<View>(null);
+  const [adherenceCardRect, setAdherenceCardRect] = useState<TargetRect | null>(null);
 
   // Step 40: Gamification hook for XP estimation, tier detection, waiver, etc.
   const {
@@ -161,12 +164,32 @@ export default function HomeScreen() {
   }, [isTourActive]);
 
   useFocusEffect(useCallback(() => {
-    if (tourJustFinishedRef.current) return; // Don't show hint same session as tour
-    if (checkHint('H2', true)) {
-      const t = setTimeout(() => activateHint('H2'), 500);
+    if (tourJustFinishedRef.current) return;
+    // H2: journey icon — session 2+
+    if (checkHint('H2', sessionCount >= 2)) {
+      const t = setTimeout(() => {
+        tierBadgeRef.current?.measureInWindow((x, y, w, h) => {
+          if (w > 0 && h > 0) {
+            setTierBadgeRect({ x, y, width: w, height: h });
+            activateHint('H2');
+          }
+        });
+      }, 500);
       return () => clearTimeout(t);
     }
-  }, [checkHint, activateHint]));
+    // H7: adherence card — first time tier 2+ (monthly adherence unlocked)
+    if (checkHint('H7', currentTier >= 2)) {
+      const t = setTimeout(() => {
+        adherenceCardRef.current?.measureInWindow((x, y, w, h) => {
+          if (w > 0 && h > 0) {
+            setAdherenceCardRect({ x, y, width: w, height: h });
+            activateHint('H7');
+          }
+        });
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [checkHint, activateHint, sessionCount, currentTier]));
 
   // Load persisted taken IDs and revertable doses on mount
   useEffect(() => {
@@ -1009,15 +1032,11 @@ export default function HomeScreen() {
           <View style={styles.headerRight}>
             <LowStockBadge count={lowStockMeds.length} onPress={openLowStockSheet} />
             <TouchableOpacity
+              ref={tierBadgeRef as any}
               style={styles.tierBadgeBtn}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('MyJourney')}
               accessibilityLabel={`${TIER_NAMES[currentTier] ?? 'Observer'} tier. Tap to view your journey.`}
-              onLayout={(e) => {
-                measureElement(e.target, (x: number, y: number, w: number, h: number) => {
-                  if (w > 0 && h > 0) setTierBadgeRect({ x, y, width: w, height: h });
-                });
-              }}
             >
               <Image source={getTierAsset(currentTier, isDark)} style={styles.tierBadgeImg} resizeMode="contain" />
             </TouchableOpacity>
@@ -1111,13 +1130,15 @@ export default function HomeScreen() {
               disabled={isLoggingDose}
             />
           )}
-          <AdherenceCard
-            streakDays={streakDays}
-            currentTier={currentTier}
-            waiverBadges={waiverBadges}
-            waiverJustUsed={waiverJustUsed}
-            onWaiverPress={handleWaiverIconPress}
-          />
+          <View ref={adherenceCardRef}>
+            <AdherenceCard
+              streakDays={streakDays}
+              currentTier={currentTier}
+              waiverBadges={waiverBadges}
+              waiverJustUsed={waiverJustUsed}
+              onWaiverPress={handleWaiverIconPress}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -1143,9 +1164,17 @@ export default function HomeScreen() {
       {activeHint === 'H2' && tierBadgeRect && (
         <SpotlightHint
           targetRect={tierBadgeRect}
-          title="Your Journey"
-          message="Tap this icon to view your full journey — tiers, XP history, and milestones."
+          title="See Your Progress"
+          message="Every dose you take earns XP and builds your streak. Tap here to see how consistent you've been."
           onDismiss={() => dismissHint('H2')}
+        />
+      )}
+      {activeHint === 'H7' && adherenceCardRect && (
+        <SpotlightHint
+          targetRect={adherenceCardRect}
+          title="You Earned This"
+          message="Your consistency unlocked the monthly calendar. Tap to see how far you've come."
+          onDismiss={() => dismissHint('H7')}
         />
       )}
 

@@ -341,7 +341,7 @@ export interface NotificationPreferencesUpdate {
 
 // -- Onboarding Types -----------------------------------------------------
 
-export type HintId = 'H1' | 'H2' | 'H3' | 'H4' | 'H5';
+export type HintId = 'H1' | 'H2' | 'H3' | 'H4' | 'H5' | 'H6' | 'H7';
 
 export interface OnboardingFlags {
   onboarding_complete: boolean;
@@ -351,6 +351,8 @@ export interface OnboardingFlags {
   hint_H3_shown: boolean;
   hint_H4_shown: boolean;
   hint_H5_shown: boolean;
+  hint_H6_shown: boolean;
+  hint_H7_shown: boolean;
 }
 
 export interface TargetRect {
@@ -370,6 +372,7 @@ export interface OnboardingContextType {
   flags: OnboardingFlags;
   isLoaded: boolean;
   targetRects: (TargetRect | null)[];
+  sessionCount: number;
 
   // Actions
   completeWelcome: () => Promise<void>;

@@ -1,5 +1,5 @@
-import React, { useRef, useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput, findNodeHandle, UIManager, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2, HelpCircle } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useOnboarding } from '../hooks/useOnboarding';
-import { measureElement } from '../utils/measureElement';
+
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -82,7 +82,8 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
-  const { resetAll, setTargetRect, isTourActive } = useOnboarding();
+  const { resetAll, setTargetRect, isTourActive, tourStep } = useOnboarding();
+  const vaultRef = useRef<View>(null);
 
   const handleTakeAppTour = useCallback(async () => {
     await resetAll();
@@ -100,6 +101,18 @@ export default function ProfileScreen() {
       });
     }, [])
   );
+
+  // Measure vault element after tab transition settles (onLayout + measureInWindow
+  // can return stale y-coordinates on Android during navigation transitions)
+  useEffect(() => {
+    if (!isTourActive || tourStep !== 3 || !vaultRef.current) return;
+    const t = setTimeout(() => {
+      vaultRef.current?.measureInWindow((x, y, w, h) => {
+        if (w > 0 && h > 0) setTargetRect(3, { x, y, width: w, height: h });
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [isTourActive, tourStep, setTargetRect]);
 
   const filteredResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -196,14 +209,10 @@ export default function ProfileScreen() {
                 return (
                   <TouchableOpacity
                     key={section.id}
+                    ref={isVault ? vaultRef as any : undefined}
                     style={[styles.sectionItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }, isVault && styles.sectionItemVault]}
                     activeOpacity={0.7}
                     onPress={() => navigation.navigate(section.id)}
-                    onLayout={isVault && isTourActive ? (e: any) => {
-                      measureElement(e.target, (x: number, y: number, w: number, h: number) => {
-                        if (w > 0 && h > 0) setTargetRect(3, { x, y, width: w, height: h });
-                      });
-                    } : undefined}
                   >
                     <View style={styles.sectionRow}>
                       <View style={[styles.sectionIcon, isVault && styles.sectionIconVault]}>

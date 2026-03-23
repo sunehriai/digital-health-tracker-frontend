@@ -51,7 +51,7 @@ export default function TourSpotlight({ targetRect, onPress }: TourSpotlightProp
           left: cx,
           width: cw,
           height: ch,
-          borderRadius: 10,
+          borderRadius: 2,
           borderWidth: 2,
           borderColor: '#2DD4BF',
           backgroundColor: 'transparent',

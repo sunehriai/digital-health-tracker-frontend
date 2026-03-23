@@ -28,9 +28,6 @@ export default function TabNavigator() {
         measureElement(e.target, (x, y, w, h) => {
           if (w > 0 && h > 0) {
             setTargetRect(0, { x, y, width: w, height: h }); // Step 0: full tab bar
-            const tabWidth = w / 4;
-            setTargetRect(2, { x: x + tabWidth, y, width: tabWidth, height: h }); // Step 2: Cabinet tab
-            setTargetRect(3, { x: x + tabWidth * 3, y, width: tabWidth, height: h }); // Step 3: Settings tab
           }
         });
       }}

@@ -17,23 +17,23 @@ const logger = createLogger('NavigationTour');
 
 const TOUR_STEPS = [
   {
-    title: 'Your Command Center',
-    message: 'Navigate between Home, Cabinet, Insights, and Settings. Everything you need is one tap away.',
+    title: 'Everything in Reach',
+    message: 'Home, Cabinet, Insights, Settings — all one tap away.',
     tab: 'Home',
   },
   {
-    title: 'Add Your First Medication',
-    message: 'Tap the + button to add a medication. Scan with AI for instant setup, or enter details manually — your choice.',
+    title: 'Start Tracking',
+    message: 'Tap + to add a medication. Snap a photo or enter manually.',
     tab: 'Home',
   },
   {
-    title: 'Your Health Journey',
-    message: 'This shows your current tier and how many XP you need for the next level. Stay consistent to level up!',
+    title: 'Consistency Pays Off',
+    message: 'Every dose earns XP. Watch your tier grow here.',
     tab: 'Home',
   },
   {
-    title: 'Emergency Vault',
-    message: 'Store your allergies, blood type, conditions, and emergency contacts — accessible when it matters most.',
+    title: 'Your Medical Snapshot',
+    message: 'Need a quick snapshot of your meds, allergies, and conditions? Perfect for doctor visits or emergencies.',
     tab: 'Profile',
   },
 ];
@@ -76,7 +76,6 @@ export default function NavigationTour() {
   // Internal render state for exit animation
   const [isRendered, setIsRendered] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoNavPendingRef = useRef(false);
 
   // Mount/unmount based on context
   useEffect(() => {
@@ -130,25 +129,15 @@ export default function NavigationTour() {
     }
   }, [tourStep, isTourActive, layoutReady]);
 
-  // After tour completion, always navigate back to Home
-  useEffect(() => {
-    if (!autoNavPendingRef.current) return;
-    autoNavPendingRef.current = false;
-
-    const t = setTimeout(() => {
-      (navigation as any).navigate('MainTabs', { screen: 'Home' });
-    }, 200);
-
-    return () => clearTimeout(t);
-  }, [isTourActive]);
-
   // Handle step advance or completion
   const handleNext = () => {
     if (tourStep >= 3) {
-      autoNavPendingRef.current = true;
       completeTour();
+      // Navigate back to Home after tour ends
+      setTimeout(() => {
+        (navigation as any).navigate('MainTabs', { screen: 'Home' });
+      }, 300);
     } else {
-      // Always advance — the target rect may arrive after tab navigation
       advanceTour();
     }
   };

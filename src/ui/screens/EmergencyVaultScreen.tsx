@@ -1,5 +1,5 @@
 // Emergency Vault — always uses dark theme palette from useTheme()
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,6 +9,8 @@ import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
 import { useTheme } from '../theme/ThemeContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import { useOnboarding } from '../hooks/useOnboarding';
+import SpotlightHint from '../components/onboarding/SpotlightHint';
 import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -41,6 +43,10 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   const { activeMedications, loading: medsLoading } = useMedications();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EmergencyVault');
   const { colors } = useTheme();
+  const { checkHint, activateHint, dismissHint, activeHint } = useOnboarding();
+  const editBtnRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [editBtnRect, setEditBtnRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Re-fetch vault data when screen regains focus (e.g. after editing in PersonalInfo)
   useFocusEffect(
@@ -48,6 +54,29 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
       fetchVault();
     }, [fetchVault])
   );
+
+  // H1: hint on "Edit in Personal Details" button — first visit only
+  // Wait for data to load, scroll to bottom, then measure
+  const h1TriggeredRef = useRef(false);
+  // Reset trigger ref when hint flags change (e.g. after onboarding reset)
+  React.useEffect(() => { h1TriggeredRef.current = false; }, [checkHint]);
+  React.useEffect(() => {
+    if (vaultLoading || medsLoading || h1TriggeredRef.current) return;
+    if (!checkHint('H1', true)) return;
+    h1TriggeredRef.current = true;
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+      setTimeout(() => {
+        editBtnRef.current?.measureInWindow((x, y, w, h) => {
+          if (w > 0 && h > 0) {
+            setEditBtnRect({ x, y, width: w, height: h });
+            activateHint('H1');
+          }
+        });
+      }, 500);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [vaultLoading, medsLoading, checkHint, activateHint]);
 
   const loading = vaultLoading || medsLoading;
 
@@ -70,7 +99,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
@@ -167,6 +196,7 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
 
         {/* Edit Button - navigates to Personal Details */}
         <TouchableOpacity
+          ref={editBtnRef as any}
           style={[styles.editButton, { borderColor: colors.cyan, backgroundColor: colors.cyanDim }]}
           onPress={() => navigation.navigate('PersonalInfo')}
         >
@@ -175,6 +205,15 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
         </TouchableOpacity>
       </ScrollView>
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+      {/* Onboarding hint H1: edit button */}
+      {activeHint === 'H1' && editBtnRect && (
+        <SpotlightHint
+          targetRect={editBtnRect}
+          title="Complete Your Snapshot"
+          message="Tap here to add your allergies, blood type, and conditions — the more you fill in, the more useful this becomes."
+          onDismiss={() => dismissHint('H1')}
+        />
+      )}
     </SafeAreaView>
   );
 }

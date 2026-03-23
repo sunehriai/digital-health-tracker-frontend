@@ -15,9 +15,20 @@ const STORAGE_KEYS = {
   hint_H3_shown: '@vision_hint_H3_shown',
   hint_H4_shown: '@vision_hint_H4_shown',
   hint_H5_shown: '@vision_hint_H5_shown',
+  hint_H6_shown: '@vision_hint_H6_shown',
+  hint_H7_shown: '@vision_hint_H7_shown',
 } as const;
 
 const ALL_KEYS = Object.values(STORAGE_KEYS);
+
+// Session counter — stored separately so test-mode clear doesn't reset it
+const SESSION_COUNT_KEY = '@vision_session_count';
+// Smart guard keys — set by screens when user discovers feature organically
+export const GUARD_KEYS = {
+  filter_used: '@vision_guard_filter_used',
+  archive_visited: '@vision_guard_archive_visited',
+  multiselect_used: '@vision_guard_multiselect_used',
+} as const;
 
 const DEFAULT_FLAGS: OnboardingFlags = {
   onboarding_complete: false,
@@ -27,6 +38,8 @@ const DEFAULT_FLAGS: OnboardingFlags = {
   hint_H3_shown: false,
   hint_H4_shown: false,
   hint_H5_shown: false,
+  hint_H6_shown: false,
+  hint_H7_shown: false,
 };
 
 export const OnboardingContext = createContext<OnboardingContextType | null>(null);
@@ -45,6 +58,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [layoutReady, setLayoutReady] = useState(false);
   const [activeHint, setActiveHint] = useState<HintId | null>(null);
   const [targetRects, setTargetRects] = useState<(TargetRect | null)[]>([null, null, null, null]);
+  const [sessionCount, setSessionCount] = useState(0);
 
   // Refs for guards
   const advanceDebounceRef = useRef(false);
@@ -55,6 +69,20 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const loadFlags = async () => {
       try {
+        // Read tour_complete BEFORE test-mode clear to track sessions
+        const tourCompleteVal = await AsyncStorage.getItem(STORAGE_KEYS.tour_complete);
+        const wasTourComplete = tourCompleteVal === 'true';
+
+        // Increment session count if tour was previously completed
+        if (wasTourComplete) {
+          const countStr = await AsyncStorage.getItem(SESSION_COUNT_KEY);
+          const count = countStr ? parseInt(countStr, 10) : 0;
+          const newCount = count + 1;
+          await AsyncStorage.setItem(SESSION_COUNT_KEY, String(newCount));
+          setSessionCount(newCount);
+          logger.info('Session count incremented', { sessionCount: newCount });
+        }
+
         // ⚠️ TEST ONLY: Clear all onboarding flags to replay full flow
         const clearPairs: [string, string][] = ALL_KEYS.map(key => [key, 'false']);
         await AsyncStorage.multiSet(clearPairs);
@@ -71,6 +99,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           onboarding_complete: loaded.onboarding_complete,
           tour_complete: loaded.tour_complete,
           hints_shown: Object.entries(loaded).filter(([k, v]) => k.startsWith('hint_') && v).length,
+          sessionCount: wasTourComplete ? 'incremented' : 0,
         });
       } catch (error) {
         logger.error('Failed to load onboarding flags', { error });
@@ -223,7 +252,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     try {
       const pairs: [string, string][] = ALL_KEYS.map(key => [key, 'false']);
       await AsyncStorage.multiSet(pairs);
+      // Also clear session count and smart guards
+      await AsyncStorage.multiRemove([SESSION_COUNT_KEY, ...Object.values(GUARD_KEYS)]);
       setFlags(DEFAULT_FLAGS);
+      setSessionCount(0);
       setIsWelcomeVisible(true);
       setIsTourActive(false);
       setTourStartPending(false);
@@ -231,7 +263,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setLayoutReady(false);
       layoutReportedRef.current = false;
       setActiveHint(null);
-      logger.info('Onboarding reset — all flags cleared');
+      logger.info('Onboarding reset — all flags, session count, and guards cleared');
     } catch (error) {
       logger.error('Failed to reset onboarding', { error });
     } finally {
@@ -248,6 +280,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     flags,
     isLoaded,
     targetRects,
+    sessionCount,
     completeWelcome,
     advanceTour,
     skipTour,
@@ -260,7 +293,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     resetAll,
   }), [
     isWelcomeVisible, isTourActive, tourStep, layoutReady, activeHint,
-    flags, isLoaded, targetRects,
+    flags, isLoaded, targetRects, sessionCount,
     completeWelcome, advanceTour, skipTour, completeTour,
     reportLayoutReady, setTargetRect, checkHint, activateHint, dismissHint, resetAll,
   ]);

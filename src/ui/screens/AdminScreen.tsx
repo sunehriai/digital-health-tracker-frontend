@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useSecurity } from '../hooks/useSecurity';
+import { useOnboarding } from '../hooks/useOnboarding';
 import { setApiBase } from '../../data/api/client';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -17,6 +18,7 @@ const API_ENVIRONMENTS = [
 export default function AdminScreen({ navigation }: RootStackScreenProps<'Admin'>) {
   const { colors } = useTheme();
   const security = useSecurity();
+  const { resetAll } = useOnboarding();
   const [selectedEnv, setSelectedEnv] = useState(0);
 
   return (
@@ -108,8 +110,9 @@ export default function AdminScreen({ navigation }: RootStackScreenProps<'Admin'
             {/* Step 37: Reset Onboarding (placeholder) */}
             <TouchableOpacity
               style={[styles.resetBtn, { borderColor: colors.border }]}
-              onPress={() => {
-                // TODO: Clear relevant AsyncStorage onboarding keys
+              onPress={async () => {
+                await resetAll();
+                Alert.alert('Onboarding Reset', 'All tour and hint flags cleared. Go to Home to restart.');
               }}
             >
               <Text style={[styles.statLabel, { color: colors.warning }]}>Reset Onboarding</Text>

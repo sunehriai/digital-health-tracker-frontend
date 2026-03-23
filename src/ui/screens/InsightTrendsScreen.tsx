@@ -176,7 +176,7 @@ function LockToast({ visible, xpNeeded }: { visible: boolean; xpNeeded: number }
     >
       <Lock size={12} color="#FFD700" />
       <Text style={[styles.toastText, { color: colors.textSecondary }]}>
-        {xpNeeded > 0 ? `${xpNeeded.toLocaleString()} XP to unlock` : 'Reach Tier 4 to unlock'}
+        {xpNeeded > 0 ? `Reach Guardian (Tier 3) — ${xpNeeded.toLocaleString()} XP to go` : 'Reach Guardian (Tier 3) to unlock'}
       </Text>
     </Animated.View>
   );
@@ -373,8 +373,8 @@ export default function InsightTrendsScreen() {
   const { totalXp, currentTier } = useGamification();
   const { data, loading, error, isOnline, refresh } = useInsightTrends();
 
-  const tierUnlocked = data?.tier_unlocked ?? false;
-  const xpToTier4 = Math.max(0, (TIER_THRESHOLDS[4] ?? 2500) - totalXp);
+  const tierUnlocked = currentTier >= 3;
+  const xpToUnlock = Math.max(0, (TIER_THRESHOLDS[3] ?? 1250) - totalXp);
 
   const [activeModal, setActiveModal] = useState<ReportId | null>(null);
   const [showLockToast, setShowLockToast] = useState(false);
@@ -449,6 +449,7 @@ export default function InsightTrendsScreen() {
     [tierUnlocked],
   );
 
+
   // Split chips: first 4 in grid, 5th centered below
   const gridChips = chipDefs.slice(0, 4);
   const lastChip = chipDefs[4];
@@ -480,26 +481,6 @@ export default function InsightTrendsScreen() {
         </Text>
       </View>
 
-      {/* Tier 3 gate — Insights requires Guardian tier */}
-      {currentTier < 3 ? (
-        <View style={[styles.tierGateContainer, { backgroundColor: colors.bg }]}>
-          <View style={[styles.tierGateCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Lock size={32} color={colors.textMuted} strokeWidth={1.5} />
-            <Text style={[styles.tierGateTitle, { color: colors.textPrimary }]}>
-              Insights Locked
-            </Text>
-            <Text style={[styles.tierGateSubtitle, { color: colors.textSecondary }]}>
-              Reach Guardian (Tier 3) to unlock Insight Trends
-            </Text>
-            <View style={[styles.tierGateXpBadge, { backgroundColor: colors.cyanDim }]}>
-              <TrendingUp size={14} color={colors.cyan} />
-              <Text style={[styles.tierGateXpText, { color: colors.cyan }]}>
-                {Math.max(0, (TIER_THRESHOLDS[3] ?? 1250) - totalXp)} XP to go
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : (
       <>
       {/* Offline banner */}
       {!isOnline && (
@@ -653,9 +634,9 @@ export default function InsightTrendsScreen() {
               <View style={styles.unlockHint}>
                 <Lock size={12} color={colors.textMuted} />
                 <Text style={[styles.unlockHintText, { color: colors.textMuted }]}>
-                  {xpToTier4 > 0
-                    ? `${xpToTier4.toLocaleString()} XP to unlock all insights`
-                    : 'Reach Tier 4 to unlock'}
+                  {xpToUnlock > 0
+                    ? `Reach Guardian (Tier 3) — ${xpToUnlock.toLocaleString()} XP to unlock all reports`
+                    : 'Reach Guardian (Tier 3) to unlock'}
                 </Text>
               </View>
             )}
@@ -672,9 +653,8 @@ export default function InsightTrendsScreen() {
       />
 
       {/* Lock toast */}
-      <LockToast key={lockToastKey.current} visible={showLockToast} xpNeeded={xpToTier4} />
+      <LockToast key={lockToastKey.current} visible={showLockToast} xpNeeded={xpToUnlock} />
       </>
-      )}
     </SafeAreaView>
   );
 }

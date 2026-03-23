@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Platform, TextInput, Dimensions, Modal } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pill, Clock, Pause, Archive, Play, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, Plus } from 'lucide-react-native';
 import Animated, {
@@ -28,6 +29,7 @@ import { formatTime, getNextDoseInfoString, formatOccurrence } from '../../domai
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import AnimatedPressable from '../components/AnimatedPressable';
 import ThemedEmptyState from '../components/ThemedEmptyState';
+import SpotlightHint from '../components/onboarding/SpotlightHint';
 import {
   INVENTORY_CONFIG,
   STOCK_THRESHOLDS,
@@ -89,7 +91,11 @@ export default function CabinetScreen() {
   const { showAlert } = useAlert();
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark, shadow } = useTheme();
-  const { setTargetRect, isTourActive } = useOnboarding();
+  const { setTargetRect, isTourActive, checkHint, activateHint, dismissHint, activeHint, flags, sessionCount } = useOnboarding();
+  const filterChipsRef = useRef<View>(null);
+  const [filterChipsRect, setFilterChipsRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const archiveIconRef = useRef<View>(null);
+  const [archiveIconRect, setArchiveIconRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const {
     activeMedications,
     archivedMedications,
@@ -151,6 +157,93 @@ export default function CabinetScreen() {
       return m.current_stock < threshold;
     }).sort((a, b) => a.current_stock - b.current_stock);
   }, [activeMedications, thresholdDays]);
+
+  // Hint refs and state
+  const tourJustFinishedRef = useRef(false);
+  const firstMedCardRef = useRef<View>(null);
+  const [firstMedCardRect, setFirstMedCardRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Smart guard flags — loaded from AsyncStorage on mount
+  const [guardFilterUsed, setGuardFilterUsed] = useState(false);
+  const [guardArchiveVisited, setGuardArchiveVisited] = useState(false);
+  const [guardMultiselectUsed, setGuardMultiselectUsed] = useState(false);
+  useEffect(() => {
+    const loadGuards = async () => {
+      const [f, a, m] = await Promise.all([
+        AsyncStorage.getItem('@vision_guard_filter_used'),
+        AsyncStorage.getItem('@vision_guard_archive_visited'),
+        AsyncStorage.getItem('@vision_guard_multiselect_used'),
+      ]);
+      setGuardFilterUsed(f === 'true');
+      setGuardArchiveVisited(a === 'true');
+      setGuardMultiselectUsed(m === 'true');
+    };
+    loadGuards();
+  }, []);
+
+  useEffect(() => {
+    if (isTourActive) tourJustFinishedRef.current = true;
+  }, [isTourActive]);
+
+  // H4: swipe hint — first Cabinet visit after tour (any session), if meds exist
+  useFocusEffect(useCallback(() => {
+    if (tourJustFinishedRef.current) return;
+    if (!checkHint('H4', activeMedications.length > 0)) return;
+    const t = setTimeout(() => {
+      firstMedCardRef.current?.measureInWindow((x, y, w, h) => {
+        if (w > 0 && h > 0) {
+          setFirstMedCardRect({ x, y, width: w, height: h });
+          activateHint('H4');
+        }
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [checkHint, activateHint, activeMedications.length]));
+
+  // H3: filter chips — session >= 3, smart guard: user hasn't used filters
+  useFocusEffect(useCallback(() => {
+    if (tourJustFinishedRef.current) return;
+    if (!checkHint('H3', sessionCount >= 3 && !guardFilterUsed)) return;
+    const t = setTimeout(() => {
+      filterChipsRef.current?.measureInWindow((x, y, w, h) => {
+        if (w > 0 && h > 0) {
+          setFilterChipsRect({ x, y, width: w, height: h });
+          activateHint('H3');
+        }
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [checkHint, activateHint, sessionCount, guardFilterUsed]));
+
+  // H5: archive icon — session >= 4, smart guard: user hasn't visited archive
+  useFocusEffect(useCallback(() => {
+    if (tourJustFinishedRef.current) return;
+    if (!checkHint('H5', sessionCount >= 4 && !guardArchiveVisited)) return;
+    const t = setTimeout(() => {
+      archiveIconRef.current?.measureInWindow((x, y, w, h) => {
+        if (w > 0 && h > 0) {
+          setArchiveIconRect({ x, y, width: w, height: h });
+          activateHint('H5');
+        }
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [checkHint, activateHint, sessionCount, guardArchiveVisited]));
+
+  // H6: multi-select — session >= 10, smart guard: >1 med, never used long-press
+  useFocusEffect(useCallback(() => {
+    if (tourJustFinishedRef.current) return;
+    if (!checkHint('H6', sessionCount >= 10 && activeMedications.length > 1 && !guardMultiselectUsed)) return;
+    const t = setTimeout(() => {
+      firstMedCardRef.current?.measureInWindow((x, y, w, h) => {
+        if (w > 0 && h > 0) {
+          setFirstMedCardRect({ x, y, width: w, height: h });
+          activateHint('H6');
+        }
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [checkHint, activateHint, sessionCount, activeMedications.length, guardMultiselectUsed]));
 
   // Filter medications based on search and filter
   const filteredActiveMedications = useMemo(() => {
@@ -546,6 +639,10 @@ export default function CabinetScreen() {
           if (!isSelectMode) {
             setIsSelectMode(true);
             setSelectedIds(new Set([med.id]));
+            if (!guardMultiselectUsed) {
+              setGuardMultiselectUsed(true);
+              AsyncStorage.setItem('@vision_guard_multiselect_used', 'true').catch(() => {});
+            }
           }
         }}
         activeOpacity={0.7}
@@ -640,6 +737,7 @@ export default function CabinetScreen() {
     return (
       <Animated.View
         key={med.id}
+        ref={index === 0 ? firstMedCardRef as any : undefined}
         entering={FadeInDown.duration(300)}
         exiting={FadeOut.duration(200)}
         layout={Layout.springify()}
@@ -697,8 +795,15 @@ export default function CabinetScreen() {
                   <Text style={[styles.subtitle, { color: colors.textMuted }]}>Manage your medication regimen</Text>
                 </View>
                 <TouchableOpacity
+                  ref={archiveIconRef as any}
                   style={styles.archiveIconBtn}
-                  onPress={() => navigation.navigate('ArchivedRituals' as any)}
+                  onPress={() => {
+                    navigation.navigate('ArchivedRituals' as any);
+                    if (!guardArchiveVisited) {
+                      setGuardArchiveVisited(true);
+                      AsyncStorage.setItem('@vision_guard_archive_visited', 'true').catch(() => {});
+                    }
+                  }}
                 >
                   <Archive color={colors.textMuted} size={22} strokeWidth={2} />
                 </TouchableOpacity>
@@ -742,7 +847,7 @@ export default function CabinetScreen() {
 
         {/* Filter Chips */}
         {!isSelectMode && (
-          <View style={styles.filterChips}>
+          <View ref={filterChipsRef} style={styles.filterChips}>
             {([
               { key: 'all', label: 'All' },
               { key: 'critical', label: 'Critical' },
@@ -757,7 +862,13 @@ export default function CabinetScreen() {
                   { backgroundColor: colors.bgInput, borderColor: colors.borderSubtle },
                   activeFilter === filter.key && { backgroundColor: colors.cyanDim, borderColor: colors.cyan },
                 ]}
-                onPress={() => setActiveFilter(filter.key)}
+                onPress={() => {
+                  setActiveFilter(filter.key);
+                  if (filter.key !== 'all' && !guardFilterUsed) {
+                    setGuardFilterUsed(true);
+                    AsyncStorage.setItem('@vision_guard_filter_used', 'true').catch(() => {});
+                  }
+                }}
                 hapticOnPress={false}
               >
                 <Text style={[
@@ -911,7 +1022,42 @@ export default function CabinetScreen() {
         medications={lowStockMeds}
         thresholdDays={thresholdDays}
       />
-      {/* Onboarding hint H1 */}
+      {/* Onboarding hint H3: filter chips */}
+      {activeHint === 'H3' && filterChipsRect && (
+        <SpotlightHint
+          targetRect={filterChipsRect}
+          title="Spot Problems Instantly"
+          message="One tap shows you which meds are paused, running low, or need urgent refills."
+          onDismiss={() => dismissHint('H3')}
+        />
+      )}
+      {/* Onboarding hint H4: swipe to pause/archive */}
+      {activeHint === 'H4' && firstMedCardRect && (
+        <SpotlightHint
+          targetRect={firstMedCardRect}
+          title="Take Control Faster"
+          message="Slide left on any medication to pause or archive it — no digging through menus."
+          onDismiss={() => dismissHint('H4')}
+        />
+      )}
+      {/* Onboarding hint H5: archive icon */}
+      {activeHint === 'H5' && archiveIconRect && (
+        <SpotlightHint
+          targetRect={archiveIconRect}
+          title="Keep Your Cabinet Clean"
+          message="Finished a course? Archived meds stay safe here and can be restored anytime."
+          onDismiss={() => dismissHint('H5')}
+        />
+      )}
+      {/* Onboarding hint H6: multi-select */}
+      {activeHint === 'H6' && firstMedCardRect && (
+        <SpotlightHint
+          targetRect={firstMedCardRect}
+          title="Tired of One at a Time?"
+          message="Long-press to multi-select, then pause, archive, or delete them all at once."
+          onDismiss={() => dismissHint('H6')}
+        />
+      )}
     </SafeAreaView>
   );
 }
