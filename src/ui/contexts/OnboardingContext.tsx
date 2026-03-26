@@ -2,8 +2,14 @@ import React, { createContext, useState, useCallback, useEffect, useRef, useMemo
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { useAlert } from '../context/AlertContext';
+import Constants from 'expo-constants';
 import { createLogger } from '../../utils/logger';
 import type { OnboardingContextType, OnboardingFlags, HintId, TargetRect } from '../../domain/types';
+
+// Gate: only clears onboarding flags when EXPO_PUBLIC_ONBOARDING_TEST_MODE=true
+const ONBOARDING_TEST_MODE =
+  Constants.expoConfig?.extra?.ONBOARDING_TEST_MODE === 'true' ||
+  process.env.EXPO_PUBLIC_ONBOARDING_TEST_MODE === 'true';
 
 const logger = createLogger('Onboarding');
 
@@ -69,12 +75,23 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const loadFlags = async () => {
       try {
-        // Read tour_complete BEFORE test-mode clear to track sessions
-        const tourCompleteVal = await AsyncStorage.getItem(STORAGE_KEYS.tour_complete);
-        const wasTourComplete = tourCompleteVal === 'true';
+        const keys = Object.keys(STORAGE_KEYS) as (keyof OnboardingFlags)[];
+        const loaded: OnboardingFlags = { ...DEFAULT_FLAGS };
+
+        // TEST MODE: clear all flags to replay the full onboarding flow
+        if (ONBOARDING_TEST_MODE) {
+          const clearPairs: [string, string][] = ALL_KEYS.map(key => [key, 'false']);
+          await AsyncStorage.multiSet(clearPairs);
+          console.log('[Onboarding] TEST MODE: All flags cleared');
+        } else {
+          for (const key of keys) {
+            const val = await AsyncStorage.getItem(STORAGE_KEYS[key]);
+            loaded[key] = val === 'true';
+          }
+        }
 
         // Increment session count if tour was previously completed
-        if (wasTourComplete) {
+        if (loaded.tour_complete) {
           const countStr = await AsyncStorage.getItem(SESSION_COUNT_KEY);
           const count = countStr ? parseInt(countStr, 10) : 0;
           const newCount = count + 1;
@@ -83,23 +100,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           logger.info('Session count incremented', { sessionCount: newCount });
         }
 
-        // ⚠️ TEST ONLY: Clear all onboarding flags to replay full flow
-        const clearPairs: [string, string][] = ALL_KEYS.map(key => [key, 'false']);
-        await AsyncStorage.multiSet(clearPairs);
-        console.log('[Onboarding] TEST MODE: All flags cleared');
-
-        const loaded: OnboardingFlags = { ...DEFAULT_FLAGS };
         setFlags(loaded);
-
-        // Show welcome screen (fresh install simulation)
-        setIsWelcomeVisible(true);
-
         setIsLoaded(true);
         logger.info('Flags loaded', {
           onboarding_complete: loaded.onboarding_complete,
           tour_complete: loaded.tour_complete,
           hints_shown: Object.entries(loaded).filter(([k, v]) => k.startsWith('hint_') && v).length,
-          sessionCount: wasTourComplete ? 'incremented' : 0,
         });
       } catch (error) {
         logger.error('Failed to load onboarding flags', { error });
@@ -109,13 +115,23 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     loadFlags();
   }, []);
 
-  // Reset in-memory visibility on sign-out (without touching AsyncStorage)
+  // Show welcome on sign-in (if first time), reset on sign-out
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isAuthenticated) {
+    if (isAuthenticated) {
+      // User just signed in — show welcome if onboarding not yet completed
+      if (!flags.onboarding_complete) {
+        setIsWelcomeVisible(true);
+        logger.info('Welcome screen shown for new user');
+      }
+    } else {
+      // Signed out — reset all in-memory visibility (without touching AsyncStorage)
       setIsWelcomeVisible(false);
       setIsTourActive(false);
       setTourStartPending(false);
+      setTourStep(0);
+      setLayoutReady(false);
+      layoutReportedRef.current = false;
       setActiveHint(null);
     }
   }, [isAuthenticated, isLoaded]);

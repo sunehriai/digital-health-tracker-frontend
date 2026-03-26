@@ -1,19 +1,27 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import GoogleLogo from './icons/GoogleLogo';
 
 interface SocialLoginRowProps {
   onGooglePress: () => void;
   onApplePress: () => void;
   loading?: boolean;
+  disabled?: boolean;
+  googleLabel?: string;
+  appleLabel?: string;
 }
 
 export const SocialLoginRow: React.FC<SocialLoginRowProps> = ({
   onGooglePress,
   onApplePress,
   loading = false,
+  disabled = false,
+  googleLabel = 'Continue with Google',
+  appleLabel = 'Continue with Apple',
 }) => {
   const { colors, isDark } = useTheme();
+  const isDisabled = loading || disabled;
 
   return (
     <View style={styles.container}>
@@ -26,58 +34,64 @@ export const SocialLoginRow: React.FC<SocialLoginRowProps> = ({
         <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
       </View>
 
-      {/* Social buttons */}
-      <View style={styles.buttonsRow}>
-        {/* Google button */}
+      {/* Google button — full width */}
+      <TouchableOpacity
+        style={[
+          styles.socialButton,
+          {
+            backgroundColor: isDark ? 'transparent' : '#FFFFFF',
+            borderWidth: 1,
+            borderColor: colors.border,
+          },
+          isDisabled && styles.disabled,
+        ]}
+        onPress={onGooglePress}
+        disabled={isDisabled}
+        activeOpacity={0.7}
+      >
+        <GoogleLogo size={20} />
+        <Text style={[styles.socialLabel, { color: colors.textPrimary }]}>
+          {googleLabel}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Apple button — iOS only, full width */}
+      {Platform.OS === 'ios' && (
         <TouchableOpacity
           style={[
-            styles.iconButton,
+            styles.socialButton,
             {
-              backgroundColor: isDark ? 'transparent' : '#FFFFFF',
+              backgroundColor: isDark ? '#000000' : '#FFFFFF',
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: isDark ? '#000000' : colors.border,
+              marginTop: 12,
             },
+            isDisabled && styles.disabled,
           ]}
-          onPress={onGooglePress}
-          disabled={loading}
+          onPress={onApplePress}
+          disabled={isDisabled}
           activeOpacity={0.7}
         >
-          <Text style={[styles.googleText, { color: colors.textPrimary }]}>G</Text>
-        </TouchableOpacity>
-
-        {/* Apple button — iOS only */}
-        {Platform.OS === 'ios' && (
-          <TouchableOpacity
+          <Text
             style={[
-              styles.iconButton,
-              {
-                backgroundColor: isDark ? '#000000' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: isDark ? '#000000' : colors.border,
-              },
+              styles.appleLogo,
+              { color: isDark ? '#FFFFFF' : '#000000' },
             ]}
-            onPress={onApplePress}
-            disabled={loading}
-            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.appleText,
-                { color: isDark ? '#FFFFFF' : '#000000' },
-              ]}
-            >
-              {'\uF8FF'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+            {'\uF8FF'}
+          </Text>
+          <Text style={[styles.socialLabel, { color: colors.textPrimary }]}>
+            {appleLabel}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 24,
+    marginTop: 8,
   },
   dividerRow: {
     flexDirection: 'row',
@@ -92,24 +106,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginHorizontal: 12,
   },
-  buttonsRow: {
+  socialButton: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  iconButton: {
-    borderRadius: 12,
-    padding: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 52,
-    minHeight: 52,
+    borderRadius: 12,
+    height: 52,
+    paddingHorizontal: 16,
+    gap: 10,
   },
-  googleText: {
-    fontSize: 20,
-    fontWeight: '700',
+  disabled: {
+    opacity: 0.5,
   },
-  appleText: {
+  socialLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  appleLogo: {
     fontSize: 22,
     fontWeight: '600',
   },

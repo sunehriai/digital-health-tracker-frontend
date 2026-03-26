@@ -236,6 +236,9 @@ export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignU
               await signInWithApple();
             }}
             loading={loading}
+            disabled={!termsAccepted}
+            googleLabel="Sign up with Google"
+            appleLabel="Sign up with Apple"
           />
         </View>
 
