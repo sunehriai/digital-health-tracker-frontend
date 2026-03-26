@@ -38,6 +38,7 @@ import ExportHealthDataScreen from '../screens/ExportHealthDataScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ChangeEmailScreen from '../screens/ChangeEmailScreen';
 import AgeGateScreen from '../screens/auth/AgeGateScreen';
+import EmailHardGateScreen from '../screens/auth/EmailHardGateScreen';
 import { ImageUploadScreen } from '../screens/ImageUploadScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -61,7 +62,7 @@ export default function AppNavigator() {
       },
     };
   }, [isDark, colors]);
-  const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user } = useAuth();
+  const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user, isEmailVerified, hoursSinceCreation } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
 
   // Biometric gate state (Fix 6 — null initial values for async-loaded state)
@@ -71,6 +72,7 @@ export default function AppNavigator() {
   const [lastEmail, setLastEmail] = useState<string | null>(null);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [ageGateCompleted, setAgeGateCompleted] = useState<boolean | null>(null);
+  const [emailVerifiedConfirmed, setEmailVerifiedConfirmed] = useState(false);
 
   // Load biometric prefs + age gate cache on mount
   useEffect(() => {
@@ -104,6 +106,7 @@ export default function AppNavigator() {
     if (!isAuthenticated) {
       setBiometricPassed(false);
       setShowFallback(false);
+      setEmailVerifiedConfirmed(false);
     }
   }, [isAuthenticated]);
 
@@ -146,6 +149,20 @@ export default function AppNavigator() {
   // Age Gate: require date_of_birth before accessing main app (Q7: skip if cached)
   if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null && !ageGateCompleted) {
     return <AgeGateScreen />;
+  }
+
+  // Email hard gate: block access after 24hr unverified
+  if (isAuthenticated && !isEmailVerified && !emailVerifiedConfirmed &&
+      user?.auth_provider === 'email' && hoursSinceCreation >= 24) {
+    return (
+      <EmailHardGateScreen
+        onVerified={() => setEmailVerifiedConfirmed(true)}
+        onSignOut={async () => {
+          await signOut();
+          setEmailVerifiedConfirmed(false);
+        }}
+      />
+    );
   }
 
   // Biometric gate: show before main content if enabled and not yet passed

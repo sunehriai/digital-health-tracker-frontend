@@ -76,7 +76,7 @@ export default function HomeScreen() {
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark } = useTheme();
   const { prefs: notifPrefs } = useNotificationPrefs();
-  const { user, firebaseUser, refreshProfile } = useAuth();
+  const { user, firebaseUser, refreshProfile, isEmailVerified, hoursSinceCreation } = useAuth();
   const lowStockSheetRef = useRef<LowStockModalRef>(null);
 
   // Onboarding: layout ready signal + hints + FAB measurement
@@ -160,12 +160,14 @@ export default function HomeScreen() {
     });
   }, []);
 
-  const showVerificationBanner =
-    user &&
-    user.auth_provider === 'email' &&
-    firebaseUser &&
-    !firebaseUser.emailVerified &&
-    !bannerDismissed;
+  // Phase 1 (0-12hr): soft banner with dismiss
+  // Phase 1b (12-24hr): escalated banner, overrides dismiss (Q3)
+  // Phase 2 (24hr+): handled by AppNavigator hard gate, not HomeScreen
+  const isUnverifiedEmail = !!user && user.auth_provider === 'email' && !isEmailVerified;
+  const showSoftBanner = isUnverifiedEmail && hoursSinceCreation < 12 && !bannerDismissed;
+  const showEscalatedBanner = isUnverifiedEmail && hoursSinceCreation >= 12 && hoursSinceCreation < 24;
+  const showVerificationBanner = showSoftBanner || showEscalatedBanner;
+  const hoursRemaining = Math.max(0, Math.ceil(24 - hoursSinceCreation));
 
   // D21: Re-check verification status when app returns to foreground
   // Q8: Check if email changed via deferred verifyBeforeUpdateEmail()
@@ -1083,6 +1085,8 @@ export default function HomeScreen() {
         <EmailVerificationBanner
           onVerifyNow={handleVerifyNow}
           onDismiss={handleDismissBanner}
+          isEscalated={showEscalatedBanner}
+          hoursRemaining={hoursRemaining}
         />
       )}
 

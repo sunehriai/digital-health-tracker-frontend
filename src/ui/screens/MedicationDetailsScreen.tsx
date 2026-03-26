@@ -22,6 +22,8 @@ import ScreenshotToast from '../components/ScreenshotToast';
 import type { Medication, MedicationUpdate } from '../../domain/types';
 import type { RootStackScreenProps } from '../navigation/types';
 import { useAlert } from '../context/AlertContext';
+import { useAuth } from '../hooks/useAuth';
+import { authService } from '../../data/services/authService';
 import { getDoseTimes } from '../../domain/utils';
 import {
   ALARM_FREQUENCY_OPTIONS,
@@ -100,6 +102,7 @@ export default function MedicationDetailsScreen({
 }: RootStackScreenProps<'MedicationDetails'>) {
   const { medicationId, isArchived = false, alertId } = route.params;
   const { showAlert } = useAlert();
+  const { isEmailVerified } = useAuth();
   const { prefs: { timeFormat, defaultDoseTime } } = useAppPreferences();
   const { colors, isDark } = useTheme();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
@@ -558,6 +561,18 @@ export default function MedicationDetailsScreen({
 
   const handleArchive = async () => {
     if (!medication || actionLoading) return;
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
 
     const confirmArchive = () => {
       setActionLoading(true);

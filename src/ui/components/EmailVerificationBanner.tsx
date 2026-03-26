@@ -6,13 +6,20 @@ import { colors } from '../theme/colors';
 interface EmailVerificationBannerProps {
   onVerifyNow: () => Promise<void>;
   onDismiss: () => void;
+  isEscalated?: boolean;
+  hoursRemaining?: number;
 }
 
 const COOLDOWN_SECONDS = 60;
 
+const WARNING_BG = 'rgba(245, 158, 11, 0.15)';
+const WARNING_COLOR = '#F59E0B';
+
 export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = ({
   onVerifyNow,
   onDismiss,
+  isEscalated = false,
+  hoursRemaining,
 }) => {
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(false);
@@ -42,16 +49,23 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
     }
   }, [isSending, cooldown, onVerifyNow]);
 
+  const accentColor = isEscalated ? WARNING_COLOR : colors.cyan;
+  const bgColor = isEscalated ? WARNING_BG : colors.cyanDim;
+
+  const messageText = isEscalated
+    ? `Only ${hoursRemaining ?? 0} hours left to verify your email. Access will be paused after 24 hours.`
+    : 'Verify your email within 24 hours to keep full access.';
+
   return (
-    <View style={styles.container}>
-      <Mail size={20} color={colors.cyan} style={styles.icon} />
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      <Mail size={20} color={accentColor} style={styles.icon} />
 
       <View style={styles.textBlock}>
         <Text style={styles.message}>
-          Please verify your email to unlock all Quest features.
+          {messageText}
         </Text>
         {cooldown ? (
-          <Text style={styles.cooldownText}>Link sent — check your inbox</Text>
+          <Text style={[styles.cooldownText, { color: accentColor }]}>Link sent — check your inbox</Text>
         ) : (
           <TouchableOpacity
             onPress={handleVerifyNow}
@@ -59,13 +73,13 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
             activeOpacity={0.7}
           >
             <View style={styles.actionRow}>
-              <Text style={[styles.actionText, isSending && styles.actionTextDisabled]}>
+              <Text style={[styles.actionText, { color: accentColor }, isSending && styles.actionTextDisabled]}>
                 Verify Now
               </Text>
               {isSending && (
                 <ActivityIndicator
                   size="small"
-                  color={colors.cyan}
+                  color={accentColor}
                   style={styles.spinner}
                 />
               )}
@@ -74,9 +88,11 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
         )}
       </View>
 
-      <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} style={styles.dismiss}>
-        <X size={16} color={colors.textMuted} />
-      </TouchableOpacity>
+      {!isEscalated && (
+        <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} style={styles.dismiss}>
+          <X size={16} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -85,7 +101,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.cyanDim,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -112,7 +127,6 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.cyan,
   },
   actionTextDisabled: {
     opacity: 0.5,
@@ -120,7 +134,6 @@ const styles = StyleSheet.create({
   cooldownText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.cyan,
     marginTop: 4,
     opacity: 0.8,
   },

@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable, Dimensions } from 'react-native';
 import { X, Camera, PenLine, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
+import { useAlert } from '../context/AlertContext';
+import { authService } from '../../data/services/authService';
 import { useAIUpload } from '../../data/contexts/AIUploadContext';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -9,9 +12,23 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AddMedicationScreen({ navigation }: RootStackScreenProps<'AddMedication'>) {
   const { colors, isDark } = useTheme();
+  const { isEmailVerified } = useAuth();
+  const { showAlert } = useAlert();
   const { startUpload } = useAIUpload();
 
   const handleAIScan = () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     startUpload();
     navigation.replace('ImageUpload');
   };

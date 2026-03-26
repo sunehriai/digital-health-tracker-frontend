@@ -8,7 +8,10 @@ import { View, Text, StyleSheet, Modal, Image, TouchableOpacity, ActivityIndicat
 import { Shield } from 'lucide-react-native';
 import { WAIVER_BADGE_ASSET } from '../../domain/constants/tierAssets';
 import { gamificationService } from '../../data/services/gamificationService';
+import { authService } from '../../data/services/authService';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
+import { useAlert } from '../context/AlertContext';
 
 interface WaiverPromptProps {
   visible: boolean;
@@ -26,10 +29,24 @@ export default function WaiverPrompt({
   onDismiss,
 }: WaiverPromptProps) {
   const { colors } = useTheme();
+  const { isEmailVerified } = useAuth();
+  const { showAlert } = useAlert();
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleUseBadge = async () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     setActivating(true);
     setError(null);
     try {

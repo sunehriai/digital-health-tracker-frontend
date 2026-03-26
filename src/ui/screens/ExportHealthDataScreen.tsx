@@ -25,7 +25,7 @@ export default function ExportHealthDataScreen({
   navigation,
 }: RootStackScreenProps<'ExportHealthData'>) {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isEmailVerified } = useAuth();
   const { showAlert } = useAlert();
   const { loading, error, generateAndShare, clearError } = useExport();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ExportHealthData');
@@ -41,6 +41,18 @@ export default function ExportHealthDataScreen({
   const isSocialUser = user?.auth_provider === 'google' || user?.auth_provider === 'apple';
 
   const handleSelectReport = async () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     if (isSocialUser) {
       // Social users: re-auth via provider
       try {

@@ -38,6 +38,8 @@ import {
 } from '../../domain/medicationConfig';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
 import { useAlert } from '../context/AlertContext';
+import { useAuth } from '../hooks/useAuth';
+import { authService } from '../../data/services/authService';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { measureElement } from '../utils/measureElement';
 import ScreenshotToast from '../components/ScreenshotToast';
@@ -89,6 +91,7 @@ export default function CabinetScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('Cabinet');
   const { showAlert } = useAlert();
+  const { isEmailVerified } = useAuth();
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark, shadow } = useTheme();
   const { setTargetRect, isTourActive, checkHint, activateHint, dismissHint, activeHint, flags, sessionCount } = useOnboarding();
@@ -325,6 +328,18 @@ export default function CabinetScreen() {
     try { await resumeMedication(id); } catch (e: any) { showAlert({ title: 'Error', message: e.message, type: 'error' }); }
   };
   const handleArchive = async (id: string) => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     try {
       // Find the medication to get its name
       const med = activeMedications.find(m => m.id === id);
@@ -501,6 +516,18 @@ export default function CabinetScreen() {
   const handleBulkArchive = async () => {
     const count = selectedIds.size;
     if (count === 0) return;
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
 
     const doArchive = async () => {
       try {

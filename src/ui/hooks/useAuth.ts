@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import auth from '@react-native-firebase/auth';
 import { authService } from '../../data/services/authService';
 import { profileService } from '../../data/services/profileService';
 import { onAccountDeactivated } from '../../data/api/client';
 import { deletionService } from '../../data/services/deletionService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometricPrefs } from '../../data/utils/biometricPrefs';
 import type { Profile, ProfileUpdate } from '../../domain/types';
 
@@ -23,6 +25,8 @@ interface AuthContextType {
   profileFetchComplete: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  isEmailVerified: boolean;
+  hoursSinceCreation: number;
   deactivationInfo: DeactivationInfo | null;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -64,8 +68,36 @@ export function useAuthProvider(): AuthContextType {
           const profile = await profileService.getMe();
           setUser({ ...profile, email: fbUser.email || profile.email || '' });
           setProfileFetchComplete(true);
-        } catch {
-          // Backend might be unreachable — set basic user info from Firebase
+
+          // Cold-start verification check (Q9) — reload Firebase user to get fresh emailVerified
+          try {
+            await fbUser.reload();
+            // Update firebaseUser state with reloaded reference so emailVerified is fresh
+            setFirebaseUser(auth().currentUser);
+          } catch {}
+        } catch (err: any) {
+          // If the error is auth-related (401/403), the account no longer exists
+          // on the backend — sign out the stale Firebase session so the user
+          // sees the login screen instead of a broken age gate.
+          const msg = err?.message?.toLowerCase() ?? '';
+          const isAuthError = msg.includes('401') || msg.includes('unauthorized') ||
+            msg.includes('403') || msg.includes('not found') || msg.includes('user not found');
+          if (isAuthError) {
+            try {
+              await authService.signOut();
+              // Clear all user-scoped local state
+              const allKeys = await AsyncStorage.getAllKeys();
+              const userKeys = allKeys.filter(
+                (k) => k.startsWith('@vision') || k.startsWith('@vitaquest:') ||
+                  k.startsWith('@dose_status_cache') || k.startsWith('daySettled:')
+              );
+              if (userKeys.length > 0) await AsyncStorage.multiRemove(userKeys);
+            } catch {}
+            // onAuthStateChanged will fire again with null — don't set state here
+            return;
+          }
+
+          // Backend might be unreachable (network error) — set basic user info from Firebase
           const providerId = fbUser.providerData?.[0]?.providerId ?? 'password';
           const auth_provider = providerId === 'google.com' ? 'google' : providerId === 'apple.com' ? 'apple' : 'email';
           setUser({
@@ -92,6 +124,12 @@ export function useAuthProvider(): AuthContextType {
             auth_provider,
           });
           setProfileFetchComplete(true);
+
+          // Cold-start verification check (Q9) — reload Firebase user to get fresh emailVerified
+          try {
+            await fbUser.reload();
+            setFirebaseUser(auth().currentUser);
+          } catch {}
         }
 
         // Save last login info for biometric fallback (C7)
@@ -280,8 +318,19 @@ export function useAuthProvider(): AuthContextType {
   const signOut = useCallback(async () => {
     try {
       await authService.signOut();
-      // D25: Clear biometric preferences on sign-out
-      await biometricPrefs.clearAll();
+      // Clear ALL user-scoped local state so a new user gets a clean slate
+      // (age gate, onboarding, dose cache, notification prefs, biometric, etc.)
+      const allKeys = await AsyncStorage.getAllKeys();
+      const userKeys = allKeys.filter(
+        (key) =>
+          key.startsWith('@vision') ||
+          key.startsWith('@vitaquest:') ||
+          key.startsWith('@dose_status_cache') ||
+          key.startsWith('daySettled:')
+      );
+      if (userKeys.length > 0) {
+        await AsyncStorage.multiRemove(userKeys);
+      }
       // onAuthStateChanged will fire and set user to null
       setDeactivationInfo(null);
     } catch (e: any) {
@@ -336,6 +385,14 @@ export function useAuthProvider(): AuthContextType {
       }
     : null;
 
+  // D1: Email verified if non-email provider OR Firebase emailVerified is true
+  const isEmailVerified = user?.auth_provider !== 'email' || (firebaseUser?.emailVerified ?? false);
+
+  // D2: Hours elapsed since account creation (server-issued created_at)
+  const hoursSinceCreation = user?.created_at
+    ? (Date.now() - new Date(user.created_at).getTime()) / 3600000
+    : 0;
+
   return {
     user,
     firebaseUser,
@@ -344,6 +401,8 @@ export function useAuthProvider(): AuthContextType {
     profileFetchComplete,
     error,
     isAuthenticated: !!user,
+    isEmailVerified,
+    hoursSinceCreation,
     deactivationInfo,
     signUp,
     signIn,

@@ -60,8 +60,9 @@ export default function ChangePasswordScreen({
 
     try {
       await authService.reauthenticate(user?.email || '', currentPassword);
-    } catch {
-      setError('Current password is incorrect');
+    } catch (e: any) {
+      console.log('[ChangePassword] reauth error:', e.message, 'email used:', user?.email);
+      setError(e.message || 'Current password is incorrect');
       setLoading(false);
       return;
     }

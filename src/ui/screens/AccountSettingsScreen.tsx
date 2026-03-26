@@ -14,7 +14,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 
 export default function AccountSettingsScreen({ navigation }: RootStackScreenProps<'AccountSettings'>) {
   const { colors } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isEmailVerified } = useAuth();
   const { showAlert } = useAlert();
   const { loading: deletionLoading, requestDeletion } = useDeletion();
   const { resetPreferences } = useAppPreferences();
@@ -33,10 +33,34 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   const isSocialUser = user?.auth_provider === 'google' || user?.auth_provider === 'apple';
 
   const handleChangePassword = () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     navigation.navigate('ChangePassword');
   };
 
   const handleChangeEmail = () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     if (isSocialUser) {
       const provider = user?.auth_provider === 'google' ? 'Google' : 'Apple';
       Alert.alert(
@@ -49,6 +73,18 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   };
 
   const handleDeleteData = async () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     if (isSocialUser) {
       // Social users: re-auth via provider
       try {
@@ -74,6 +110,18 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   };
 
   const handleDeleteAccount = async () => {
+    if (!isEmailVerified) {
+      showAlert({
+        title: 'Verify Your Email',
+        message: 'Please verify your email before performing this action.',
+        confirmLabel: 'Send Verification Link',
+        cancelLabel: 'Later',
+        onConfirm: async () => {
+          try { await authService.sendVerificationEmail(); } catch {}
+        },
+      });
+      return;
+    }
     if (isSocialUser) {
       // Social users: re-auth via provider
       try {
@@ -114,7 +162,8 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
         setModalVisible(true);
       }
     } catch (e: any) {
-      setTier3Error('Incorrect password');
+      console.log('[AccountSettings] reauth error:', e.message, 'email used:', user?.email);
+      setTier3Error(e.message || 'Incorrect password');
     } finally {
       setTier3Loading(false);
     }
@@ -193,6 +242,35 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
+
+        {/* Verify Email — shown only for unverified email users */}
+        {!isEmailVerified && user?.auth_provider === 'email' && (
+          <TouchableOpacity
+            style={[styles.settingCard, { backgroundColor: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}
+            activeOpacity={0.8}
+            onPress={async () => {
+              try {
+                await authService.sendVerificationEmail();
+                showAlert({
+                  title: 'Verification Link Sent',
+                  message: 'Check your inbox (and spam folder) for the verification link.',
+                  type: 'success',
+                });
+              } catch (e: any) {
+                showAlert({ title: 'Error', message: e.message || 'Failed to send verification email', type: 'error' });
+              }
+            }}
+          >
+            <View style={[styles.settingIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+              <Mail color="#F59E0B" size={20} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={[styles.settingTitle, { color: '#F59E0B' }]}>Verify Email</Text>
+              <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Tap to resend verification link</Text>
+            </View>
+            <ChevronRight color="#F59E0B" size={20} />
+          </TouchableOpacity>
+        )}
 
         {/* DATA & DELETION Section */}
         <Text style={[styles.sectionTitleDanger, { color: colors.error }]}>DATA & DELETION</Text>
