@@ -69,12 +69,6 @@ export default function ChangePasswordScreen({
     try {
       await authService.updatePassword(newPassword);
 
-      // Clear biometric credentials since password changed (D25)
-      try {
-        const { biometricLogin } = require('../../data/utils/biometricLogin');
-        await biometricLogin.clearCredentials();
-      } catch {}
-
       setLoading(false);
       showAlert({
         title: 'Password Updated',

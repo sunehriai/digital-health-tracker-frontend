@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useAlert } from '../context/AlertContext';
 import { useDeletion } from '../hooks/useDeletion';
-import { useSecurity } from '../hooks/useSecurity';
 import { useAppPreferences } from '../hooks/useAppPreferences';
-import { biometrics } from '../../data/utils/biometrics';
+import { authService } from '../../data/services/authService';
+import PasswordInput from '../primitives/PasswordInput';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -17,10 +17,16 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   const { user, signOut } = useAuth();
   const { showAlert } = useAlert();
   const { loading: deletionLoading, requestDeletion } = useDeletion();
-  const security = useSecurity();
   const { resetPreferences } = useAppPreferences();
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'data_only' | 'full_account'>('data_only');
+
+  // Tier 3 password re-auth state
+  const [tier3Visible, setTier3Visible] = useState(false);
+  const [tier3Password, setTier3Password] = useState('');
+  const [tier3Error, setTier3Error] = useState('');
+  const [tier3Loading, setTier3Loading] = useState(false);
+  const [tier3Action, setTier3Action] = useState<'delete_data' | 'delete_account' | null>(null);
 
   // BP-012: Explicit match — do NOT use `auth_provider !== 'email'` because
   // undefined !== 'email' is true, which would hide the card when backend is unreachable.
@@ -43,27 +49,75 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   };
 
   const handleDeleteData = async () => {
-    // Require biometric re-auth for destructive actions (no grace period)
-    if (security.biometricEnabled) {
-      const result = await biometrics.authenticate('Confirm to delete all data');
-      if (!result.success) return;
-      security.recordAuthentication();
+    if (isSocialUser) {
+      // Social users: re-auth via provider
+      try {
+        if (user?.auth_provider === 'google') {
+          await authService.reauthenticateWithGoogle();
+        } else {
+          await authService.reauthenticateWithApple();
+        }
+        // Re-auth succeeded, proceed with action
+        setModalType('data_only');
+        setModalVisible(true);
+      } catch (e: any) {
+        if (e.message === 'Cancelled') return;
+        showAlert({ title: 'Error', message: e.message || 'Re-authentication failed', type: 'error' });
+      }
+    } else {
+      // Email users: show password modal
+      setTier3Action('delete_data');
+      setTier3Password('');
+      setTier3Error('');
+      setTier3Visible(true);
     }
-    console.log('[AccountSettings] handleDeleteData fired — setting modalType=data_only, modalVisible=true');
-    setModalType('data_only');
-    setModalVisible(true);
   };
 
   const handleDeleteAccount = async () => {
-    // Require biometric re-auth for destructive actions (no grace period)
-    if (security.biometricEnabled) {
-      const result = await biometrics.authenticate('Confirm to delete account');
-      if (!result.success) return;
-      security.recordAuthentication();
+    if (isSocialUser) {
+      // Social users: re-auth via provider
+      try {
+        if (user?.auth_provider === 'google') {
+          await authService.reauthenticateWithGoogle();
+        } else {
+          await authService.reauthenticateWithApple();
+        }
+        // Re-auth succeeded, proceed with action
+        setModalType('full_account');
+        setModalVisible(true);
+      } catch (e: any) {
+        if (e.message === 'Cancelled') return;
+        showAlert({ title: 'Error', message: e.message || 'Re-authentication failed', type: 'error' });
+      }
+    } else {
+      // Email users: show password modal
+      setTier3Action('delete_account');
+      setTier3Password('');
+      setTier3Error('');
+      setTier3Visible(true);
     }
-    console.log('[AccountSettings] handleDeleteAccount fired — setting modalType=full_account, modalVisible=true');
-    setModalType('full_account');
-    setModalVisible(true);
+  };
+
+  const handleTier3Submit = async () => {
+    if (!tier3Password) return;
+    setTier3Loading(true);
+    setTier3Error('');
+    try {
+      await authService.reauthenticate(user?.email || '', tier3Password);
+      // Re-auth succeeded
+      setTier3Visible(false);
+      if (tier3Action === 'delete_data') {
+        setModalType('data_only');
+        setModalVisible(true);
+      } else if (tier3Action === 'delete_account') {
+        setModalType('full_account');
+        setModalVisible(true);
+      }
+    } catch (e: any) {
+      setTier3Error('Incorrect password');
+    } finally {
+      setTier3Loading(false);
+    }
   };
 
   const handleConfirmDeletion = async () => {
@@ -177,6 +231,38 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Tier 3 Password Re-auth Modal */}
+      <Modal visible={tier3Visible} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: colors.bgCard, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 4 }}>Confirm Your Identity</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 16 }}>Enter your password to continue</Text>
+            <PasswordInput
+              label="Password"
+              placeholder="Enter your password"
+              value={tier3Password}
+              onChangeText={(text) => { setTier3Password(text); if (tier3Error) setTier3Error(''); }}
+            />
+            {tier3Error ? <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{tier3Error}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => setTier3Visible(false)}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleTier3Submit}
+                disabled={!tier3Password || tier3Loading}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.error, alignItems: 'center', opacity: !tier3Password || tier3Loading ? 0.5 : 1 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{tier3Loading ? 'Verifying...' : 'Continue'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Delete Confirmation Modal — conditional mount to match LogRefillSheet pattern */}
       {modalVisible && (

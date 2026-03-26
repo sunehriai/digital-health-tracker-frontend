@@ -3,9 +3,7 @@ import { authService } from '../../data/services/authService';
 import { profileService } from '../../data/services/profileService';
 import { onAccountDeactivated } from '../../data/api/client';
 import { deletionService } from '../../data/services/deletionService';
-import { biometricLogin } from '../../data/utils/biometricLogin';
-import { biometrics } from '../../data/utils/biometrics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { biometricPrefs } from '../../data/utils/biometricPrefs';
 import type { Profile, ProfileUpdate } from '../../domain/types';
 
 type AuthUser = Profile & { email: string };
@@ -27,7 +25,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   deactivationInfo: DeactivationInfo | null;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; shouldPromptBiometric?: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -95,6 +93,14 @@ export function useAuthProvider(): AuthContextType {
           });
           setProfileFetchComplete(true);
         }
+
+        // Save last login info for biometric fallback (C7)
+        try {
+          await biometricPrefs.setLastEmail(fbUser.email || '');
+          const providerId = fbUser.providerData?.[0]?.providerId ?? 'password';
+          const provider = providerId === 'google.com' ? 'google' : providerId === 'apple.com' ? 'apple' : 'email';
+          await biometricPrefs.setLastProvider(provider);
+        } catch {}
       } else {
         // User is signed out
         setUser(null);
@@ -221,16 +227,8 @@ export function useAuthProvider(): AuthContextType {
     try {
       await authService.signIn(email, password);
       clearTimeout(signInTimeout);
-      // Check if we should prompt for biometric opt-in
-      let shouldPromptBiometric = false;
-      try {
-        const available = await biometrics.isAvailable();
-        const declined = await biometricLogin.hasDeclined();
-        const hasCreds = await biometricLogin.hasCreds();
-        shouldPromptBiometric = available && !declined && !hasCreds;
-      } catch {}
       // onAuthStateChanged will fire automatically and set user state
-      return { success: true, shouldPromptBiometric };
+      return { success: true };
     } catch (e: any) {
       clearTimeout(signInTimeout);
       if (activeRequestId.current !== requestId) return { success: false, error: 'Request superseded' };
@@ -282,10 +280,8 @@ export function useAuthProvider(): AuthContextType {
   const signOut = useCallback(async () => {
     try {
       await authService.signOut();
-      // D25: Clear biometric credentials and dismissed flags on sign-out
-      await biometricLogin.clearCredentials();
-      await biometricLogin.clearDeclined();
-      await AsyncStorage.removeItem('@vitaquest:email_verify_dismissed');
+      // D25: Clear biometric preferences on sign-out
+      await biometricPrefs.clearAll();
       // onAuthStateChanged will fire and set user to null
       setDeactivationInfo(null);
     } catch (e: any) {

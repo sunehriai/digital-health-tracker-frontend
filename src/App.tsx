@@ -11,7 +11,7 @@ import { AIUploadProvider } from './data/contexts/AIUploadContext';
 import { AlertProvider } from './ui/context/AlertContext';
 import { OnboardingProvider } from './ui/hooks/useOnboarding';
 import AppNavigator from './ui/navigation/AppNavigator';
-import LockScreen from './ui/components/LockScreen';
+
 import PrivacyOverlay from './ui/components/PrivacyOverlay';
 import RecordingOverlay from './ui/components/RecordingOverlay';
 import { profileService } from './data/services/profileService';
@@ -115,12 +115,6 @@ function AppShell() {
         <RecordingOverlay />
       )}
 
-      {/* Lock screen — rendered last (on top of everything) */}
-      {security.isLocked && auth.isAuthenticated && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <LockScreen />
-        </View>
-      )}
     </>
   );
 }

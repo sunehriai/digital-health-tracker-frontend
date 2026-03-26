@@ -1,44 +1,24 @@
+/**
+ * DEPRECATED — This file is a backward-compat shim.
+ * Use biometricPrefs.ts for all new code.
+ * This file will be deleted once all callers are migrated.
+ */
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// SecureStore keys must be alphanumeric + dots/dashes/underscores only (no @ or :)
-const CREDS_KEY = 'vitaquest_biometric_creds';
-const DECLINED_KEY = '@vitaquest:biometric_declined'; // AsyncStorage allows any string
+import { biometricPrefs } from './biometricPrefs';
 
 export const biometricLogin = {
-  async storeCredentials(email: string, password: string): Promise<void> {
-    await SecureStore.setItemAsync(CREDS_KEY, JSON.stringify({ email, password }));
-  },
+  // Stub methods — credential storage removed in v3.0
+  async storeCredentials(_email: string, _password: string): Promise<void> {},
+  async getCredentials(): Promise<null> { return null; },
+  async hasCreds(): Promise<boolean> { return false; },
 
-  async getCredentials(): Promise<{ email: string; password: string } | null> {
-    const raw = await SecureStore.getItemAsync(CREDS_KEY);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  },
-
+  // One-time cleanup of stale SecureStore entry from v2.0
   async clearCredentials(): Promise<void> {
-    await SecureStore.deleteItemAsync(CREDS_KEY);
+    try { await SecureStore.deleteItemAsync('vitaquest_biometric_creds'); } catch {}
   },
 
-  async hasCreds(): Promise<boolean> {
-    const raw = await SecureStore.getItemAsync(CREDS_KEY);
-    return !!raw;
-  },
-
-  async hasDeclined(): Promise<boolean> {
-    const val = await AsyncStorage.getItem(DECLINED_KEY);
-    return val === 'true';
-  },
-
-  async setDeclined(): Promise<void> {
-    await AsyncStorage.setItem(DECLINED_KEY, 'true');
-  },
-
-  async clearDeclined(): Promise<void> {
-    await AsyncStorage.removeItem(DECLINED_KEY);
-  },
+  // Delegate to biometricPrefs
+  async hasDeclined(): Promise<boolean> { return biometricPrefs.hasDeclined(); },
+  async setDeclined(): Promise<void> { return biometricPrefs.setDeclined(); },
+  async clearDeclined(): Promise<void> { await biometricPrefs.clearAll(); },
 };

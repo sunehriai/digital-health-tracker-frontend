@@ -22,7 +22,7 @@ try {
 }
 
 // AsyncStorage keys (same as PrivacySecurityScreen)
-const BIOMETRIC_KEY = '@vision_biometric_enabled';
+const BIOMETRIC_KEY = '@vitaquest:biometric_enabled';
 const AUTO_LOCK_KEY = '@vision_auto_lock_timeout';
 const SCREEN_SECURITY_KEY = '@vision_screen_security';
 const SCREEN_SECURITY_GRANULARITY_KEY = '@vision_screen_security_granularity';
@@ -113,11 +113,8 @@ export function useSecurityProvider(): SecurityContextType {
         if (gran !== null)
           setScreenSecurityGranularityState(gran as Granularity);
 
-        // Cold start lock: if biometric is enabled, start locked (mobile only)
-        // Web has no biometric/passcode hardware, so locking would trap the user.
-        if (bioEnabled && Platform.OS !== 'web') {
-          setIsLocked(true);
-        }
+        // Cold-start locking is now handled by BiometricGateScreen in AppNavigator.
+        // useSecurity only handles mid-session re-locking via the inactivity timer.
       } catch (e) {
         console.error('[Security] Failed to load settings:', e);
       } finally {

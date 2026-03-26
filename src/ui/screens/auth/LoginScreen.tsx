@@ -6,24 +6,18 @@ import { useAuth } from '../../hooks/useAuth';
 import Button from '../../primitives/Button';
 import SocialLoginRow from '../../components/SocialLoginRow';
 import { useTheme } from '../../theme/ThemeContext';
-import { useAlert } from '../../context/AlertContext';
 import { typography } from '../../theme/typography';
-import { biometricLogin } from '../../../data/utils/biometricLogin';
-import { biometrics } from '../../../data/utils/biometrics';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'>) {
   const { colors } = useTheme();
   const { signIn, signInWithGoogle, signInWithApple, loading, error, clearError } = useAuth();
-  const { showAlert } = useAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [secure, setSecure] = useState(true);
-  const [hasBiometricCreds, setHasBiometricCreds] = useState(false);
-  const [biometricFailCount, setBiometricFailCount] = useState(0);
 
   const loadingRef = useRef(loading);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
@@ -34,46 +28,6 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
     return () => sub.remove();
   }, []);
 
-  // Biometric auto-login check on mount
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const hasCreds = await biometricLogin.hasCreds();
-      if (mounted) setHasBiometricCreds(hasCreds);
-
-      if (hasCreds) {
-        setTimeout(async () => {
-          if (!mounted) return;
-          await attemptBiometricLogin();
-        }, 500);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  const attemptBiometricLogin = async () => {
-    try {
-      const result = await biometrics.authenticate('Sign in to VitaQuest');
-      if (result.success) {
-        const creds = await biometricLogin.getCredentials();
-        if (creds) {
-          await signIn(creds.email, creds.password);
-        }
-      } else {
-        setBiometricFailCount(prev => {
-          const newCount = prev + 1;
-          if (newCount >= 3) {
-            biometricLogin.clearCredentials();
-            setHasBiometricCreds(false);
-          }
-          return newCount;
-        });
-      }
-    } catch {
-      // Biometric not available or error — fall through to manual entry
-    }
-  };
-
   const validateEmail = (value: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   };
@@ -81,21 +35,7 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
   const handleLogin = async () => {
     clearError();
     const result = await signIn(email.trim().toLowerCase(), password);
-    if (result.success && result.shouldPromptBiometric) {
-      showAlert({
-        title: 'Enable Biometric Login?',
-        message: 'Use FaceID or fingerprint to sign in faster next time.',
-        type: 'info',
-        confirmLabel: 'Enable',
-        cancelLabel: 'Not Now',
-        onConfirm: async () => {
-          await biometricLogin.storeCredentials(email.trim().toLowerCase(), password);
-        },
-        onCancel: async () => {
-          await biometricLogin.setDeclined();
-        },
-      });
-    } else if (!result.success) {
+    if (!result.success) {
       // error is set via auth context
     }
   };
@@ -209,17 +149,6 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
             <Text style={[styles.signInText, { color: colors.bg }]}>Sign In  →</Text>
           )}
         </TouchableOpacity>
-
-        {/* Biometric button */}
-        {hasBiometricCreds && (
-          <TouchableOpacity
-            style={[styles.biometricBtn, { borderColor: colors.border }]}
-            onPress={attemptBiometricLogin}
-            disabled={loading}
-          >
-            <Ionicons name="finger-print" size={24} color={colors.cyan} />
-          </TouchableOpacity>
-        )}
 
         {/* Social login */}
         <SocialLoginRow
@@ -336,15 +265,6 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
-  },
-
-  // Biometric
-  biometricBtn: {
-    alignSelf: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 8,
   },
 
   // Footer

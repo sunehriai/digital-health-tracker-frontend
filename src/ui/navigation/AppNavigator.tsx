@@ -1,12 +1,16 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { useDeletion } from '../hooks/useDeletion';
 import ReactivationBanner from '../components/ReactivationBanner';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import BiometricGateScreen from '../screens/auth/BiometricGateScreen';
+import BiometricFallbackScreen from '../screens/auth/BiometricFallbackScreen';
+import { biometricPrefs } from '../../data/utils/biometricPrefs';
 import type { RootStackParamList } from './types';
 
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -60,6 +64,49 @@ export default function AppNavigator() {
   const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
 
+  // Biometric gate state (Fix 6 — null initial values for async-loaded state)
+  const [biometricEnabled, setBiometricEnabled] = useState<boolean | null>(null);
+  const [biometricPassed, setBiometricPassed] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+  const [lastEmail, setLastEmail] = useState<string | null>(null);
+  const [lastProvider, setLastProvider] = useState<string | null>(null);
+  const [ageGateCompleted, setAgeGateCompleted] = useState<boolean | null>(null);
+
+  // Load biometric prefs + age gate cache on mount
+  useEffect(() => {
+    (async () => {
+      const [enabled, ageDone, email, provider] = await Promise.all([
+        biometricPrefs.isEnabled(),
+        AsyncStorage.getItem('@vitaquest:age_gate_completed'),
+        biometricPrefs.getLastEmail(),
+        biometricPrefs.getLastProvider(),
+      ]);
+      setBiometricEnabled(enabled);
+      setAgeGateCompleted(ageDone === 'true');
+      setLastEmail(email);
+      setLastProvider(provider);
+    })();
+  }, []);
+
+  // Re-read biometric enabled when app returns to foreground (Fix 9)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state === 'active') {
+        const enabled = await biometricPrefs.isEnabled();
+        setBiometricEnabled(enabled);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Reset biometric state when user signs out
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setBiometricPassed(false);
+      setShowFallback(false);
+    }
+  }, [isAuthenticated]);
+
   const handleCancelDeletion = useCallback(async () => {
     const success = await cancelDeletion();
     if (success) {
@@ -74,7 +121,7 @@ export default function AppNavigator() {
     await signOut();
   }, [signOut]);
 
-  if (loading) {
+  if (loading || biometricEnabled === null || ageGateCompleted === null) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator size="large" color={colors.cyan} />
@@ -96,9 +143,37 @@ export default function AppNavigator() {
     );
   }
 
-  // Age Gate: require date_of_birth before accessing main app
-  if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null) {
+  // Age Gate: require date_of_birth before accessing main app (Q7: skip if cached)
+  if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null && !ageGateCompleted) {
     return <AgeGateScreen />;
+  }
+
+  // Biometric gate: show before main content if enabled and not yet passed
+  if (isAuthenticated && biometricEnabled && !biometricPassed) {
+    if (showFallback) {
+      return (
+        <BiometricFallbackScreen
+          lastEmail={lastEmail}
+          lastProvider={lastProvider}
+          onSuccess={() => {
+            setBiometricPassed(true);
+            setShowFallback(false);
+          }}
+          onUseFullLogin={async () => {
+            await signOut();
+            setShowFallback(false);
+            setBiometricPassed(false);
+          }}
+        />
+      );
+    }
+    return (
+      <BiometricGateScreen
+        onSuccess={() => setBiometricPassed(true)}
+        onFallback={() => setShowFallback(true)}
+        onSkip={() => setBiometricPassed(true)}
+      />
+    );
   }
 
   return (

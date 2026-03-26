@@ -111,6 +111,51 @@ export const authService = {
     }
   },
 
+  async reauthenticateWithGoogle() {
+    try {
+      const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+      GoogleSignin.configure({
+        webClientId: '90568619662-eligsumphengdqd37tf9s9j2keeu963c.apps.googleusercontent.com',
+      });
+      await GoogleSignin.hasPlayServices();
+      const signInResult = await GoogleSignin.signIn();
+      const idToken = signInResult?.data?.idToken;
+      if (!idToken) throw new Error('No ID token from Google');
+      const credential = auth.GoogleAuthProvider.credential(idToken);
+      const user = auth().currentUser;
+      if (!user) throw new Error('Session expired. Please sign in again.');
+      await user.reauthenticateWithCredential(credential);
+    } catch (error: any) {
+      if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === '12501') {
+        throw new Error('Cancelled');
+      }
+      throw new Error(getAuthErrorMessage(error));
+    }
+  },
+
+  async reauthenticateWithApple() {
+    try {
+      const { appleAuth } = require('@invertase/react-native-apple-authentication');
+      const appleCredential = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
+      if (!appleCredential.identityToken) throw new Error('No identity token from Apple');
+      const credential = auth.AppleAuthProvider.credential(
+        appleCredential.identityToken,
+        appleCredential.nonce
+      );
+      const user = auth().currentUser;
+      if (!user) throw new Error('Session expired. Please sign in again.');
+      await user.reauthenticateWithCredential(credential);
+    } catch (error: any) {
+      if (error?.code === 'ERR_REQUEST_CANCELED' || error?.code === '1001') {
+        throw new Error('Cancelled');
+      }
+      throw new Error(getAuthErrorMessage(error));
+    }
+  },
+
   async signInWithGoogle() {
     try {
       const { GoogleSignin } = require('@react-native-google-signin/google-signin');

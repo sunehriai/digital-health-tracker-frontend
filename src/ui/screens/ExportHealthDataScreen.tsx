@@ -5,15 +5,17 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, FileText, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../hooks/useAuth';
+import { useAlert } from '../context/AlertContext';
 import { useExport } from '../hooks/useExport';
-import { useSecurity } from '../hooks/useSecurity';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
-import { biometrics } from '../../data/utils/biometrics';
+import { authService } from '../../data/services/authService';
+import PasswordInput from '../primitives/PasswordInput';
 import DateRangePickerModal from '../components/DateRangePickerModal';
 import ScreenshotToast from '../components/ScreenshotToast';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -23,20 +25,60 @@ export default function ExportHealthDataScreen({
   navigation,
 }: RootStackScreenProps<'ExportHealthData'>) {
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const { showAlert } = useAlert();
   const { loading, error, generateAndShare, clearError } = useExport();
-  const security = useSecurity();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('ExportHealthData');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Tier 3 password re-auth state
+  const [tier3Visible, setTier3Visible] = useState(false);
+  const [tier3Password, setTier3Password] = useState('');
+  const [tier3Error, setTier3Error] = useState('');
+  const [tier3Loading, setTier3Loading] = useState(false);
+
+  // BP-012: Explicit match
+  const isSocialUser = user?.auth_provider === 'google' || user?.auth_provider === 'apple';
+
   const handleSelectReport = async () => {
-    // Require elevated auth if biometric is enabled and grace period expired
-    if (security.biometricEnabled && security.requiresElevatedAuth(2)) {
-      const result = await biometrics.authenticate('Confirm to export health data');
-      if (!result.success) return;
-      security.recordAuthentication();
+    if (isSocialUser) {
+      // Social users: re-auth via provider
+      try {
+        if (user?.auth_provider === 'google') {
+          await authService.reauthenticateWithGoogle();
+        } else {
+          await authService.reauthenticateWithApple();
+        }
+        // Re-auth succeeded, proceed with export
+        clearError();
+        setShowDatePicker(true);
+      } catch (e: any) {
+        if (e.message === 'Cancelled') return;
+        showAlert({ title: 'Error', message: e.message || 'Re-authentication failed', type: 'error' });
+      }
+    } else {
+      // Email users: show password modal
+      setTier3Password('');
+      setTier3Error('');
+      setTier3Visible(true);
     }
-    clearError();
-    setShowDatePicker(true);
+  };
+
+  const handleTier3Submit = async () => {
+    if (!tier3Password) return;
+    setTier3Loading(true);
+    setTier3Error('');
+    try {
+      await authService.reauthenticate(user?.email || '', tier3Password);
+      // Re-auth succeeded, proceed with export
+      setTier3Visible(false);
+      clearError();
+      setShowDatePicker(true);
+    } catch (e: any) {
+      setTier3Error('Incorrect password');
+    } finally {
+      setTier3Loading(false);
+    }
   };
 
   const handleGenerate = async (dateRange: DateRangePreset) => {
@@ -128,6 +170,38 @@ export default function ExportHealthDataScreen({
         onGenerate={handleGenerate}
       />
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+
+      {/* Tier 3 Password Re-auth Modal */}
+      <Modal visible={tier3Visible} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 24 }}>
+          <View style={{ backgroundColor: colors.bgCard, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 }}>
+            <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 4 }}>Confirm Your Identity</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 16 }}>Enter your password to export health data</Text>
+            <PasswordInput
+              label="Password"
+              placeholder="Enter your password"
+              value={tier3Password}
+              onChangeText={(text) => { setTier3Password(text); if (tier3Error) setTier3Error(''); }}
+            />
+            {tier3Error ? <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{tier3Error}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => setTier3Visible(false)}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleTier3Submit}
+                disabled={!tier3Password || tier3Loading}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.cyan, alignItems: 'center', opacity: !tier3Password || tier3Loading ? 0.5 : 1 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>{tier3Loading ? 'Verifying...' : 'Continue'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

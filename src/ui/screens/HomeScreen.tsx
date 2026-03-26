@@ -60,6 +60,7 @@ import AnimatedPressable from '../components/AnimatedPressable';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useAuth } from '../hooks/useAuth';
 import EmailVerificationBanner from '../components/EmailVerificationBanner';
+import auth from '@react-native-firebase/auth';
 import { authService } from '../../data/services/authService';
 import { measureElement } from '../utils/measureElement';
 import SpotlightHint from '../components/onboarding/SpotlightHint';
@@ -75,7 +76,7 @@ export default function HomeScreen() {
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark } = useTheme();
   const { prefs: notifPrefs } = useNotificationPrefs();
-  const { user, firebaseUser } = useAuth();
+  const { user, firebaseUser, refreshProfile } = useAuth();
   const lowStockSheetRef = useRef<LowStockModalRef>(null);
 
   // Onboarding: layout ready signal + hints + FAB measurement
@@ -167,19 +168,31 @@ export default function HomeScreen() {
     !bannerDismissed;
 
   // D21: Re-check verification status when app returns to foreground
+  // Q8: Check if email changed via deferred verifyBeforeUpdateEmail()
   useEffect(() => {
-    if (!showVerificationBanner) return;
+    if (!showVerificationBanner && !user?.email) return;
     const subscription = AppState.addEventListener('change', async (nextAppState) => {
       if (nextAppState === 'active') {
-        const verified = await authService.checkEmailVerified();
-        if (verified) {
-          setBannerDismissed(true);
-          await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+        // Existing: check email verification
+        if (showVerificationBanner) {
+          const verified = await authService.checkEmailVerified();
+          if (verified) {
+            setBannerDismissed(true);
+            await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+          }
         }
+
+        // Q8: check if email changed via deferred verification
+        try {
+          const currentFirebaseEmail = auth().currentUser?.email;
+          if (currentFirebaseEmail && user?.email && currentFirebaseEmail !== user.email) {
+            refreshProfile();
+          }
+        } catch {}
       }
     });
     return () => subscription.remove();
-  }, [showVerificationBanner]);
+  }, [showVerificationBanner, user?.email]);
 
   const handleVerifyNow = async () => {
     await authService.sendVerificationEmail();

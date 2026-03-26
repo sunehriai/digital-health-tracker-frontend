@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
 import { useAuth } from '../../hooks/useAuth';
 import { useAlert } from '../../context/AlertContext';
@@ -46,6 +47,9 @@ export default function AgeGateScreen() {
         if (!result.success) {
           setError(result.error || 'Failed to save. Please try again.');
           setLoading(false);
+        } else {
+          // Persist gate completion so it won't reappear when backend is unreachable
+          await AsyncStorage.setItem('@vitaquest:age_gate_completed', 'true');
         }
         // On success: AppNavigator auto-transitions because user.date_of_birth is now set
       } catch {
