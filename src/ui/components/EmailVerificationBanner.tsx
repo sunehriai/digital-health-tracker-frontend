@@ -1,0 +1,137 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Mail, X } from 'lucide-react-native';
+import { colors } from '../theme/colors';
+
+interface EmailVerificationBannerProps {
+  onVerifyNow: () => Promise<void>;
+  onDismiss: () => void;
+}
+
+const COOLDOWN_SECONDS = 60;
+
+export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = ({
+  onVerifyNow,
+  onDismiss,
+}) => {
+  const [isSending, setIsSending] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
+  const handleVerifyNow = useCallback(async () => {
+    if (isSending || cooldown) return;
+
+    setIsSending(true);
+    try {
+      await onVerifyNow();
+    } finally {
+      setIsSending(false);
+      setCooldown(true);
+      timerRef.current = setTimeout(() => {
+        setCooldown(false);
+        timerRef.current = null;
+      }, COOLDOWN_SECONDS * 1000);
+    }
+  }, [isSending, cooldown, onVerifyNow]);
+
+  return (
+    <View style={styles.container}>
+      <Mail size={20} color={colors.cyan} style={styles.icon} />
+
+      <View style={styles.textBlock}>
+        <Text style={styles.message}>
+          Please verify your email to unlock all Quest features.
+        </Text>
+        {cooldown ? (
+          <Text style={styles.cooldownText}>Link sent — check your inbox</Text>
+        ) : (
+          <TouchableOpacity
+            onPress={handleVerifyNow}
+            disabled={isSending}
+            activeOpacity={0.7}
+          >
+            <View style={styles.actionRow}>
+              <Text style={[styles.actionText, isSending && styles.actionTextDisabled]}>
+                Verify Now
+              </Text>
+              {isSending && (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.cyan}
+                  style={styles.spinner}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} style={styles.dismiss}>
+        <X size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.cyanDim,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
+  icon: {
+    marginTop: 2,
+    marginRight: 10,
+  },
+  textBlock: {
+    flex: 1,
+  },
+  message: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.cyan,
+  },
+  actionTextDisabled: {
+    opacity: 0.5,
+  },
+  cooldownText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.cyan,
+    marginTop: 4,
+    opacity: 0.8,
+  },
+  spinner: {
+    marginLeft: 6,
+  },
+  dismiss: {
+    marginLeft: 8,
+    marginTop: 2,
+    padding: 2,
+  },
+});
+
+export default EmailVerificationBanner;

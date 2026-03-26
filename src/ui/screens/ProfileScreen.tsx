@@ -195,7 +195,7 @@ export default function ProfileScreen() {
                 </View>
               )}
               <View style={styles.heroInfo}>
-                <Text style={[styles.heroName, { color: colors.textPrimary }]}>{user?.display_name || 'Vision User'}</Text>
+                <Text style={[styles.heroName, { color: colors.textPrimary }]}>{user?.display_name || 'VitaQuest User'}</Text>
                 <Text style={styles.heroSubtitle}>View and edit profile</Text>
               </View>
               <ChevronRight color="#8E9196" size={20} strokeWidth={2} />

@@ -58,6 +58,9 @@ import ScreenshotToast from '../components/ScreenshotToast';
 import DoseToast from '../components/DoseToast';
 import AnimatedPressable from '../components/AnimatedPressable';
 import { useOnboarding } from '../hooks/useOnboarding';
+import { useAuth } from '../hooks/useAuth';
+import EmailVerificationBanner from '../components/EmailVerificationBanner';
+import { authService } from '../../data/services/authService';
 import { measureElement } from '../utils/measureElement';
 import SpotlightHint from '../components/onboarding/SpotlightHint';
 import type { TargetRect } from '../../domain/types';
@@ -72,6 +75,7 @@ export default function HomeScreen() {
   const { prefs: { timeFormat } } = useAppPreferences();
   const { colors, isDark } = useTheme();
   const { prefs: notifPrefs } = useNotificationPrefs();
+  const { user, firebaseUser } = useAuth();
   const lowStockSheetRef = useRef<LowStockModalRef>(null);
 
   // Onboarding: layout ready signal + hints + FAB measurement
@@ -145,6 +149,46 @@ export default function HomeScreen() {
   const [doseToast, setDoseToast] = useState<{ visible: boolean; title: string; body: string }>({
     visible: false, title: '', body: '',
   });
+
+  // Email verification banner state (B16)
+  const [bannerDismissed, setBannerDismissed] = useState(true); // default hidden until checked
+
+  useEffect(() => {
+    AsyncStorage.getItem('@vitaquest:email_verify_dismissed').then(val => {
+      setBannerDismissed(val === 'true');
+    });
+  }, []);
+
+  const showVerificationBanner =
+    user &&
+    user.auth_provider === 'email' &&
+    firebaseUser &&
+    !firebaseUser.emailVerified &&
+    !bannerDismissed;
+
+  // D21: Re-check verification status when app returns to foreground
+  useEffect(() => {
+    if (!showVerificationBanner) return;
+    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        const verified = await authService.checkEmailVerified();
+        if (verified) {
+          setBannerDismissed(true);
+          await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [showVerificationBanner]);
+
+  const handleVerifyNow = async () => {
+    await authService.sendVerificationEmail();
+  };
+
+  const handleDismissBanner = async () => {
+    setBannerDismissed(true);
+    await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+  };
 
   // Onboarding: report layout ready once data is loaded and layout is measured
   useEffect(() => {
@@ -1022,6 +1066,13 @@ export default function HomeScreen() {
         setRootLayoutDone(true);
       }}
     >
+      {showVerificationBanner && (
+        <EmailVerificationBanner
+          onVerifyNow={handleVerifyNow}
+          onDismiss={handleDismissBanner}
+        />
+      )}
+
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Header */}
         <View style={styles.header}>

@@ -31,6 +31,9 @@ import RitualPreviewScreen from '../screens/RitualPreviewScreen';
 import MedicationDetailsScreen from '../screens/MedicationDetailsScreen';
 import ArchivedRitualsScreen from '../screens/ArchivedRitualsScreen';
 import ExportHealthDataScreen from '../screens/ExportHealthDataScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import ChangeEmailScreen from '../screens/ChangeEmailScreen';
+import AgeGateScreen from '../screens/auth/AgeGateScreen';
 import { ImageUploadScreen } from '../screens/ImageUploadScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,7 +57,7 @@ export default function AppNavigator() {
       },
     };
   }, [isDark, colors]);
-  const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile } = useAuth();
+  const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
 
   const handleCancelDeletion = useCallback(async () => {
@@ -91,6 +94,11 @@ export default function AppNavigator() {
         onSignOut={handleSignOut}
       />
     );
+  }
+
+  // Age Gate: require date_of_birth before accessing main app
+  if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null) {
+    return <AgeGateScreen />;
   }
 
   return (
@@ -141,6 +149,8 @@ export default function AppNavigator() {
             <Stack.Screen name="MyJourney" component={MyJourneyScreen} />
             <Stack.Screen name="MyAdherence" component={MyAdherenceScreen} />
             <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
             <Stack.Screen name="ExportHealthData" component={ExportHealthDataScreen} />
           </>
         )}

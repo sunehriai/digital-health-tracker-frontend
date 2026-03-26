@@ -22,6 +22,7 @@ export interface Profile {
   is_deactivated: boolean;
   deletion_requested_at: string | null;
   deletion_type: 'data_only' | 'full_account' | null;
+  auth_provider: 'email' | 'google' | 'apple';
 }
 
 export interface ProfileUpdate {
@@ -31,6 +32,7 @@ export interface ProfileUpdate {
   primary_health_goal?: string | null;
   primary_physician?: string | null;
   timezone?: string | null;
+  auth_provider?: 'email' | 'google' | 'apple';
 }
 
 export interface Medication {

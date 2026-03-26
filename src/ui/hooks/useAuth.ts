@@ -1,14 +1,13 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
-// import { authService, FirebaseUser } from '../../data/services/authService';
+import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import { authService } from '../../data/services/authService';
 import { profileService } from '../../data/services/profileService';
 import { onAccountDeactivated } from '../../data/api/client';
-import { deletionService, DeletionStatusResponse } from '../../data/services/deletionService';
+import { deletionService } from '../../data/services/deletionService';
+import { biometricLogin } from '../../data/utils/biometricLogin';
+import { biometrics } from '../../data/utils/biometrics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Profile, ProfileUpdate } from '../../domain/types';
 
-// TODO: Re-enable Firebase auth — temporarily using mock auth for development
-const DEV_SKIP_AUTH = true;
-
-type FirebaseUser = any;
 type AuthUser = Profile & { email: string };
 
 export interface DeactivationInfo {
@@ -20,14 +19,17 @@ export interface DeactivationInfo {
 
 interface AuthContextType {
   user: AuthUser | null;
-  firebaseUser: FirebaseUser | null;
+  firebaseUser: any;
   profile: Profile | null;
   loading: boolean;
+  profileFetchComplete: boolean;
   error: string | null;
   isAuthenticated: boolean;
   deactivationInfo: DeactivationInfo | null;
   signUp: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; shouldPromptBiometric?: boolean }>;
+  signInWithGoogle: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; cancelled?: boolean; error?: string }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: ProfileUpdate) => Promise<{ success: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
@@ -37,70 +39,87 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-const MOCK_USER: AuthUser = {
-  id: 'dev-user-123',
-  email: 'dev@vision.app',
-  display_name: 'Dev User',
-  date_of_birth: null,
-  gender: null,
-  primary_health_goal: null,
-  primary_physician: null,
-  created_at: new Date().toISOString(),
-  // Gamification defaults (display-only until useGamification fetches real data)
-  total_xp: 0,
-  current_tier: 1,
-  streak_days: 0,
-  timezone: 'America/New_York',
-  streak_start_date: null,
-  last_active_at: new Date().toISOString(),
-  comeback_boost_until: null,
-  waiver_badges: 0,
-  perfect_months_streak: 0,
-  // Deletion defaults
-  is_deactivated: false,
-  deletion_requested_at: null,
-  deletion_type: null,
-};
-
-// Dedicated E2E test user — separate identity from dev user for clean-slate testing.
-// Switch to this by setting USE_TEST_USER = true below.
-const TEST_USER: AuthUser = {
-  id: 'e2e-test-user',
-  email: 'e2e-tester@vision.app',
-  display_name: 'E2E Test User',
-  date_of_birth: null,
-  gender: null,
-  primary_health_goal: null,
-  primary_physician: null,
-  created_at: new Date().toISOString(),
-  total_xp: 0,
-  current_tier: 1,
-  streak_days: 0,
-  timezone: 'America/New_York',
-  streak_start_date: null,
-  last_active_at: new Date().toISOString(),
-  comeback_boost_until: null,
-  waiver_badges: 0,
-  perfect_months_streak: 0,
-  is_deactivated: false,
-  deletion_requested_at: null,
-  deletion_type: null,
-};
-
-// Toggle this to true to use the E2E test user instead of the dev user
-const USE_TEST_USER = false;
-const ACTIVE_MOCK_USER = USE_TEST_USER ? TEST_USER : MOCK_USER;
+// A3: 50-minute token refresh interval (Firebase tokens expire at 60 min)
+const TOKEN_REFRESH_INTERVAL_MS = 50 * 60 * 1000;
 
 export function useAuthProvider(): AuthContextType {
-  const [user, setUser] = useState<AuthUser | null>(DEV_SKIP_AUTH ? ACTIVE_MOCK_USER : null);
-  const [loading, setLoading] = useState(!DEV_SKIP_AUTH);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [profileFetchComplete, setProfileFetchComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deactivationInfo, setDeactivationInfo] = useState<DeactivationInfo | null>(null);
+  const authInitialized = useRef(false);
+  const activeRequestId = useRef(0);
+
+  // A2: onAuthStateChanged is single source of truth
+  useEffect(() => {
+    const unsubscribe = authService.onAuthStateChanged(async (fbUser) => {
+      setFirebaseUser(fbUser);
+
+      if (fbUser) {
+        // User is signed in — fetch profile from backend
+        // Set loading false immediately so app doesn't show blank white screen
+        // profileFetchComplete gates the age gate check separately
+        setProfileFetchComplete(false);
+        try {
+          const profile = await profileService.getMe();
+          setUser({ ...profile, email: fbUser.email || profile.email || '' });
+          setProfileFetchComplete(true);
+        } catch {
+          // Backend might be unreachable — set basic user info from Firebase
+          const providerId = fbUser.providerData?.[0]?.providerId ?? 'password';
+          const auth_provider = providerId === 'google.com' ? 'google' : providerId === 'apple.com' ? 'apple' : 'email';
+          setUser({
+            id: fbUser.uid,
+            email: fbUser.email || '',
+            display_name: fbUser.displayName || null,
+            date_of_birth: null,
+            gender: null,
+            primary_health_goal: null,
+            primary_physician: null,
+            created_at: new Date().toISOString(),
+            total_xp: 0,
+            current_tier: 1,
+            streak_days: 0,
+            timezone: null,
+            streak_start_date: null,
+            last_active_at: null,
+            comeback_boost_until: null,
+            waiver_badges: 0,
+            perfect_months_streak: 0,
+            is_deactivated: false,
+            deletion_requested_at: null,
+            deletion_type: null,
+            auth_provider,
+          });
+          setProfileFetchComplete(true);
+        }
+      } else {
+        // User is signed out
+        setUser(null);
+        setProfileFetchComplete(false);
+      }
+
+      setLoading(false);
+      authInitialized.current = true;
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // A3: Proactive token refresh every 50 minutes
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(async () => {
+      await authService.getIdToken(true);
+    }, TOKEN_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // R9: Listen for mid-session deactivation events from ApiClient
   useEffect(() => {
     const unsubscribe = onAccountDeactivated(async () => {
-      // Fetch deletion status to populate the banner
       try {
         const status = await deletionService.getDeletionStatus();
         if (status?.pending) {
@@ -112,7 +131,6 @@ export function useAuthProvider(): AuthContextType {
           });
         }
       } catch {
-        // If we can't fetch status, show a generic deactivation
         setDeactivationInfo({
           pending: true,
           deletionType: null,
@@ -124,15 +142,13 @@ export function useAuthProvider(): AuthContextType {
     return unsubscribe;
   }, []);
 
-  // Step 19: Check deactivation on auth establishment
+  // Check deactivation on auth establishment
   useEffect(() => {
     if (!user) return;
 
     const checkDeactivation = async () => {
       try {
-        // Use the profile from GET /auth/me (hits real backend even in dev mode)
         const profile = await profileService.getMe();
-        // Sync all real profile fields into dev-mode mock user
         setUser((prev) => prev ? { ...prev, ...profile } : prev);
         if (profile.is_deactivated) {
           const status = await deletionService.getDeletionStatus();
@@ -146,26 +162,135 @@ export function useAuthProvider(): AuthContextType {
           }
         }
       } catch {
-        // Non-critical — user will see banner if they try to access data APIs
+        // Non-critical
       }
     };
 
     checkDeactivation();
-  }, [user?.id]); // Only re-run when user identity changes
+  }, [user?.id]);
 
-  const signUp = useCallback(async (_email: string, _password: string, _displayName?: string) => {
-    return { success: true };
+  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
+    activeRequestId.current++;
+    const requestId = activeRequestId.current;
+    setError(null);
+    setLoading(true);
+    const signUpTimeout = setTimeout(() => {
+      if (activeRequestId.current === requestId) {
+        setError('Sign up timed out');
+        setLoading(false);
+      }
+    }, 10000);
+    try {
+      await authService.signUp(email, password, displayName);
+      clearTimeout(signUpTimeout);
+      // onAuthStateChanged fires asynchronously. Explicitly call getMe()
+      // to auto-provision the backend user, then push the display name.
+      if (displayName) {
+        try {
+          // Ensure backend user exists (auto-provisioned on first getMe)
+          await profileService.getMe();
+          // Now update with the display name
+          const updated = await profileService.updateMe({ display_name: displayName });
+          setUser((prev) => prev ? { ...prev, ...updated } : prev);
+        } catch {
+          // Non-critical — profile will show on next refresh
+        }
+      }
+      return { success: true };
+    } catch (e: any) {
+      clearTimeout(signUpTimeout);
+      if (activeRequestId.current !== requestId) return { success: false, error: 'Request superseded' };
+      const msg = e.message || 'Sign up failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, error: msg };
+    }
   }, []);
 
-  const signIn = useCallback(async (_email: string, _password: string) => {
-    setUser(ACTIVE_MOCK_USER);
-    return { success: true };
+  const signIn = useCallback(async (email: string, password: string) => {
+    activeRequestId.current++;
+    const requestId = activeRequestId.current;
+    setError(null);
+    setLoading(true);
+    const signInTimeout = setTimeout(() => {
+      if (activeRequestId.current === requestId) {
+        setError('Sign in timed out');
+        setLoading(false);
+      }
+    }, 10000);
+    try {
+      await authService.signIn(email, password);
+      clearTimeout(signInTimeout);
+      // Check if we should prompt for biometric opt-in
+      let shouldPromptBiometric = false;
+      try {
+        const available = await biometrics.isAvailable();
+        const declined = await biometricLogin.hasDeclined();
+        const hasCreds = await biometricLogin.hasCreds();
+        shouldPromptBiometric = available && !declined && !hasCreds;
+      } catch {}
+      // onAuthStateChanged will fire automatically and set user state
+      return { success: true, shouldPromptBiometric };
+    } catch (e: any) {
+      clearTimeout(signInTimeout);
+      if (activeRequestId.current !== requestId) return { success: false, error: 'Request superseded' };
+      const msg = e.message || 'Sign in failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, error: msg };
+    }
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await authService.signInWithGoogle();
+      if (result.cancelled) {
+        setLoading(false);
+        return { success: false, cancelled: true };
+      }
+      // onAuthStateChanged will handle the rest
+      return { success: true };
+    } catch (e: any) {
+      const msg = e.message || 'Google sign-in failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, error: msg };
+    }
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await authService.signInWithApple();
+      if (result.cancelled) {
+        setLoading(false);
+        return { success: false, cancelled: true };
+      }
+      // onAuthStateChanged will handle the rest
+      return { success: true };
+    } catch (e: any) {
+      const msg = e.message || 'Apple sign-in failed';
+      setError(msg);
+      setLoading(false);
+      return { success: false, error: msg };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
-    // R8 fix: actually clear user state so deletion flow works in dev mode
-    setUser(null);
-    setDeactivationInfo(null);
+    try {
+      await authService.signOut();
+      // D25: Clear biometric credentials and dismissed flags on sign-out
+      await biometricLogin.clearCredentials();
+      await biometricLogin.clearDeclined();
+      await AsyncStorage.removeItem('@vitaquest:email_verify_dismissed');
+      // onAuthStateChanged will fire and set user to null
+      setDeactivationInfo(null);
+    } catch (e: any) {
+      setError(e.message || 'Sign out failed');
+    }
   }, []);
 
   const updateProfileFn = useCallback(async (updates: ProfileUpdate) => {
@@ -183,7 +308,7 @@ export function useAuthProvider(): AuthContextType {
       const freshProfile = await profileService.getMe();
       setUser((prev) => prev ? { ...prev, ...freshProfile } : prev);
     } catch {
-      // Non-critical — profile will sync on next natural fetch
+      // Non-critical
     }
   }, []);
 
@@ -211,19 +336,23 @@ export function useAuthProvider(): AuthContextType {
         is_deactivated: user.is_deactivated,
         deletion_requested_at: user.deletion_requested_at,
         deletion_type: user.deletion_type,
+        auth_provider: user.auth_provider,
       }
     : null;
 
   return {
     user,
-    firebaseUser: DEV_SKIP_AUTH ? {} : null,
+    firebaseUser,
     profile,
     loading,
+    profileFetchComplete,
     error,
     isAuthenticated: !!user,
     deactivationInfo,
     signUp,
     signIn,
+    signInWithGoogle,
+    signInWithApple,
     signOut,
     updateProfile: updateProfileFn,
     refreshProfile,

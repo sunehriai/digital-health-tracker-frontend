@@ -50,6 +50,11 @@ export function useGamificationProvider() {
     setLoading(true);
     try {
       const data = await gamificationService.getStatus();
+      // Guard: API returns empty array when not authenticated
+      if (!data || (Array.isArray(data) && data.length === 0) || !data.current_tier) {
+        setLoading(false);
+        return;
+      }
       setStatus(data);
       setError(null);
       setIsOnline(true);

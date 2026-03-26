@@ -63,6 +63,8 @@ export type RootStackParamList = {
   MyJourney: undefined;
   MyAdherence: undefined;
   AccountSettings: undefined;
+  ChangePassword: undefined;
+  ChangeEmail: undefined;
   ExportHealthData: undefined;
 };
 

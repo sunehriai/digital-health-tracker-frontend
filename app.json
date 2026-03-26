@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vision.mobile",
+      "bundleIdentifier": "app.vitaquest",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Vision uses Face ID to protect your health data and Emergency Vault."
@@ -27,7 +27,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.vision.mobile",
+      "package": "app.vitaquest",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -37,6 +37,7 @@
       "expo-secure-store",
       "expo-local-authentication",
       "@react-native-firebase/app",
+      "@react-native-firebase/auth",
       [
         "expo-camera",
         {

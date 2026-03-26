@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
@@ -19,30 +19,27 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
   const { loading: deletionLoading, requestDeletion } = useDeletion();
   const security = useSecurity();
   const { resetPreferences } = useAppPreferences();
-  const [resetCooldown, setResetCooldown] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'data_only' | 'full_account'>('data_only');
 
-  const handleChangePassword = async () => {
-    if (resetCooldown) return;
+  // BP-012: Explicit match — do NOT use `auth_provider !== 'email'` because
+  // undefined !== 'email' is true, which would hide the card when backend is unreachable.
+  const isSocialUser = user?.auth_provider === 'google' || user?.auth_provider === 'apple';
 
-    try {
-      // Firebase sendPasswordResetEmail will be wired here
-      showAlert({
-        title: 'Password Reset Email Sent',
-        message: `A password reset link has been sent to ${user?.email}. Check your inbox.`,
-        type: 'success',
-      });
-      setResetCooldown(true);
-      setTimeout(() => setResetCooldown(false), 60000);
-    } catch (e: any) {
-      showAlert({ title: 'Error', message: e.message || 'Failed to send reset email. Please try again.', type: 'error' });
-    }
+  const handleChangePassword = () => {
+    navigation.navigate('ChangePassword');
   };
 
   const handleChangeEmail = () => {
-    // TODO: Open Change Email modal
-    showAlert({ title: 'Coming Soon', message: 'Change email will be available in a future update.', type: 'info' });
+    if (isSocialUser) {
+      const provider = user?.auth_provider === 'google' ? 'Google' : 'Apple';
+      Alert.alert(
+        'Email Managed Externally',
+        `Your email is managed by ${provider}. To change it, update your ${provider} account settings.`,
+      );
+      return;
+    }
+    navigation.navigate('ChangeEmail');
   };
 
   const handleDeleteData = async () => {
@@ -109,23 +106,23 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
         {/* CREDENTIALS Section */}
         <Text style={[styles.sectionTitle, { color: colors.cyan }]}>CREDENTIALS</Text>
 
-        {/* Change Password */}
-        <TouchableOpacity
-          style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, resetCooldown && styles.settingCardDisabled]}
-          activeOpacity={resetCooldown ? 1 : 0.8}
-          onPress={handleChangePassword}
-        >
-          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
-            <Key color={colors.cyan} size={20} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Change Password</Text>
-            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>
-              {resetCooldown ? 'Reset email sent — check your inbox' : 'Send a password reset email'}
-            </Text>
-          </View>
-          <ChevronRight color={colors.textMuted} size={20} />
-        </TouchableOpacity>
+        {/* Change Password — hidden for Google/Apple users (D19) */}
+        {!isSocialUser && (
+          <TouchableOpacity
+            style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            activeOpacity={0.8}
+            onPress={handleChangePassword}
+          >
+            <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
+              <Key color={colors.cyan} size={20} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Change Password</Text>
+              <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Update your password</Text>
+            </View>
+            <ChevronRight color={colors.textMuted} size={20} />
+          </TouchableOpacity>
+        )}
 
         {/* Change Email */}
         <TouchableOpacity style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.8} onPress={handleChangeEmail}>
@@ -134,7 +131,11 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
           </View>
           <View style={styles.settingContent}>
             <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Change Email</Text>
-            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>{user?.email || 'Update your login email'}</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>
+              {isSocialUser
+                ? `Your email is managed by ${user?.auth_provider === 'google' ? 'Google' : 'Apple'}`
+                : user?.email || 'Update your login email'}
+            </Text>
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
@@ -238,9 +239,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-  },
-  settingCardDisabled: {
-    opacity: 0.6,
   },
   settingIcon: {
     width: 40,

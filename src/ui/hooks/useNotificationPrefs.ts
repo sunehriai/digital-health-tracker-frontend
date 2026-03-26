@@ -87,6 +87,12 @@ export function useNotificationPrefs() {
           const pending: PendingSyncPayload = JSON.parse(pendingRaw);
           // Fetch server state first to compare timestamps
           const serverPrefs = await notificationPreferencesService.get();
+          // Guard: skip if API returned empty (not authenticated)
+          if (!serverPrefs || !serverPrefs.updated_at) {
+            console.log('[NOTIF-DEBUG][Prefs] Backend sync skipped — not authenticated');
+            setLoading(false);
+            return;
+          }
           if (pending.saved_at > serverPrefs.updated_at) {
             // Pending is newer — apply it
             const updated = await notificationPreferencesService.update(pending.data);
@@ -110,6 +116,12 @@ export function useNotificationPrefs() {
       }
 
       const serverPrefs = await notificationPreferencesService.get();
+      // Guard: skip if API returned empty (not authenticated)
+      if (!serverPrefs || !serverPrefs.dose_reminders_enabled === undefined) {
+        console.log('[NOTIF-DEBUG][Prefs] Backend sync skipped — not authenticated');
+        setLoading(false);
+        return;
+      }
       console.log('[NOTIF-DEBUG][Prefs] Backend sync OK — dose_reminders_enabled:', serverPrefs.dose_reminders_enabled, 'advance_minutes:', serverPrefs.advance_reminder_minutes);
 
       if (isMounted.current) {

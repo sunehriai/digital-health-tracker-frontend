@@ -32,6 +32,7 @@ const logger = createLogger('App');
  * Rendered inside AuthContext so hooks can access auth state.
  */
 function NotificationBridge() {
+  const { isAuthenticated } = useAuth();
   const { medications } = useMedications();
   const { prefs } = useNotificationPrefs();
 
@@ -42,6 +43,7 @@ function NotificationBridge() {
 
   // Initialize notification permissions + Android channels on mount
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (__DEV__) console.log('[NOTIF-DEBUG][Bridge] Calling initNotifications()');
     initNotifications()
       .then((token) => {
@@ -51,10 +53,10 @@ function NotificationBridge() {
         if (__DEV__) console.log('[NOTIF-DEBUG][Bridge] initNotifications FAILED:', err);
         logger.warn('Failed to init notifications', { error: err });
       });
-  }, []);
+  }, [isAuthenticated]);
 
   // Wire the scheduler — reschedules on foreground, medication events, and data changes
-  useNotificationScheduler(medications, prefs);
+  useNotificationScheduler(isAuthenticated ? medications : [], isAuthenticated ? prefs : null);
 
   return null;
 }
