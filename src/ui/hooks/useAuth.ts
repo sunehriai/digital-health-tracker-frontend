@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import { AppState } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { authService } from '../../data/services/authService';
 import { profileService } from '../../data/services/profileService';
@@ -53,6 +54,8 @@ export function useAuthProvider(): AuthContextType {
   const [deactivationInfo, setDeactivationInfo] = useState<DeactivationInfo | null>(null);
   const authInitialized = useRef(false);
   const activeRequestId = useRef(0);
+  // Guard: when true, signUp callback owns provisioning — onAuthStateChanged skips getMe()
+  const signingUp = useRef(false);
 
   // A2: onAuthStateChanged is single source of truth
   useEffect(() => {
@@ -60,6 +63,14 @@ export function useAuthProvider(): AuthContextType {
       setFirebaseUser(fbUser);
 
       if (fbUser) {
+        // During signUp, the signUp callback handles provisioning + display name.
+        // Skip here to avoid racing (backend User created with null name).
+        // Keep loading=true so AppNavigator shows spinner (not Login screen).
+        if (signingUp.current) {
+          authInitialized.current = true;
+          return;
+        }
+
         // User is signed in — fetch profile from backend
         // Set loading false immediately so app doesn't show blank white screen
         // profileFetchComplete gates the age gate check separately
@@ -122,6 +133,7 @@ export function useAuthProvider(): AuthContextType {
             deletion_requested_at: null,
             deletion_type: null,
             auth_provider,
+            onboarding_complete: false,
           });
           setProfileFetchComplete(true);
 
@@ -160,6 +172,32 @@ export function useAuthProvider(): AuthContextType {
     }, TOKEN_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [user]);
+
+  // Reload Firebase user on app foreground to refresh emailVerified flag.
+  // Without this, verifying email externally (clicking link in inbox) doesn't
+  // update the in-memory flag until the next cold start.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active' && auth().currentUser) {
+        try {
+          const wasVerified = auth().currentUser!.emailVerified;
+          await auth().currentUser!.reload();
+          const nowVerified = auth().currentUser!.emailVerified;
+          // Always update ref so derived state (isEmailVerified) recalculates.
+          // Use Object.create to force a new reference since reload() mutates in place.
+          setFirebaseUser(Object.create(auth().currentUser!));
+          // If verification status changed, also refresh backend profile
+          if (!wasVerified && nowVerified) {
+            try {
+              const profile = await profileService.getMe();
+              setUser((prev) => prev ? { ...prev, ...profile } : prev);
+            } catch {}
+          }
+        } catch {}
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   // R9: Listen for mid-session deactivation events from ApiClient
   useEffect(() => {
@@ -218,31 +256,40 @@ export function useAuthProvider(): AuthContextType {
     const requestId = activeRequestId.current;
     setError(null);
     setLoading(true);
+    // Prevent onAuthStateChanged from racing — signUp owns provisioning
+    signingUp.current = true;
     const signUpTimeout = setTimeout(() => {
       if (activeRequestId.current === requestId) {
+        signingUp.current = false;
         setError('Sign up timed out');
         setLoading(false);
       }
     }, 10000);
     try {
+      // 1. Create Firebase user + set displayName + refresh token (all in authService.signUp)
       await authService.signUp(email, password, displayName);
       clearTimeout(signUpTimeout);
-      // onAuthStateChanged fires asynchronously. Explicitly call getMe()
-      // to auto-provision the backend user, then push the display name.
-      if (displayName) {
+      // 2. Send verification email immediately
+      try { await authService.sendVerificationEmail(); } catch {}
+      // 3. Provision backend user (getMe auto-creates) — token now has name claim
+      const profile = await profileService.getMe();
+      // 4. If backend didn't pick up displayName from token, push it explicitly
+      let finalProfile = profile;
+      if (displayName && !profile.display_name) {
         try {
-          // Ensure backend user exists (auto-provisioned on first getMe)
-          await profileService.getMe();
-          // Now update with the display name
-          const updated = await profileService.updateMe({ display_name: displayName });
-          setUser((prev) => prev ? { ...prev, ...updated } : prev);
-        } catch {
-          // Non-critical — profile will show on next refresh
-        }
+          finalProfile = await profileService.updateMe({ display_name: displayName });
+        } catch {}
       }
+      // 5. Set user state — this is the single source of truth, no race
+      setUser({ ...finalProfile, email: email });
+      setProfileFetchComplete(true);
+      // 6. Release guard so future onAuthStateChanged calls work normally
+      signingUp.current = false;
+      setLoading(false);
       return { success: true };
     } catch (e: any) {
       clearTimeout(signUpTimeout);
+      signingUp.current = false;
       if (activeRequestId.current !== requestId) return { success: false, error: 'Request superseded' };
       const msg = e.message || 'Sign up failed';
       setError(msg);
@@ -317,6 +364,11 @@ export function useAuthProvider(): AuthContextType {
 
   const signOut = useCallback(async () => {
     try {
+      // Revoke Google session before Firebase signOut so "Continue with Google"
+      // won't silently re-authenticate with the same account
+      if (user?.auth_provider === 'google') {
+        await authService.revokeGoogleAccess();
+      }
       await authService.signOut();
       // Clear ALL user-scoped local state so a new user gets a clean slate
       // (age gate, onboarding, dose cache, notification prefs, biometric, etc.)
@@ -382,6 +434,7 @@ export function useAuthProvider(): AuthContextType {
         deletion_requested_at: user.deletion_requested_at,
         deletion_type: user.deletion_type,
         auth_provider: user.auth_provider,
+        onboarding_complete: user.onboarding_complete,
       }
     : null;
 

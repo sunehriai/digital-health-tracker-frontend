@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, BackHandler, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, BackHandler, TouchableOpacity, TextInput, Alert } from 'react-native';
 // @ts-ignore – @expo/vector-icons types may not resolve in strict mode
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../hooks/useAuth';
+import { authService } from '../../../data/services/authService';
+import { API_BASE } from '../../../data/api/endpoints';
 import Button from '../../primitives/Button';
 import SocialLoginRow from '../../components/SocialLoginRow';
 import { useTheme } from '../../theme/ThemeContext';
@@ -38,6 +41,37 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
     if (!result.success) {
       // error is set via auth context
     }
+  };
+
+  // Dev-only: full nuke — revoke Google, clear storage, sign out Firebase
+  const handleDevNuke = async () => {
+    Alert.alert(
+      'Dev Reset',
+      'This will revoke Google access, clear all local data, and sign out. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Nuke It',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // 1. Revoke Google session
+              await authService.revokeGoogleAccess();
+
+              // 2. Sign out Firebase (in case a stale session exists)
+              try { await authService.signOut(); } catch {}
+
+              // 3. Clear ALL AsyncStorage
+              await AsyncStorage.clear();
+
+              Alert.alert('Done', 'All local state wiped. Google access revoked. You can now sign in fresh.');
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Nuke failed');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -173,6 +207,13 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
             </Text>
           </Text>
         </View>
+
+        {/* Dev-only: Nuke button for fresh testing */}
+        {__DEV__ && (
+          <TouchableOpacity onPress={handleDevNuke} style={styles.devNukeBtn}>
+            <Text style={styles.devNukeText}>Dev Reset (Nuke Local State)</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -270,4 +311,8 @@ const styles = StyleSheet.create({
   // Footer
   footer: { alignItems: 'center', marginTop: 24 },
   footerText: { fontSize: 14 },
+
+  // Dev nuke
+  devNukeBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 10 },
+  devNukeText: { fontSize: 12, color: '#EF4444', fontWeight: '500' },
 });

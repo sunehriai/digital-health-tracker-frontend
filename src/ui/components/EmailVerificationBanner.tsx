@@ -49,8 +49,9 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
     }
   }, [isSending, cooldown, onVerifyNow]);
 
-  const accentColor = isEscalated ? WARNING_COLOR : colors.cyan;
-  const bgColor = isEscalated ? WARNING_BG : colors.cyanDim;
+  // Always use warning amber for visibility — verification is important
+  const accentColor = WARNING_COLOR;
+  const bgColor = WARNING_BG;
 
   const messageText = isEscalated
     ? `Only ${hoursRemaining ?? 0} hours left to verify your email. Access will be paused after 24 hours.`
@@ -116,6 +117,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 13,
+    fontWeight: '500',
     color: colors.textPrimary,
     lineHeight: 18,
   },

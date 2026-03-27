@@ -39,7 +39,7 @@ export default function WaiverPrompt({
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}

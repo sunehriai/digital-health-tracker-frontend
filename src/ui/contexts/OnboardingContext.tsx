@@ -51,7 +51,7 @@ const DEFAULT_FLAGS: OnboardingFlags = {
 export const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, profile, updateProfile } = useAuth();
   const { showAlert } = useAlert();
 
   // State
@@ -100,6 +100,16 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           logger.info('Session count incremented', { sessionCount: newCount });
         }
 
+        // If backend profile says onboarding is complete (e.g. new device),
+        // override local flag so welcome tour doesn't replay
+        if (!loaded.onboarding_complete && profile?.onboarding_complete) {
+          loaded.onboarding_complete = true;
+          loaded.tour_complete = true;
+          await AsyncStorage.setItem(STORAGE_KEYS.onboarding_complete, 'true');
+          await AsyncStorage.setItem(STORAGE_KEYS.tour_complete, 'true');
+          logger.info('Onboarding flags synced from backend (new device)');
+        }
+
         setFlags(loaded);
         setIsLoaded(true);
         logger.info('Flags loaded', {
@@ -113,14 +123,18 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
     };
     loadFlags();
-  }, []);
+  }, [profile?.onboarding_complete]);
 
-  // Show welcome on sign-in (if first time), reset on sign-out
+  // Show welcome on sign-in (if first time), reset on sign-out.
+  // Must wait for profile to load so we can check backend onboarding_complete
+  // (covers new device where AsyncStorage is empty but backend says done).
   useEffect(() => {
     if (!isLoaded) return;
     if (isAuthenticated) {
-      // User just signed in — show welcome if onboarding not yet completed
-      if (!flags.onboarding_complete) {
+      // Wait for profile to arrive before deciding — avoids false-positive welcome
+      if (profile === null) return;
+      // Show welcome only if BOTH local and backend say not complete
+      if (!flags.onboarding_complete && !profile.onboarding_complete) {
         setIsWelcomeVisible(true);
         logger.info('Welcome screen shown for new user');
       }
@@ -134,7 +148,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       layoutReportedRef.current = false;
       setActiveHint(null);
     }
-  }, [isAuthenticated, isLoaded]);
+  }, [isAuthenticated, isLoaded, profile?.onboarding_complete]);
 
   // completeWelcome: dismiss welcome, set tourStartPending
   const completeWelcome = useCallback(async () => {
@@ -143,6 +157,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setFlags(prev => ({ ...prev, onboarding_complete: true }));
       setIsWelcomeVisible(false);
       setTourStartPending(true);
+      // Persist to backend so other devices know onboarding is done
+      updateProfile({ onboarding_complete: true }).catch(() => {});
       // If layout is already ready, start tour immediately
       if (layoutReady) {
         setIsTourActive(true);

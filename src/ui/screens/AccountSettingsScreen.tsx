@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
@@ -37,7 +37,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -53,7 +53,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -77,7 +77,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -114,7 +114,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -178,6 +178,10 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
       // Reset app preferences to defaults (haptic/sound module refs + AsyncStorage keys)
       await resetPreferences();
       if (modalType === 'full_account') {
+        // Revoke Google session so "Continue with Google" won't silently re-auth
+        if (isSocialUser && user?.auth_provider === 'google') {
+          await authService.revokeGoogleAccess();
+        }
         // Full account deletion: sign out immediately since account is being deleted
         await signOut();
       } else {
@@ -312,6 +316,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
 
       {/* Tier 3 Password Re-auth Modal */}
       <Modal visible={tier3Visible} transparent animationType="fade">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 24 }}>
           <View style={{ backgroundColor: colors.bgCard, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400 }}>
             <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '600', marginBottom: 4 }}>Confirm Your Identity</Text>
@@ -340,6 +345,7 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Delete Confirmation Modal — conditional mount to match LogRefillSheet pattern */}

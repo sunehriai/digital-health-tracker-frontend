@@ -1,13 +1,11 @@
 /**
- * MyJourneyScreen -- Vertical tier progression path + Milestones section.
+ * MyJourneyScreen -- Vertical tier progression path.
  *
  * Displays all 5 tiers from top (Tier 5) to bottom (Tier 1).
  * Unlocked = full color badge, Locked = greyed + lock overlay,
  * Current = highlighted with cyan glow. Tap locked tier to expand preview.
  *
- * Step 33: Milestones section below tier progression.
- * Shows Dedicated (3mo), Committed (6mo), Devoted (12mo) with
- * progress bars and achievement states.
+ * Monthly Milestones moved to MyAdherenceScreen (contextually relevant there).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -16,7 +14,7 @@ import {
   TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Lock, Star, Award, Check } from 'lucide-react-native';
+import { ChevronLeft, Lock, Star } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
@@ -24,12 +22,12 @@ import { gamificationService } from '../../data/services/gamificationService';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS, getTierAsset } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
-import type { TierInfo, MilestoneInfo, ConsistencyBonusInfo } from '../../domain/types';
+import type { TierInfo } from '../../domain/types';
 
 const TIER_FEATURES: Record<number, string> = {
   1: 'Dashboard, medication logging, Emergency Vault',
-  2: 'Monthly Adherence Calendar + Waiver Badge',
-  3: 'Insight Trends + Waiver Badge',
+  2: 'Monthly Adherence Calendar, Waiver Badge',
+  3: 'Insight Trends, Waiver Badge',
   4: 'Coming Soon',
   5: 'Coming Soon',
 };
@@ -42,23 +40,13 @@ const TIER_DESCRIPTIONS: Record<number, string> = {
   5: 'More features coming soon.',
 };
 
-/** Milestone display colors by name */
-const MILESTONE_COLORS: Record<string, string> = {
-  Dedicated: '#CD7F32', // Bronze
-  Committed: '#C0C0C0', // Silver
-  Devoted: '#FFD700',   // Gold
-};
-
 export default function MyJourneyScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { totalXp, currentTier, perfectMonthsStreak, loading: statusLoading } = useGamification();
+  const { totalXp, currentTier, loading: statusLoading } = useGamification();
   const { colors, isDark } = useTheme();
   const [journeyTiers, setJourneyTiers] = useState<TierInfo[] | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(true);
   const [selectedLockedTier, setSelectedLockedTier] = useState<number | null>(null);
-  const [milestones, setMilestones] = useState<MilestoneInfo[] | null>(null);
-  const [consistencyBonus, setConsistencyBonus] = useState<ConsistencyBonusInfo | null>(null);
-  const [milestonesLoading, setMilestonesLoading] = useState(true);
 
   const fetchJourney = useCallback(async () => {
     setJourneyLoading(true);
@@ -86,29 +74,7 @@ export default function MyJourneyScreen() {
     }
   }, [currentTier, totalXp]);
 
-  const fetchMilestones = useCallback(async () => {
-    setMilestonesLoading(true);
-    try {
-      const data = await gamificationService.getMilestones();
-      setMilestones(data.milestones);
-      setConsistencyBonus(data.consistency_bonus ?? null);
-    } catch {
-      // Fallback milestones using local data
-      // R17: Pre-existing bug — is_achieved hardcoded false. OUT OF SCOPE.
-      const fallback: MilestoneInfo[] = [
-        { name: 'Dedicated', required_months: 3, xp_reward: 100, current_streak: perfectMonthsStreak, is_achieved: false },
-        { name: 'Committed', required_months: 6, xp_reward: 250, current_streak: perfectMonthsStreak, is_achieved: false },
-        { name: 'Devoted', required_months: 12, xp_reward: 500, current_streak: perfectMonthsStreak, is_achieved: false },
-      ];
-      setMilestones(fallback);
-      setConsistencyBonus(null);
-    } finally {
-      setMilestonesLoading(false);
-    }
-  }, [perfectMonthsStreak]);
-
   useEffect(() => { fetchJourney(); }, [fetchJourney]);
-  useEffect(() => { fetchMilestones(); }, [fetchMilestones]);
 
   const loading = statusLoading || journeyLoading;
   const displayTiers = journeyTiers ? [...journeyTiers].reverse() : [];
@@ -221,122 +187,6 @@ export default function MyJourneyScreen() {
             );
           })}
 
-          {/* Step 33: Milestones Section */}
-          <View style={[styles.milestonesSection, { borderTopColor: colors.border }]}>
-            <View style={styles.milestonesSectionHeader}>
-              <Award color={colors.cyan} size={18} strokeWidth={2} />
-              <Text style={[styles.milestonesSectionTitle, { color: colors.textPrimary }]}>Monthly Milestones</Text>
-            </View>
-            <Text style={[styles.milestonesSectionDesc, { color: colors.textMuted }]}>
-              Maintain consecutive perfect months to earn milestone rewards.
-            </Text>
-
-            {milestonesLoading ? (
-              <ActivityIndicator size="small" color={colors.cyan} style={{ marginTop: 16 }} />
-            ) : (
-              milestones?.map((milestone) => {
-                const milestoneColor = MILESTONE_COLORS[milestone.name] ?? colors.cyan;
-                const progress = Math.min(1, milestone.current_streak / milestone.required_months);
-                const progressPercent = progress * 100;
-
-                return (
-                  <View
-                    key={milestone.name}
-                    style={[
-                      styles.milestoneCard,
-                      { backgroundColor: isDark ? colors.bgCard : colors.bgElevated, borderColor: colors.border },
-                      milestone.is_achieved && styles.milestoneCardAchieved,
-                    ]}
-                  >
-                    <View style={styles.milestoneHeader}>
-                      <View style={styles.milestoneNameRow}>
-                        {milestone.is_achieved ? (
-                          <View style={[styles.milestoneCheckCircle, { backgroundColor: milestoneColor }]}>
-                            <Check color="#000" size={12} strokeWidth={3} />
-                          </View>
-                        ) : (
-                          <View style={[styles.milestoneIconCircle, { borderColor: milestoneColor }]}>
-                            <Award color={milestoneColor} size={14} strokeWidth={2} />
-                          </View>
-                        )}
-                        <Text
-                          style={[
-                            styles.milestoneName,
-                            { color: colors.textPrimary },
-                            milestone.is_achieved && { color: milestoneColor },
-                          ]}
-                        >
-                          {milestone.name}
-                        </Text>
-                      </View>
-                      <Text style={[styles.milestoneReward, { color: colors.cyan }]}>+{milestone.xp_reward} XP</Text>
-                    </View>
-
-                    <Text style={[styles.milestoneRequirement, { color: colors.textMuted }]}>
-                      {milestone.is_achieved
-                        ? 'Achieved!'
-                        : `${milestone.current_streak} / ${milestone.required_months} perfect months`}
-                    </Text>
-
-                    {!milestone.is_achieved && (
-                      <View style={[styles.milestoneProgressTrack, { backgroundColor: colors.bgSubtle }]}>
-                        <View
-                          style={[
-                            styles.milestoneProgressFill,
-                            { width: `${progressPercent}%`, backgroundColor: milestoneColor },
-                          ]}
-                        />
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-
-            {/* Consistency Bonus card (post-Devoted recurring reward) */}
-            {consistencyBonus && (
-              <View
-                style={[
-                  styles.milestoneCard,
-                  { backgroundColor: isDark ? colors.bgCard : colors.bgElevated, borderColor: '#06B6D4' },
-                ]}
-              >
-                <View style={styles.milestoneHeader}>
-                  <View style={styles.milestoneNameRow}>
-                    <View style={[styles.milestoneIconCircle, { borderColor: '#06B6D4' }]}>
-                      <Award color="#06B6D4" size={14} strokeWidth={2} />
-                    </View>
-                    <Text style={[styles.milestoneName, { color: '#06B6D4' }]}>
-                      Consistency Bonus
-                    </Text>
-                  </View>
-                  <Text style={[styles.milestoneReward, { color: '#06B6D4' }]}>+{consistencyBonus.xp_reward} XP</Text>
-                </View>
-
-                <Text style={[styles.milestoneRequirement, { color: colors.textMuted }]}>
-                  {consistencyBonus.months_until_next === 3
-                    ? 'New cycle started — keep going!'
-                    : `${3 - consistencyBonus.months_until_next} / 3 perfect months`}
-                  {consistencyBonus.total_awarded > 0
-                    ? ` (earned ${consistencyBonus.total_awarded}x = +${consistencyBonus.total_xp_earned} XP)`
-                    : ''}
-                </Text>
-
-                <View style={[styles.milestoneProgressTrack, { backgroundColor: colors.bgSubtle }]}>
-                  <View
-                    style={[
-                      styles.milestoneProgressFill,
-                      {
-                        width: `${((3 - consistencyBonus.months_until_next) / 3) * 100}%`,
-                        backgroundColor: '#06B6D4',
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            )}
-          </View>
-
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
@@ -390,85 +240,4 @@ const styles = StyleSheet.create({
   previewXpValue: { fontSize: 16, fontWeight: '700' },
   previewXpLabel: { fontSize: 12, fontWeight: '500' },
 
-  // Step 33: Milestones styles
-  milestonesSection: {
-    marginTop: 32,
-    paddingTop: 24,
-    borderTopWidth: 1,
-  },
-  milestonesSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  milestonesSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  milestonesSectionDesc: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 16,
-  },
-  milestoneCard: {
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  milestoneCardAchieved: {
-    borderColor: 'rgba(255, 215, 0, 0.25)',
-    backgroundColor: 'rgba(255, 215, 0, 0.04)',
-  },
-  milestoneHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  milestoneNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  milestoneCheckCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  milestoneIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  milestoneName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  milestoneReward: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  milestoneRequirement: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginBottom: 8,
-    marginLeft: 30,
-  },
-  milestoneProgressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginLeft: 30,
-  },
-  milestoneProgressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
 });

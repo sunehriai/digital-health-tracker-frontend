@@ -568,6 +568,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
                   value={dateOfBirth}
                   onChange={(date) => { setDateOfBirth(date); markChanged(); }}
                   placeholder="Select date of birth"
+                  maxDate={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })()}
                 />
               </View>
             </View>

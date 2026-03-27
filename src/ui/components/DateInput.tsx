@@ -16,6 +16,8 @@ interface DateInputProps {
   onChange: (date: string) => void;
   placeholder?: string;
   label?: string;
+  /** Maximum selectable date in YYYY-MM-DD format. Days after this are disabled. */
+  maxDate?: string;
 }
 
 const MONTHS = [
@@ -40,7 +42,7 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
-export default function DateInput({ value, onChange, placeholder = 'Select date', label }: DateInputProps) {
+export default function DateInput({ value, onChange, placeholder = 'Select date', label, maxDate }: DateInputProps) {
   const { colors } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -93,8 +95,15 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     setViewMode('calendar');
   };
 
+  /** Central guard: reject dates beyond maxDate */
+  const isDateAllowed = (dateStr: string): boolean => {
+    if (!maxDate) return true;
+    return dateStr <= maxDate;
+  };
+
   const handleSelectDay = (day: number) => {
     const dateStr = `${viewYear}-${(viewMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    if (!isDateAllowed(dateStr)) return;
     onChange(dateStr);
     handleClosePicker();
   };
@@ -128,7 +137,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     if (match) {
       const [_, year, month, day] = match;
       const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date.getTime())) {
+      if (!isNaN(date.getTime()) && isDateAllowed(editValue)) {
         onChange(editValue);
       }
     }
@@ -175,6 +184,12 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     return viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
   };
 
+  const isDayDisabled = (day: number | null) => {
+    if (!day || !maxDate) return false;
+    const dateStr = `${viewYear}-${(viewMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    return dateStr > maxDate;
+  };
+
   // Generate year grid (12 years at a time)
   const yearGrid: number[] = [];
   for (let i = 0; i < 12; i++) {
@@ -187,7 +202,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     const match = manualInput.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (match) {
       const date = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
-      if (!isNaN(date.getTime())) {
+      if (!isNaN(date.getTime()) && isDateAllowed(manualInput)) {
         onChange(manualInput);
         const parsed = parseDate(manualInput);
         setViewYear(parsed.year);
@@ -372,17 +387,18 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
                       style={[
                         styles.dayCell,
                         isSelectedDay(day) && { backgroundColor: colors.cyan },
-                        isToday(day) && { borderWidth: 1, borderColor: colors.cyan },
+                        isToday(day) && !isDayDisabled(day) && { borderWidth: 1, borderColor: colors.cyan },
+                        isDayDisabled(day) && { opacity: 0.25 },
                       ]}
-                      onPress={() => day && handleSelectDay(day)}
-                      disabled={!day}
+                      onPress={() => day && !isDayDisabled(day) && handleSelectDay(day)}
+                      disabled={!day || isDayDisabled(day)}
                     >
                       {day && (
                         <Text style={[
                           styles.dayText,
                           { color: colors.textPrimary },
                           isSelectedDay(day) && { color: colors.bg, fontWeight: '700' as const },
-                          isToday(day) && { color: colors.cyan },
+                          isToday(day) && !isDayDisabled(day) && { color: colors.cyan },
                         ]}>
                           {day}
                         </Text>
@@ -391,20 +407,25 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
                   ))}
                 </View>
 
-                {/* Quick actions */}
-                <View style={styles.quickActions}>
-                  <TouchableOpacity
-                    style={[styles.quickActionBtn, { backgroundColor: colors.cyanDim, borderColor: colors.cyan }]}
-                    onPress={() => {
-                      const today = new Date();
-                      const dateStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-                      onChange(dateStr);
-                      handleClosePicker();
-                    }}
-                  >
-                    <Text style={[styles.quickActionText, { color: colors.cyan }]}>Today</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Quick actions — hide "Today" if maxDate prevents selecting today */}
+                {(() => {
+                  const today = new Date();
+                  const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+                  if (maxDate && todayStr > maxDate) return null;
+                  return (
+                    <View style={styles.quickActions}>
+                      <TouchableOpacity
+                        style={[styles.quickActionBtn, { backgroundColor: colors.cyanDim, borderColor: colors.cyan }]}
+                        onPress={() => {
+                          onChange(todayStr);
+                          handleClosePicker();
+                        }}
+                      >
+                        <Text style={[styles.quickActionText, { color: colors.cyan }]}>Today</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()}
               </>
             )}
           </View>

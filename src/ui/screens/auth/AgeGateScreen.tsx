@@ -87,7 +87,7 @@ export default function AgeGateScreen() {
 
         <View style={styles.dateSection}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>Date of Birth</Text>
-          <DateInput value={dob} onChange={setDob} />
+          <DateInput value={dob} onChange={setDob} maxDate={getEighteenYearsAgo()} />
         </View>
 
         <Button

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -57,17 +58,19 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
 
   return (
     <RNModal visible={visible} animationType="slide" transparent statusBarTranslucent>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.content, { backgroundColor: colors.bgCard }]}>
-          <View style={styles.header}>
-            {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X color={colors.textSecondary} size={20} />
-            </TouchableOpacity>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.content, { backgroundColor: colors.bgCard }]}>
+            <View style={styles.header}>
+              {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <X color={colors.textSecondary} size={20} />
+              </TouchableOpacity>
+            </View>
+            {children}
           </View>
-          {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </RNModal>
   );
 }

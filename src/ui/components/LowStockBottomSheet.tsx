@@ -10,6 +10,8 @@ import {
   Modal,
   ScrollView,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Pill, X } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -167,6 +169,7 @@ export default React.forwardRef<LowStockModalRef, LowStockModalProps>(
         onRequestClose={handleClose}
         statusBarTranslucent
       >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.overlay} onPress={handleClose}>
           <Pressable style={[styles.card, { backgroundColor: colors.bgCard }]} onPress={() => {}}>
             {/* Header */}
@@ -271,6 +274,7 @@ export default React.forwardRef<LowStockModalRef, LowStockModalProps>(
             </ScrollView>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     );
   },

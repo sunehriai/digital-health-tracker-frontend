@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Platform, TextInput, Dimensions, Modal } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Platform, TextInput, Dimensions, Modal, KeyboardAvoidingView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Pill, Clock, Pause, Archive, Play, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, Plus } from 'lucide-react-native';
@@ -332,7 +332,7 @@ export default function CabinetScreen() {
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -520,7 +520,7 @@ export default function CabinetScreen() {
       showAlert({
         title: 'Verify Your Email',
         message: 'Please verify your email before performing this action.',
-        confirmLabel: 'Send Verification Link',
+        confirmLabel: 'Verify',
         cancelLabel: 'Later',
         onConfirm: async () => {
           try { await authService.sendVerificationEmail(); } catch {}
@@ -958,6 +958,7 @@ export default function CabinetScreen() {
         animationType="fade"
         onRequestClose={() => setRefillModalVisible(false)}
       >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlayHeavy }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.bgElevated, borderColor: colors.borderSubtle }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Log Refill</Text>
@@ -1042,6 +1043,7 @@ export default function CabinetScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
       <LowStockModal

@@ -61,7 +61,10 @@ class ApiClient {
 
     try {
       const json = JSON.parse(text);
-      if (json.detail && typeof json.detail === 'object') {
+      if (Array.isArray(json.detail)) {
+        // Pydantic 422 validation errors — extract human-readable messages
+        message = json.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join('; ');
+      } else if (json.detail && typeof json.detail === 'object') {
         errorCode = json.detail.code;
         message = json.detail.message || text;
       } else {

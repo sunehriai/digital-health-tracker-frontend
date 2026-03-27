@@ -218,6 +218,23 @@ export const authService = {
     return auth().currentUser?.emailVerified ?? false;
   },
 
+  /**
+   * Revoke Google access so next "Continue with Google" shows the account picker
+   * instead of silently re-authenticating. Safe to call even if Google SDK not signed in.
+   */
+  async revokeGoogleAccess() {
+    try {
+      const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+      GoogleSignin.configure({
+        webClientId: '90568619662-eligsumphengdqd37tf9s9j2keeu963c.apps.googleusercontent.com',
+      });
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
+    } catch {
+      // Silently ignore — user may not have Google signed in
+    }
+  },
+
   async getIdToken(forceRefresh = false): Promise<string | null> {
     const user = auth().currentUser;
     if (!user) return null;

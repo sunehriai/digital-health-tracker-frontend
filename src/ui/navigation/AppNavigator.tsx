@@ -90,6 +90,15 @@ export default function AppNavigator() {
     })();
   }, []);
 
+  // Reset age gate when a different user signs in with no DOB set.
+  // Prevents stale cache from a deleted/previous account skipping the gate.
+  useEffect(() => {
+    if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null) {
+      setAgeGateCompleted(false);
+      AsyncStorage.removeItem('@vitaquest:age_gate_completed').catch(() => {});
+    }
+  }, [user?.id, profileFetchComplete]);
+
   // Re-read biometric enabled when app returns to foreground (Fix 9)
   useEffect(() => {
     const sub = AppState.addEventListener('change', async (state) => {
