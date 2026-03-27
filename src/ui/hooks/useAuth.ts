@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext, useContext, useRef } from 'react';
 import { AppState } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { authService } from '../../data/services/authService';
@@ -176,6 +176,7 @@ export function useAuthProvider(): AuthContextType {
   // Reload Firebase user on app foreground to refresh emailVerified flag.
   // Without this, verifying email externally (clicking link in inbox) doesn't
   // update the in-memory flag until the next cold start.
+  const [firebaseUserRefreshKey, setFirebaseUserRefreshKey] = useState(0);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextState) => {
       if (nextState === 'active' && auth().currentUser) {
@@ -183,9 +184,11 @@ export function useAuthProvider(): AuthContextType {
           const wasVerified = auth().currentUser!.emailVerified;
           await auth().currentUser!.reload();
           const nowVerified = auth().currentUser!.emailVerified;
-          // Always update ref so derived state (isEmailVerified) recalculates.
-          // Use Object.create to force a new reference since reload() mutates in place.
-          setFirebaseUser(Object.create(auth().currentUser!));
+          // Bump refresh key to force React to re-derive isEmailVerified.
+          // Object.create was unreliable — prototype-based properties on Firebase
+          // User class instances don't always trigger re-renders correctly.
+          setFirebaseUser(auth().currentUser);
+          setFirebaseUserRefreshKey((k) => k + 1);
           // If verification status changed, also refresh backend profile
           if (!wasVerified && nowVerified) {
             try {
@@ -439,7 +442,12 @@ export function useAuthProvider(): AuthContextType {
     : null;
 
   // D1: Email verified if non-email provider OR Firebase emailVerified is true
-  const isEmailVerified = user?.auth_provider !== 'email' || (firebaseUser?.emailVerified ?? false);
+  // firebaseUserRefreshKey forces re-evaluation after reload() updates emailVerified in place
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const isEmailVerified = useMemo(
+    () => user?.auth_provider !== 'email' || (firebaseUser?.emailVerified ?? false),
+    [user?.auth_provider, firebaseUser, firebaseUserRefreshKey]
+  );
 
   // D2: Hours elapsed since account creation (server-issued created_at)
   const hoursSinceCreation = user?.created_at

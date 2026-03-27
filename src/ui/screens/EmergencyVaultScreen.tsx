@@ -3,12 +3,14 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { X, Edit3 } from 'lucide-react-native';
+import { X, Edit3, Shield } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useVault } from '../hooks/useVault';
 import { useMedications } from '../hooks/useMedications';
 import { useTheme } from '../theme/ThemeContext';
 import { useScreenSecurity } from '../hooks/useScreenSecurity';
+import { useSecurity } from '../hooks/useSecurity';
+import { biometrics } from '../../data/utils/biometrics';
 import { useOnboarding } from '../hooks/useOnboarding';
 import SpotlightHint from '../components/onboarding/SpotlightHint';
 import ScreenshotToast from '../components/ScreenshotToast';
@@ -42,11 +44,35 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   const { vault, loading: vaultLoading, fetchVault } = useVault();
   const { activeMedications, loading: medsLoading } = useMedications();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('EmergencyVault');
+  const security = useSecurity();
   const { colors } = useTheme();
   const { checkHint, activateHint, dismissHint, activeHint } = useOnboarding();
   const editBtnRef = useRef<View>(null);
   const scrollRef = useRef<ScrollView>(null);
   const [editBtnRect, setEditBtnRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [biometricLocked, setBiometricLocked] = useState(false);
+  const biometricCheckDone = useRef(false);
+
+  // Biometric gate: prompt on first focus if elevated auth is required
+  useFocusEffect(
+    useCallback(() => {
+      if (biometricCheckDone.current) return;
+      if (!security.requiresElevatedAuth()) return;
+
+      setBiometricLocked(true);
+      biometricCheckDone.current = true;
+
+      biometrics.authenticate('Authenticate to access Emergency Vault').then((result) => {
+        if (result.success) {
+          security.recordAuthentication();
+          setBiometricLocked(false);
+        } else {
+          // Auth failed or cancelled — go back
+          navigation.goBack();
+        }
+      });
+    }, [security, navigation])
+  );
 
   // Re-fetch vault data when screen regains focus (e.g. after editing in PersonalInfo)
   useFocusEffect(
@@ -79,6 +105,35 @@ export default function EmergencyVaultScreen({ navigation }: RootStackScreenProp
   }, [vaultLoading, medsLoading, checkHint, activateHint]);
 
   const loading = vaultLoading || medsLoading;
+
+  // Show lock screen while biometric auth is in progress
+  if (biometricLocked) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
+        <View style={styles.authContainer}>
+          <Shield color={colors.cyan} size={48} />
+          <Text style={[styles.lockTitle, { color: colors.textPrimary }]}>Vault Locked</Text>
+          <Text style={[styles.lockSubtitle, { color: colors.textMuted }]}>
+            Authenticate to view your emergency medical data
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { borderColor: colors.cyan }]}
+            onPress={async () => {
+              const result = await biometrics.authenticate('Authenticate to access Emergency Vault');
+              if (result.success) {
+                security.recordAuthentication();
+                setBiometricLocked(false);
+              } else {
+                navigation.goBack();
+              }
+            }}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.cyan }]}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (vaultLoading) {
     return (
@@ -223,6 +278,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  lockTitle: { fontSize: 20, fontWeight: '700', marginTop: 16, marginBottom: 8 },
+  lockSubtitle: { fontSize: 14, textAlign: 'center', paddingHorizontal: 40, marginBottom: 24 },
+  retryButton: { borderWidth: 1, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 32 },
+  retryButtonText: { fontSize: 15, fontWeight: '600' },
 
   // Header
   header: {

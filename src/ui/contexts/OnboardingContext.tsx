@@ -127,14 +127,21 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   // Show welcome on sign-in (if first time), reset on sign-out.
   // Must wait for profile to load so we can check backend onboarding_complete
-  // (covers new device where AsyncStorage is empty but backend says done).
+  // (covers new device OR sign-out/sign-in where AsyncStorage was cleared but
+  // backend already marked onboarding done).
   useEffect(() => {
     if (!isLoaded) return;
     if (isAuthenticated) {
       // Wait for profile to arrive before deciding — avoids false-positive welcome
       if (profile === null) return;
+      // Backend is authoritative: if backend says done, never show welcome —
+      // even if local flags haven't synced yet (race between loadFlags and this effect).
+      if (profile.onboarding_complete) {
+        setIsWelcomeVisible(false);
+        return;
+      }
       // Show welcome only if BOTH local and backend say not complete
-      if (!flags.onboarding_complete && !profile.onboarding_complete) {
+      if (!flags.onboarding_complete) {
         setIsWelcomeVisible(true);
         logger.info('Welcome screen shown for new user');
       }
@@ -148,7 +155,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       layoutReportedRef.current = false;
       setActiveHint(null);
     }
-  }, [isAuthenticated, isLoaded, profile?.onboarding_complete]);
+  }, [isAuthenticated, isLoaded, flags.onboarding_complete, profile?.onboarding_complete]);
 
   // completeWelcome: dismiss welcome, set tourStartPending
   const completeWelcome = useCallback(async () => {

@@ -346,8 +346,9 @@ export default function AdherenceCard({
     };
   }, [waiverJustUsed, refreshToken]);
 
-  // Hide card until 7 full days have passed since the user's first medication
-  if (!loading && !weekData?.sufficient_history) return null;
+  // Hide card until 7 full days have passed since the user's first medication.
+  // Also hide while loading (no data yet) to prevent a brief flash.
+  if (loading || !weekData?.sufficient_history) return null;
 
   // Determine today's local date for highlighting (matches backend's timezone-aware date)
   const now = new Date();
