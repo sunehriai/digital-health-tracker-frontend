@@ -18,6 +18,7 @@ import { ChevronLeft, Lock, Star } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
+import { useSubscription } from '../hooks/useSubscription';
 import { gamificationService } from '../../data/services/gamificationService';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS, getTierAsset } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
@@ -43,6 +44,7 @@ const TIER_DESCRIPTIONS: Record<number, string> = {
 export default function MyJourneyScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { totalXp, currentTier, loading: statusLoading } = useGamification();
+  const { isInTrial, subscriptionEnabled, trialDaysLeft } = useSubscription();
   const { colors, isDark } = useTheme();
   const [journeyTiers, setJourneyTiers] = useState<TierInfo[] | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(true);
@@ -79,7 +81,23 @@ export default function MyJourneyScreen() {
   const loading = statusLoading || journeyLoading;
   const displayTiers = journeyTiers ? [...journeyTiers].reverse() : [];
 
+  // Step 45: During trial, all tiers are visible as an aspirational roadmap
+  const isTrialPreview = isInTrial && subscriptionEnabled;
+
   const handleTierPress = (tier: TierInfo) => {
+    // Step 45: Trial users can navigate to all feature screens as preview
+    if (isTrialPreview && !tier.is_unlocked) {
+      if (tier.tier === 2) {
+        navigation.navigate('MyAdherence');
+        return;
+      } else if (tier.tier === 3) {
+        navigation.navigate('MainTabs', { screen: 'Insights', params: { fromScreen: 'MyJourney' } } as any);
+        return;
+      }
+      // Tiers 4/5 — expand preview info
+      setSelectedLockedTier(selectedLockedTier === tier.tier ? null : tier.tier);
+      return;
+    }
     if (!tier.is_unlocked) {
       setSelectedLockedTier(selectedLockedTier === tier.tier ? null : tier.tier);
     } else if (tier.tier === 1) {
@@ -119,9 +137,22 @@ export default function MyJourneyScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Step 45: Trial preview banner */}
+          {isTrialPreview && (
+            <View style={[styles.trialBanner, { backgroundColor: 'rgba(6, 182, 212, 0.08)', borderColor: 'rgba(6, 182, 212, 0.25)' }]}>
+              <Text style={[styles.trialBannerTitle, { color: colors.cyan }]}>
+                Trial Preview
+              </Text>
+              <Text style={[styles.trialBannerText, { color: colors.textSecondary }]}>
+                Explore all tiers during your trial. Tap any tier to preview its features.
+                {trialDaysLeft !== null ? ` ${trialDaysLeft} days left.` : ''}
+              </Text>
+            </View>
+          )}
+
           {/* Tier Progression Path */}
           {displayTiers.map((tier, index) => {
-            const isUnlocked = tier.is_unlocked;
+            const isUnlocked = tier.is_unlocked || isTrialPreview;
             const isCurrent = tier.is_current;
             const isExpanded = selectedLockedTier === tier.tier;
 
@@ -167,7 +198,7 @@ export default function MyJourneyScreen() {
                       <Text style={[styles.tierThreshold, { color: colors.textMuted }]}>{tier.xp_threshold.toLocaleString()} XP</Text>
                       {tier.feature_unlock && (
                         <Text style={[styles.tierFeature, { color: colors.textSecondary }]}>
-                          {isUnlocked ? 'Unlocked: ' : 'Unlocks: '}{tier.feature_unlock}
+                          {tier.is_unlocked ? 'Unlocked: ' : (isTrialPreview ? 'Preview: ' : 'Unlocks: ')}{tier.feature_unlock}
                         </Text>
                       )}
                     </View>
@@ -239,5 +270,20 @@ const styles = StyleSheet.create({
   previewXpRow: { flexDirection: 'row', alignItems: 'baseline' },
   previewXpValue: { fontSize: 16, fontWeight: '700' },
   previewXpLabel: { fontSize: 12, fontWeight: '500' },
-
+  trialBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  trialBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  trialBannerText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
 });

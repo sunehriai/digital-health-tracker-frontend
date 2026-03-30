@@ -11,6 +11,7 @@ import { useAppPreferences } from '../hooks/useAppPreferences';
 import BiometricGateScreen from '../screens/auth/BiometricGateScreen';
 import BiometricFallbackScreen from '../screens/auth/BiometricFallbackScreen';
 import { biometricPrefs } from '../../data/utils/biometricPrefs';
+import { useSubscription } from '../hooks/useSubscription';
 import type { RootStackParamList } from './types';
 
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -37,6 +38,7 @@ import ArchivedRitualsScreen from '../screens/ArchivedRitualsScreen';
 import ExportHealthDataScreen from '../screens/ExportHealthDataScreen';
 import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import ChangeEmailScreen from '../screens/ChangeEmailScreen';
+import PaywallScreen from '../screens/PaywallScreen';
 import AgeGateScreen from '../screens/auth/AgeGateScreen';
 import EmailHardGateScreen from '../screens/auth/EmailHardGateScreen';
 import { ImageUploadScreen } from '../screens/ImageUploadScreen';
@@ -64,6 +66,7 @@ export default function AppNavigator() {
   }, [isDark, colors]);
   const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user, isEmailVerified, hoursSinceCreation } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
+  const { hasActiveSubscription, subscriptionEnabled, loading: subscriptionLoading } = useSubscription();
 
   // Biometric gate state (Fix 6 — null initial values for async-loaded state)
   const [biometricEnabled, setBiometricEnabled] = useState<boolean | null>(null);
@@ -133,7 +136,7 @@ export default function AppNavigator() {
     await signOut();
   }, [signOut]);
 
-  if (loading || biometricEnabled === null || ageGateCompleted === null) {
+  if (loading || biometricEnabled === null || ageGateCompleted === null || subscriptionLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator size="large" color={colors.cyan} />
@@ -202,6 +205,15 @@ export default function AppNavigator() {
     );
   }
 
+  // Subscription gate: show paywall when flag is on and user has no active subscription
+  if (isAuthenticated && subscriptionEnabled && !hasActiveSubscription) {
+    return (
+      <NavigationContainer theme={navigationTheme}>
+        <PaywallScreen />
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
@@ -253,6 +265,7 @@ export default function AppNavigator() {
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
             <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
             <Stack.Screen name="ExportHealthData" component={ExportHealthDataScreen} />
+            <Stack.Screen name="Paywall" component={PaywallScreen} />
           </>
         )}
       </Stack.Navigator>

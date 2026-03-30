@@ -1,5 +1,8 @@
 // Database types for Vision Health Tracker — shared with web frontend
 
+// Subscription status values from backend
+export type SubscriptionStatus = 'none' | 'trial' | 'active' | 'expired' | 'cancelled' | 'grace_period';
+
 export interface Profile {
   id: string;
   display_name: string | null;
@@ -18,6 +21,11 @@ export interface Profile {
   comeback_boost_until: string | null;
   waiver_badges: number;
   perfect_months_streak: number;
+  // Subscription fields (read-only, managed by SubscriptionService)
+  subscription_status: SubscriptionStatus;
+  subscription_expires_at: string | null;
+  trial_started_at: string | null;
+  ai_scan_credits: number;
   // Deletion / deactivation fields
   is_deactivated: boolean;
   deletion_requested_at: string | null;

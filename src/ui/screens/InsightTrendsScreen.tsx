@@ -31,6 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useGamification } from '../hooks/useGamification';
+import { useSubscription } from '../hooks/useSubscription';
 import { useInsightTrends } from '../hooks/useInsightTrends';
 import { TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
 import DayOfWeekCard from '../components/DayOfWeekCard';
@@ -371,9 +372,13 @@ export default function InsightTrendsScreen() {
   const route = useRoute();
   const fromScreen = (route.params as any)?.fromScreen as string | undefined;
   const { totalXp, currentTier } = useGamification();
+  const { isFree, isInTrial, subscriptionEnabled } = useSubscription();
   const { data, loading, error, isOnline, refresh } = useInsightTrends();
 
-  const tierUnlocked = currentTier >= 3;
+  // Subscription-level lock: free users only see day_of_week card
+  // Step 45: Trial users get full preview access to all insight chips
+  const isSubLocked = isFree && subscriptionEnabled;
+  const tierUnlocked = isSubLocked ? false : (isInTrial || currentTier >= 3);
   const xpToUnlock = Math.max(0, (TIER_THRESHOLDS[3] ?? 1250) - totalXp);
 
   const [activeModal, setActiveModal] = useState<ReportId | null>(null);
@@ -482,6 +487,16 @@ export default function InsightTrendsScreen() {
       </View>
 
       <>
+      {/* Subscription upgrade banner for free users */}
+      {isSubLocked && (
+        <View style={[styles.offlineBanner, { backgroundColor: colors.bgElevated }]}>
+          <TrendingUp size={14} color={colors.cyan} />
+          <Text style={[styles.offlineText, { color: colors.textSecondary }]}>
+            Unlock full analytics with Premium
+          </Text>
+        </View>
+      )}
+
       {/* Offline banner */}
       {!isOnline && (
         <View style={[styles.offlineBanner, { backgroundColor: colors.bgElevated }]}>

@@ -8,6 +8,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { measureElement } from '../utils/measureElement';
 import WelcomeScreen from '../components/onboarding/WelcomeScreen';
 import NavigationTour from '../components/onboarding/NavigationTour';
+import TrialBanner from '../components/TrialBanner';
 import type { TabParamList } from './types';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -47,6 +48,7 @@ export default function TabNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
+      <TrialBanner />
       <Tab.Navigator
         tabBar={renderTabBar}
         screenOptions={{

@@ -18,9 +18,12 @@ import { Flame, Zap } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGamification } from '../hooks/useGamification';
+import { useSubscription } from '../hooks/useSubscription';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS, getTierAsset } from '../../domain/constants/tierAssets';
 import { useTheme } from '../theme/ThemeContext';
 import GlowRing from './GlowRing';
+import PremiumBadge from './PremiumBadge';
+import UpgradePromptModal from './UpgradePromptModal';
 import type { RootStackParamList } from '../navigation/types';
 
 const BADGE_SIZE = 36;
@@ -43,6 +46,9 @@ function formatBoostCountdown(hoursLeft: number): string {
 export default function GamificationHeader() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors, isDark } = useTheme();
+  const { isFree, subscriptionEnabled } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const isLocked = isFree && subscriptionEnabled;
   const {
     totalXp,
     currentTier,
@@ -124,6 +130,44 @@ export default function GamificationHeader() {
       <View style={[styles.container, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
         <View style={styles.placeholder} />
       </View>
+    );
+  }
+
+  // Free tier: grayed-out XP bar with premium badge and upgrade prompt
+  if (isLocked) {
+    return (
+      <>
+        <TouchableOpacity
+          style={[styles.container, { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: 0.6 }]}
+          activeOpacity={0.7}
+          onPress={() => setShowUpgradeModal(true)}
+        >
+          <View style={styles.middle}>
+            <View style={styles.xpRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.tierLabel, { color: colors.textSecondary }]}>XP Tracking</Text>
+                <PremiumBadge size={12} color={colors.textSecondary} />
+              </View>
+              <Text style={[styles.xpText, { color: colors.textSecondary }]}>
+                Unlock with Premium
+              </Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: colors.bgSubtle }]}>
+              <View style={[styles.progressFill, { width: '0%', backgroundColor: colors.border }]} />
+            </View>
+          </View>
+        </TouchableOpacity>
+        <UpgradePromptModal
+          visible={showUpgradeModal}
+          featureName="XP Tracking"
+          description="Track your health journey progress with XP, tiers, streaks, and milestone rewards."
+          onUpgrade={() => {
+            setShowUpgradeModal(false);
+            navigation.navigate('Paywall');
+          }}
+          onDismiss={() => setShowUpgradeModal(false)}
+        />
+      </>
     );
   }
 

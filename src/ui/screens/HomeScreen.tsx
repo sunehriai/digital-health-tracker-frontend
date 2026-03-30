@@ -18,6 +18,7 @@ import WaiverPrompt from '../components/WaiverPrompt';
 import WelcomeBackModal, { shouldShowWelcomeBack, markWelcomeBackShown } from '../components/WelcomeBackModal';
 import LowStockBadge from '../components/LowStockBadge';
 import LowStockBottomSheet from '../components/LowStockBottomSheet';
+import WinBackModal from '../components/WinBackModal';
 import type { LowStockModalRef } from '../components/LowStockBottomSheet';
 import { useMedications } from '../hooks/useMedications';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
@@ -1277,6 +1278,9 @@ export default function HomeScreen() {
         onDismiss={() => setDoseToast((prev) => ({ ...prev, visible: false }))}
       />
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+
+      {/* Day-14 Win-Back Modal for expired trial users */}
+      <WinBackModal />
 
       {/* Low Stock Bottom Sheet — outside ScrollView to overlay correctly */}
       <LowStockBottomSheet

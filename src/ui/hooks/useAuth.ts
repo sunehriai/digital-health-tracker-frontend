@@ -7,7 +7,8 @@ import { onAccountDeactivated } from '../../data/api/client';
 import { deletionService } from '../../data/services/deletionService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { biometricPrefs } from '../../data/utils/biometricPrefs';
-import type { Profile, ProfileUpdate } from '../../domain/types';
+import type { Profile, ProfileUpdate, SubscriptionStatus } from '../../domain/types';
+import { subscriptionService } from '../../data/services/subscriptionService';
 
 type AuthUser = Profile & { email: string };
 
@@ -80,6 +81,9 @@ export function useAuthProvider(): AuthContextType {
           setUser({ ...profile, email: fbUser.email || profile.email || '' });
           setProfileFetchComplete(true);
 
+          // Link RevenueCat customer (non-blocking)
+          try { await subscriptionService.linkCustomer(fbUser.uid); } catch {}
+
           // Cold-start verification check (Q9) — reload Firebase user to get fresh emailVerified
           try {
             await fbUser.reload();
@@ -129,6 +133,10 @@ export function useAuthProvider(): AuthContextType {
             comeback_boost_until: null,
             waiver_badges: 0,
             perfect_months_streak: 0,
+            subscription_status: 'none' as const,
+            subscription_expires_at: null,
+            trial_started_at: null,
+            ai_scan_credits: 2,
             is_deactivated: false,
             deletion_requested_at: null,
             deletion_type: null,
@@ -433,6 +441,10 @@ export function useAuthProvider(): AuthContextType {
         comeback_boost_until: user.comeback_boost_until,
         waiver_badges: user.waiver_badges,
         perfect_months_streak: user.perfect_months_streak,
+        subscription_status: user.subscription_status ?? 'none',
+        subscription_expires_at: user.subscription_expires_at ?? null,
+        trial_started_at: user.trial_started_at ?? null,
+        ai_scan_credits: user.ai_scan_credits ?? 2,
         is_deactivated: user.is_deactivated,
         deletion_requested_at: user.deletion_requested_at,
         deletion_type: user.deletion_type,

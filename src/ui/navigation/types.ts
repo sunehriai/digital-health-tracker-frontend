@@ -66,6 +66,7 @@ export type RootStackParamList = {
   ChangePassword: undefined;
   ChangeEmail: undefined;
   ExportHealthData: undefined;
+  Paywall: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> =

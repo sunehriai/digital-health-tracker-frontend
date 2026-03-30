@@ -1,13 +1,16 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput, findNodeHandle, UIManager, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput, findNodeHandle, UIManager, Platform, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2, HelpCircle } from 'lucide-react-native';
+import { Lock, ChevronRight, User, Settings, Bell, Shield, Map, Search, X, UserCog, BarChart2, HelpCircle, CreditCard } from 'lucide-react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useSubscription } from '../hooks/useSubscription';
 import { useOnboarding } from '../hooks/useOnboarding';
+import UpgradePromptModal from '../components/UpgradePromptModal';
+import PremiumBadge from '../components/PremiumBadge';
 
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -82,6 +85,9 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
+  const { subscriptionEnabled, isFree } = useSubscription();
+  const [showVaultUpgrade, setShowVaultUpgrade] = useState(false);
+  const isVaultLocked = isFree && subscriptionEnabled;
   const { resetAll, setTargetRect, isTourActive, tourStep } = useOnboarding();
   const vaultRef = useRef<View>(null);
 
@@ -212,14 +218,23 @@ export default function ProfileScreen() {
                     ref={isVault ? vaultRef as any : undefined}
                     style={[styles.sectionItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }, isVault && styles.sectionItemVault]}
                     activeOpacity={0.7}
-                    onPress={() => navigation.navigate(section.id)}
+                    onPress={() => {
+                      if (isVault && isVaultLocked) {
+                        setShowVaultUpgrade(true);
+                      } else {
+                        navigation.navigate(section.id);
+                      }
+                    }}
                   >
                     <View style={styles.sectionRow}>
                       <View style={[styles.sectionIcon, isVault && styles.sectionIconVault]}>
                         <Icon color={isVault ? '#FFAA00' : colors.cyan} size={20} strokeWidth={2} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>{section.label}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>{section.label}</Text>
+                          {isVault && isVaultLocked && <PremiumBadge size={12} color="#FFAA00" />}
+                        </View>
                         <Text style={styles.sectionDesc}>{section.desc}</Text>
                       </View>
                       <ChevronRight color={isVault ? '#FFAA00' : '#8E9196'} size={20} strokeWidth={2} />
@@ -227,6 +242,32 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 );
               })}
+
+              {/* Manage Subscription — only when subscription flag is on */}
+              {subscriptionEnabled && (
+                <TouchableOpacity
+                  style={[styles.sectionItem, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const url = Platform.select({
+                      android: 'https://play.google.com/store/account/subscriptions',
+                      ios: 'https://apps.apple.com/account/subscriptions',
+                    });
+                    if (url) Linking.openURL(url);
+                  }}
+                >
+                  <View style={styles.sectionRow}>
+                    <View style={styles.sectionIcon}>
+                      <CreditCard color={colors.cyan} size={20} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>Manage Subscription</Text>
+                      <Text style={styles.sectionDesc}>View or change your plan</Text>
+                    </View>
+                    <ChevronRight color="#8E9196" size={20} strokeWidth={2} />
+                  </View>
+                </TouchableOpacity>
+              )}
 
               {/* Take App Tour */}
               <TouchableOpacity
@@ -267,6 +308,16 @@ export default function ProfileScreen() {
           </>
         )}
       </ScrollView>
+      <UpgradePromptModal
+        visible={showVaultUpgrade}
+        featureName="Emergency Vault"
+        description="Store critical medical info — allergies, conditions, emergency contacts — accessible when it matters most."
+        onUpgrade={() => {
+          setShowVaultUpgrade(false);
+          navigation.navigate('Paywall');
+        }}
+        onDismiss={() => setShowVaultUpgrade(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, ArrowLeft, WifiOff, Award, Check } from 'luc
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useGamification } from '../hooks/useGamification';
+import { useSubscription } from '../hooks/useSubscription';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
 // RitualTree deferred to V2
@@ -49,6 +50,7 @@ export default function MyAdherenceScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useAuth();
   const { currentTier, totalXp, perfectMonthsStreak, loading: gamLoading } = useGamification();
+  const { isInTrial, subscriptionEnabled, trialDaysLeft } = useSubscription();
 
   // Earliest navigable month = account creation month
   const accountStartMonth = useMemo(() => {
@@ -72,7 +74,8 @@ export default function MyAdherenceScreen() {
   const [consistencyBonus, setConsistencyBonus] = useState<ConsistencyBonusInfo | null>(null);
   const [milestonesLoading, setMilestonesLoading] = useState(true);
 
-  const isLocked = !gamLoading && !isFeatureUnlocked('monthly_calendar', currentTier);
+  // Step 45: Trial users bypass tier lock to preview adherence calendar
+  const isLocked = !gamLoading && !isFeatureUnlocked('monthly_calendar', currentTier) && !(isInTrial && subscriptionEnabled);
 
   // Data fetching — only when unlocked
   useEffect(() => {
@@ -227,6 +230,19 @@ export default function MyAdherenceScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Step 45: Trial preview banner */}
+        {isInTrial && subscriptionEnabled && (
+          <View style={[styles.trialPreviewBanner, { backgroundColor: 'rgba(6, 182, 212, 0.08)', borderColor: 'rgba(6, 182, 212, 0.25)' }]}>
+            <Text style={[styles.trialPreviewTitle, { color: colors.cyan }]}>
+              Preview
+            </Text>
+            <Text style={[styles.trialPreviewText, { color: colors.textSecondary }]}>
+              By month's end, your calendar will show your complete adherence story.{' '}
+              {trialDaysLeft !== null ? `${trialDaysLeft} days left in trial.` : ''}
+            </Text>
+          </View>
+        )}
+
         {/* Month navigation — centered cluster to avoid confusion with back arrow */}
         <View style={styles.monthNav}>
           <View style={styles.monthNavCluster}>
@@ -591,5 +607,21 @@ const styles = StyleSheet.create({
   milestoneProgressFill: {
     height: '100%',
     borderRadius: 2,
+  },
+  trialPreviewBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  trialPreviewTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  trialPreviewText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
