@@ -14,7 +14,7 @@ export const biometricLogin = {
 
   // One-time cleanup of stale SecureStore entry from v2.0
   async clearCredentials(): Promise<void> {
-    try { await SecureStore.deleteItemAsync('vitaquest_biometric_creds'); } catch {}
+    try { await SecureStore.deleteItemAsync('vitalic_biometric_creds'); } catch {}
   },
 
   // Delegate to biometricPrefs

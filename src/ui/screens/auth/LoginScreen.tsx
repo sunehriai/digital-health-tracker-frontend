@@ -82,7 +82,7 @@ export default function LoginScreen({ navigation }: RootStackScreenProps<'Login'
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.logo, { color: colors.cyan }]}>VitaQuest</Text>
+          <Text style={[styles.logo, { color: colors.cyan }]}>Vitalic</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Your Longevity Companion</Text>
 
           {/* Begin Your Health Quest badge */}

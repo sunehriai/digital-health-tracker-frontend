@@ -23,8 +23,8 @@ import { useAlert } from '../../context/AlertContext';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TERMS_URL = 'https://vitaquest.app/terms';
-const PRIVACY_URL = 'https://vitaquest.app/privacy';
+const TERMS_URL = 'https://vitalic.app/terms';
+const PRIVACY_URL = 'https://vitalic.app/privacy';
 
 export default function SignUpScreen({ navigation }: RootStackScreenProps<'SignUp'>) {
   const { colors } = useTheme();

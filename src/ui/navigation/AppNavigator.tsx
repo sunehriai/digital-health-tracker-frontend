@@ -79,7 +79,7 @@ export default function AppNavigator() {
     (async () => {
       const [enabled, ageDone, email, provider] = await Promise.all([
         biometricPrefs.isEnabled(),
-        AsyncStorage.getItem('@vitaquest:age_gate_completed'),
+        AsyncStorage.getItem('@vitalic:age_gate_completed'),
         biometricPrefs.getLastEmail(),
         biometricPrefs.getLastProvider(),
       ]);
@@ -95,7 +95,7 @@ export default function AppNavigator() {
   useEffect(() => {
     if (isAuthenticated && profileFetchComplete && user?.date_of_birth === null) {
       setAgeGateCompleted(false);
-      AsyncStorage.removeItem('@vitaquest:age_gate_completed').catch(() => {});
+      AsyncStorage.removeItem('@vitalic:age_gate_completed').catch(() => {});
     }
   }, [user?.id, profileFetchComplete]);
 

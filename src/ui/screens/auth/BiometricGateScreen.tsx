@@ -29,7 +29,7 @@ export default function BiometricGateScreen({ onSuccess, onFallback, onSkip }: B
     }
 
     setShowRetry(false);
-    const result = await biometrics.authenticate('Unlock VitaQuest');
+    const result = await biometrics.authenticate('Unlock Vitalic');
 
     if (result.success) {
       // Biometric passed — refresh Firebase token with 10s timeout (Fix 4)
@@ -75,7 +75,7 @@ export default function BiometricGateScreen({ onSuccess, onFallback, onSkip }: B
         </View>
 
         <Text style={[typography.h2, styles.title, { color: colors.textPrimary }]}>
-          Unlock VitaQuest
+          Unlock Vitalic
         </Text>
 
         <Text style={[typography.bodySmall, styles.subtitle, { color: colors.textMuted }]}>

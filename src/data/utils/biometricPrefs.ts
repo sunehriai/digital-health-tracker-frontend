@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEYS = {
-  ENABLED: '@vitaquest:biometric_enabled',
-  DECLINED: '@vitaquest:biometric_declined',
-  LAST_EMAIL: '@vitaquest:last_email',
-  LAST_PROVIDER: '@vitaquest:last_provider',
+  ENABLED: '@vitalic:biometric_enabled',
+  DECLINED: '@vitalic:biometric_declined',
+  LAST_EMAIL: '@vitalic:last_email',
+  LAST_PROVIDER: '@vitalic:last_provider',
 };
 
 export const biometricPrefs = {
@@ -65,8 +65,8 @@ export const biometricPrefs = {
       KEYS.DECLINED,
       KEYS.LAST_EMAIL,
       KEYS.LAST_PROVIDER,
-      '@vitaquest:email_verify_dismissed',
-      '@vitaquest:age_gate_completed',
+      '@vitalic:email_verify_dismissed',
+      '@vitalic:age_gate_completed',
       // Also clean up old key if it somehow persists
       '@vision_biometric_enabled',
     ]);

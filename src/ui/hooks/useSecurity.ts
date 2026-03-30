@@ -22,7 +22,7 @@ try {
 }
 
 // AsyncStorage keys (same as PrivacySecurityScreen)
-const BIOMETRIC_KEY = '@vitaquest:biometric_enabled';
+const BIOMETRIC_KEY = '@vitalic:biometric_enabled';
 const AUTO_LOCK_KEY = '@vision_auto_lock_timeout';
 const SCREEN_SECURITY_KEY = '@vision_screen_security';
 const SCREEN_SECURITY_GRANULARITY_KEY = '@vision_screen_security_granularity';

@@ -155,7 +155,7 @@ export default function HomeScreen() {
   const [bannerDismissed, setBannerDismissed] = useState(true); // default hidden until checked
 
   useEffect(() => {
-    AsyncStorage.getItem('@vitaquest:email_verify_dismissed').then(val => {
+    AsyncStorage.getItem('@vitalic:email_verify_dismissed').then(val => {
       setBannerDismissed(val === 'true');
     });
   }, []);
@@ -180,7 +180,7 @@ export default function HomeScreen() {
           const verified = await authService.checkEmailVerified();
           if (verified) {
             setBannerDismissed(true);
-            await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+            await AsyncStorage.setItem('@vitalic:email_verify_dismissed', 'true');
           }
         }
 
@@ -202,7 +202,7 @@ export default function HomeScreen() {
 
   const handleDismissBanner = async () => {
     setBannerDismissed(true);
-    await AsyncStorage.setItem('@vitaquest:email_verify_dismissed', 'true');
+    await AsyncStorage.setItem('@vitalic:email_verify_dismissed', 'true');
   };
 
   // Onboarding: report layout ready once data is loaded and layout is measured

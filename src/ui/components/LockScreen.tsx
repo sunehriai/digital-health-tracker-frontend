@@ -26,7 +26,7 @@ export default function LockScreen() {
     isAuthenticatingRef.current = true;
 
     try {
-      const result = await biometrics.authenticate('Unlock VitaQuest');
+      const result = await biometrics.authenticate('Unlock Vitalic');
       if (result.success) {
         if (Platform.OS !== 'web') haptics.success();
         security.unlockApp();
@@ -70,7 +70,7 @@ export default function LockScreen() {
           style={styles.icon}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>VitaQuest</Text>
+        <Text style={styles.appName}>Vitalic</Text>
         <Text style={styles.subtitle}>Your health data is protected</Text>
 
         <TouchableOpacity

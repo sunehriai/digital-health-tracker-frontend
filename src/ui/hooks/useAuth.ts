@@ -99,7 +99,7 @@ export function useAuthProvider(): AuthContextType {
               // Clear all user-scoped local state
               const allKeys = await AsyncStorage.getAllKeys();
               const userKeys = allKeys.filter(
-                (k) => k.startsWith('@vision') || k.startsWith('@vitaquest:') ||
+                (k) => k.startsWith('@vision') || k.startsWith('@vitalic:') ||
                   k.startsWith('@dose_status_cache') || k.startsWith('daySettled:')
               );
               if (userKeys.length > 0) await AsyncStorage.multiRemove(userKeys);
@@ -379,7 +379,7 @@ export function useAuthProvider(): AuthContextType {
       const userKeys = allKeys.filter(
         (key) =>
           key.startsWith('@vision') ||
-          key.startsWith('@vitaquest:') ||
+          key.startsWith('@vitalic:') ||
           key.startsWith('@dose_status_cache') ||
           key.startsWith('daySettled:')
       );

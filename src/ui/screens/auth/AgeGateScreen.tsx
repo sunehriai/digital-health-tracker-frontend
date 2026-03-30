@@ -49,7 +49,7 @@ export default function AgeGateScreen() {
           setLoading(false);
         } else {
           // Persist gate completion so it won't reappear when backend is unreachable
-          await AsyncStorage.setItem('@vitaquest:age_gate_completed', 'true');
+          await AsyncStorage.setItem('@vitalic:age_gate_completed', 'true');
         }
         // On success: AppNavigator auto-transitions because user.date_of_birth is now set
       } catch {
@@ -59,7 +59,7 @@ export default function AgeGateScreen() {
     } else {
       showAlert({
         title: 'Age Requirement',
-        message: 'You must be 18 or older to use VitaQuest. Your account will be removed.',
+        message: 'You must be 18 or older to use Vitalic. Your account will be removed.',
         type: 'error',
         onConfirm: async () => {
           try {
@@ -81,7 +81,7 @@ export default function AgeGateScreen() {
             One more thing...
           </Text>
           <Text style={[typography.bodySmall, styles.subtitle, { color: colors.textSecondary }]}>
-            VitaQuest is designed for users 18 and older. Please confirm your date of birth.
+            Vitalic is designed for users 18 and older. Please confirm your date of birth.
           </Text>
         </View>
 

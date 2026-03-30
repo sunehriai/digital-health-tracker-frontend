@@ -51,7 +51,7 @@ export function useDeletion(): UseDeletionReturn {
           !PRESERVED_KEYS.has(key) &&
           (key.startsWith('vision_') ||
            key.startsWith('@vision') ||
-           key.startsWith('@vitaquest:') ||
+           key.startsWith('@vitalic:') ||
            key.startsWith('@dose_status_cache') ||
            key.startsWith('daySettled:'))
       );
