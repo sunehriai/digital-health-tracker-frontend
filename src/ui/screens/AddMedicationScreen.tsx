@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable, Dimensions } from 'react-native';
 import { X, Camera, PenLine, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useAlert } from '../context/AlertContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { authService } from '../../data/services/authService';
 import { useAIUpload } from '../../data/contexts/AIUploadContext';
+import ScanCreditsIndicator from '../components/ScanCreditsIndicator';
+import OutOfScansModal from '../components/OutOfScansModal';
 import type { RootStackScreenProps } from '../navigation/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -15,6 +18,10 @@ export default function AddMedicationScreen({ navigation }: RootStackScreenProps
   const { isEmailVerified } = useAuth();
   const { showAlert } = useAlert();
   const { startUpload } = useAIUpload();
+  const { subscriptionEnabled, isPremium, aiScanCredits } = useSubscription();
+  const [showOutOfScans, setShowOutOfScans] = useState(false);
+
+  const showCreditIndicator = subscriptionEnabled && !isPremium;
 
   const handleAIScan = () => {
     if (!isEmailVerified) {
@@ -27,6 +34,11 @@ export default function AddMedicationScreen({ navigation }: RootStackScreenProps
           try { await authService.sendVerificationEmail(); } catch {}
         },
       });
+      return;
+    }
+    // Credit check: free users with 0 credits see OutOfScansModal
+    if (subscriptionEnabled && !isPremium && aiScanCredits <= 0) {
+      setShowOutOfScans(true);
       return;
     }
     startUpload();
@@ -54,6 +66,26 @@ export default function AddMedicationScreen({ navigation }: RootStackScreenProps
         </View>
 
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>How would you like to add your medication?</Text>
+
+        {/* AI scan credit indicator for non-premium users */}
+        {showCreditIndicator && (
+          <ScanCreditsIndicator credits={aiScanCredits} />
+        )}
+
+        {/* Out of scans modal */}
+        <OutOfScansModal
+          visible={showOutOfScans}
+          onUpgrade={() => {
+            setShowOutOfScans(false);
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('Paywall' as any), 100);
+          }}
+          onAddManually={() => {
+            setShowOutOfScans(false);
+            navigation.replace('ManualMedicationEntry', {});
+          }}
+          onDismiss={() => setShowOutOfScans(false)}
+        />
 
         {/* AI Scan option */}
         <TouchableOpacity style={[styles.optionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]} activeOpacity={0.7} onPress={handleAIScan}>

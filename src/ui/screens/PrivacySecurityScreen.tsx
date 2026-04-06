@@ -39,7 +39,7 @@ const AUTO_LOCK_OPTIONS = [
   { label: 'Never', value: -1 },
 ];
 
-const PRIVACY_POLICY_URL = 'https://vision-health.app/privacy'; // Replace with actual URL
+const PRIVACY_POLICY_URL = 'https://vitalic.app/privacy';
 
 export default function PrivacySecurityScreen({ navigation }: RootStackScreenProps<'PrivacySecurity'>) {
   const { colors } = useTheme();

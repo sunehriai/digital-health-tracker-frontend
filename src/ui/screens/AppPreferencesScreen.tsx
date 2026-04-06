@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
@@ -7,6 +7,8 @@ import TimeInput from '../components/TimeInput';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useGamification } from '../hooks/useGamification';
+import { useSubscription } from '../hooks/useSubscription';
+import UpgradePromptModal from '../components/UpgradePromptModal';
 
 import { THEME_LABELS } from '../theme/themeDefinitions';
 import type { RootStackScreenProps } from '../navigation/types';
@@ -119,6 +121,8 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
   const { colors, themeId } = useTheme();
   const { prefs, updatePref } = useAppPreferences();
   const { currentTier } = useGamification();
+  const { isFree, subscriptionEnabled } = useSubscription();
+  const [showUpgrade, setShowUpgrade] = useState(subscriptionEnabled && isFree);
   const hasCustomThemes = false; // Custom Themes deferred to V2
 
   return (
@@ -232,6 +236,20 @@ export default function AppPreferencesScreen({ navigation }: RootStackScreenProp
           </View>
         </View>
       </ScrollView>
+
+      <UpgradePromptModal
+        visible={showUpgrade}
+        featureName="App Preferences"
+        description="Customize your app appearance, themes, and display preferences with Premium."
+        onUpgrade={() => {
+          setShowUpgrade(false);
+          navigation.navigate('Paywall' as any);
+        }}
+        onDismiss={() => {
+          setShowUpgrade(false);
+          navigation.goBack();
+        }}
+      />
     </SafeAreaView>
   );
 }

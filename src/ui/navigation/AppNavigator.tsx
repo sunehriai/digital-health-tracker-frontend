@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme, Theme, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, AppState, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,7 +66,11 @@ export default function AppNavigator() {
   }, [isDark, colors]);
   const { isAuthenticated, loading, deactivationInfo, signOut, clearDeactivation, refreshProfile, profileFetchComplete, user, isEmailVerified, hoursSinceCreation } = useAuth();
   const { loading: cancelLoading, cancelDeletion } = useDeletion();
-  const { hasActiveSubscription, subscriptionEnabled, loading: subscriptionLoading } = useSubscription();
+  const { hasActiveSubscription, subscriptionEnabled, isFree, loading: subscriptionLoading } = useSubscription();
+
+  // One-time auto-redirect to Paywall for free users (Plan C: no hard gate, just a nudge)
+  const paywallRedirectDone = useRef(false);
+  const navRef = useRef<NavigationContainerRef<RootStackParamList>>(null);
 
   // Biometric gate state (Fix 6 — null initial values for async-loaded state)
   const [biometricEnabled, setBiometricEnabled] = useState<boolean | null>(null);
@@ -119,6 +123,32 @@ export default function AppNavigator() {
       setBiometricPassed(false);
       setShowFallback(false);
       setEmailVerifiedConfirmed(false);
+    }
+  }, [isAuthenticated]);
+
+  // Plan C: One-time auto-redirect to Paywall for free users (dismissible nudge).
+  // Placed before early-return guards to satisfy React Rules of Hooks.
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      subscriptionEnabled &&
+      isFree &&
+      !subscriptionLoading &&
+      !paywallRedirectDone.current &&
+      navRef.current
+    ) {
+      paywallRedirectDone.current = true;
+      // Small delay to let NavigationContainer mount fully
+      setTimeout(() => {
+        try { navRef.current?.navigate('Paywall' as any); } catch {}
+      }, 100);
+    }
+  }, [isAuthenticated, subscriptionEnabled, isFree, subscriptionLoading]);
+
+  // Reset redirect flag on sign-out so a new session re-triggers
+  useEffect(() => {
+    if (!isAuthenticated) {
+      paywallRedirectDone.current = false;
     }
   }, [isAuthenticated]);
 
@@ -205,17 +235,8 @@ export default function AppNavigator() {
     );
   }
 
-  // Subscription gate: show paywall when flag is on and user has no active subscription
-  if (isAuthenticated && subscriptionEnabled && !hasActiveSubscription) {
-    return (
-      <NavigationContainer theme={navigationTheme}>
-        <PaywallScreen />
-      </NavigationContainer>
-    );
-  }
-
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer theme={navigationTheme} ref={navRef}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

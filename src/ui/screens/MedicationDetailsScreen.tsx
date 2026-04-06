@@ -44,6 +44,8 @@ import {
   type DoseUnitType,
 } from '../../domain/medicationConfig';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
+import { useSubscription } from '../hooks/useSubscription';
+import UpgradePromptModal from '../components/UpgradePromptModal';
 
 // Type alias for UI frequency (excludes 'as_needed' since as-needed meds don't have alarms)
 type FrequencyType = 'daily' | 'every_other_day' | 'mon_fri' | 'custom';
@@ -107,6 +109,9 @@ export default function MedicationDetailsScreen({
   const { colors, isDark } = useTheme();
   const { showScreenshotToast, dismissScreenshotToast } = useScreenSecurity('MedicationDetails');
   const { prefs: notifPrefs } = useNotificationPrefs();
+  const { isFree, subscriptionEnabled } = useSubscription();
+  const isFreeTier = subscriptionEnabled && isFree;
+  const [showDoseHistoryUpgrade, setShowDoseHistoryUpgrade] = useState(false);
   const [medication, setMedication] = useState<Medication | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -219,6 +224,25 @@ export default function MedicationDetailsScreen({
   };
 
   const openAddAlarmModal = () => {
+    // Check if medication course has ended
+    if (medication?.end_date) {
+      const endDate = new Date(medication.end_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate < today) {
+        const formattedDate = endDate.toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric',
+        });
+        showAlert({
+          title: 'Course Ended',
+          message: `This medication course ended on ${formattedDate}. Please extend or remove the end date before adding new alarms.`,
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
     setEditingAlarm(null);
     setEditTime(defaultDoseTime || '12:00');
     setEditFrequency(medication?.frequency || 'daily');
@@ -977,6 +1001,22 @@ export default function MedicationDetailsScreen({
           </>
         )}
 
+        {/* Dose History upgrade CTA for free users */}
+        {isFreeTier && (
+          <TouchableOpacity
+            style={[styles.doseHistoryCta, { borderColor: colors.cyanGlow, backgroundColor: colors.cyanDim }]}
+            onPress={() => setShowDoseHistoryUpgrade(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.doseHistoryCtaText, { color: colors.cyan }]}>
+              See your complete dose history
+            </Text>
+            <Text style={[styles.doseHistoryCtaSub, { color: colors.textMuted }]}>
+              Available with Premium
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Log Refill Button - prominent action */}
         {!isArchived && (
           <TouchableOpacity
@@ -1599,6 +1639,17 @@ export default function MedicationDetailsScreen({
         </View>
       </Modal>
       <ScreenshotToast visible={showScreenshotToast} onDismiss={dismissScreenshotToast} />
+
+      <UpgradePromptModal
+        visible={showDoseHistoryUpgrade}
+        featureName="Full Dose History"
+        description="Access your complete dose history, detailed adherence logs, and long-term tracking with Premium."
+        onUpgrade={() => {
+          setShowDoseHistoryUpgrade(false);
+          navigation.navigate('Paywall' as any);
+        }}
+        onDismiss={() => setShowDoseHistoryUpgrade(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -2379,6 +2430,22 @@ const styles = StyleSheet.create({
   },
 
   // Refill Button
+  doseHistoryCta: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  doseHistoryCtaText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  doseHistoryCtaSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
   refillBtn: {
     flexDirection: 'row',
     alignItems: 'center',

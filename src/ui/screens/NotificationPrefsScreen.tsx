@@ -34,6 +34,7 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { useAppPreferences } from '../hooks/useAppPreferences';
+import { useSubscription } from '../hooks/useSubscription';
 import { formatTime } from '../../domain/utils/dateTimeUtils';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -74,6 +75,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
   const { colors } = useTheme();
   const { prefs, loading, syncing, updatePref } = useNotificationPrefs();
   const { prefs: appPrefs } = useAppPreferences();
+  const { isFree, subscriptionEnabled } = useSubscription();
+  const isFreeTier = subscriptionEnabled && isFree;
   const isFocused = useIsFocused();
 
   /** Format a "HH:00" value for display using the user's time format preference. */
@@ -187,7 +190,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           />
         </View>
 
-        {prefs.dose_reminders_enabled && (
+        {prefs.dose_reminders_enabled && !isFreeTier && (
           <>
             {/* Advance Reminder */}
             <TouchableOpacity
@@ -329,7 +332,7 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           />
         </View>
 
-        {prefs.refill_alerts_enabled && (
+        {prefs.refill_alerts_enabled && !isFreeTier && (
           <>
             <TouchableOpacity
               style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
@@ -380,6 +383,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           </>
         )}
 
+        {!isFreeTier && (
+          <>
         {/* ── ACHIEVEMENTS & PROGRESS ── */}
         <Text style={[styles.sectionTitle, { color: colors.cyan }]}>ACHIEVEMENTS & PROGRESS</Text>
 
@@ -476,6 +481,9 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           </>
         )}
 
+          </>
+        )}
+
         {/* ── SYSTEM & SAFETY ── */}
         <Text style={[styles.sectionTitle, { color: colors.cyan }]}>SYSTEM & SAFETY</Text>
 
@@ -496,45 +504,51 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           />
         </View>
 
-        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
-            <AlertTriangle color={colors.cyan} size={20} />
-          </View>
-          <View style={styles.settingContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Safety Alerts</Text>
-              <View style={[styles.recommendedBadge, { backgroundColor: colors.cyanDim }]}>
-                <Text style={[styles.recommendedText, { color: colors.cyan }]}>Recommended</Text>
+        {!isFreeTier && (
+          <>
+            <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
+                <AlertTriangle color={colors.cyan} size={20} />
               </View>
+              <View style={styles.settingContent}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Safety Alerts</Text>
+                  <View style={[styles.recommendedBadge, { backgroundColor: colors.cyanDim }]}>
+                    <Text style={[styles.recommendedText, { color: colors.cyan }]}>Recommended</Text>
+                  </View>
+                </View>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Allergy and interaction warnings</Text>
+              </View>
+              <Switch
+                value={prefs.safety_alerts_enabled}
+                onValueChange={(v) => updatePref('safety_alerts_enabled', v)}
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.safety_alerts_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
+              />
             </View>
-            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Allergy and interaction warnings</Text>
-          </View>
-          <Switch
-            value={prefs.safety_alerts_enabled}
-            onValueChange={(v) => updatePref('safety_alerts_enabled', v)}
-            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
-            thumbColor="#FFFFFF"
-            {...(prefs.safety_alerts_enabled ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
-          />
-        </View>
 
-        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
-            <Calendar color={colors.cyan} size={20} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Prescription End Alerts</Text>
-            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Notify before medication end date</Text>
-          </View>
-          <Switch
-            value={prefs.medication_end_date_alerts}
-            onValueChange={(v) => updatePref('medication_end_date_alerts', v)}
-            trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
-            thumbColor="#FFFFFF"
-            {...(prefs.medication_end_date_alerts ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
-          />
-        </View>
+            <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
+                <Calendar color={colors.cyan} size={20} />
+              </View>
+              <View style={styles.settingContent}>
+                <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Prescription End Alerts</Text>
+                <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>Notify before medication end date</Text>
+              </View>
+              <Switch
+                value={prefs.medication_end_date_alerts}
+                onValueChange={(v) => updatePref('medication_end_date_alerts', v)}
+                trackColor={{ false: colors.bgSubtle, true: colors.secondary }}
+                thumbColor="#FFFFFF"
+                {...(prefs.medication_end_date_alerts ? { style: { shadowColor: colors.secondary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 3 } } : {})}
+              />
+            </View>
+          </>
+        )}
 
+        {!isFreeTier && (
+          <>
         {/* ── QUIET HOURS ── */}
         <Text style={[styles.sectionTitle, { color: colors.cyan }]}>QUIET HOURS</Text>
 
@@ -700,6 +714,8 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
           </View>
           <ChevronRight color={colors.textMuted} size={20} />
         </TouchableOpacity>
+          </>
+        )}
 
         {/* Info Notice */}
         <View style={[styles.noticeCard, { borderLeftColor: colors.cyan, backgroundColor: colors.cyanDim }]}>

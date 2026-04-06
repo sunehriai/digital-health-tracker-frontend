@@ -33,7 +33,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useGamification } from '../hooks/useGamification';
 import { useSubscription } from '../hooks/useSubscription';
 import { useInsightTrends } from '../hooks/useInsightTrends';
-import { TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
+import { TIER_THRESHOLDS, TIER_NAMES } from '../../domain/constants/tierAssets';
 import DayOfWeekCard from '../components/DayOfWeekCard';
 import TimeOfDayCard from '../components/TimeOfDayCard';
 import YearlyTrendCard from '../components/YearlyTrendCard';
@@ -69,6 +69,14 @@ const CHIP_COLORS = {
   needs_attention:  { icon: '#EF4444', iconBg: 'rgba(239, 68, 68, 0.18)',  cardBg: 'rgba(239, 68, 68, 0.08)',  border: 'rgba(239, 68, 68, 0.25)' },
   streak_trajectory:{ icon: '#F59E0B', iconBg: 'rgba(245, 158, 11, 0.18)', cardBg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.25)' },
 } as const;
+
+const CHIP_DESCRIPTIONS: Record<ReportId, string> = {
+  day_of_week: 'See which days you adhere best',
+  time_of_day: 'Break down performance by time slot',
+  yearly_trend: 'Compare your progress year over year',
+  needs_attention: 'Spot medications that need focus',
+  streak_trajectory: 'Track your best consecutive streaks',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -146,7 +154,7 @@ function SkeletonChip({ size }: { size: number }) {
 
 // ─── Lock Toast ───────────────────────────────────────────────────────────────
 
-function LockToast({ visible, xpNeeded }: { visible: boolean; xpNeeded: number }) {
+function LockToast({ visible, xpNeeded, isSubLocked }: { visible: boolean; xpNeeded: number; isSubLocked?: boolean }) {
   const { colors } = useTheme();
   const translateY = useRef(new Animated.Value(60)).current;
   const fadeOpacity = useRef(new Animated.Value(0)).current;
@@ -177,7 +185,9 @@ function LockToast({ visible, xpNeeded }: { visible: boolean; xpNeeded: number }
     >
       <Lock size={12} color="#FFD700" />
       <Text style={[styles.toastText, { color: colors.textSecondary }]}>
-        {xpNeeded > 0 ? `Reach Guardian (Tier 3) — ${xpNeeded.toLocaleString()} XP to go` : 'Reach Guardian (Tier 3) to unlock'}
+        {isSubLocked
+          ? 'Upgrade to Premium to unlock all insights'
+          : xpNeeded > 0 ? `Reach ${TIER_NAMES[4]} (Tier 4) — ${xpNeeded.toLocaleString()} XP to go` : `Reach ${TIER_NAMES[4]} (Tier 4) to unlock`}
       </Text>
     </Animated.View>
   );
@@ -371,15 +381,18 @@ export default function InsightTrendsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const fromScreen = (route.params as any)?.fromScreen as string | undefined;
-  const { totalXp, currentTier } = useGamification();
-  const { isFree, isInTrial, subscriptionEnabled } = useSubscription();
+  const { totalXp: gamificationXp, currentTier: gamificationTier } = useGamification();
+  const { isFree, isInTrial, subscriptionEnabled, totalXp: subXp, currentTier: subTier } = useSubscription();
+  // For free users, useGamification returns 403; use subscription hook values instead
   const { data, loading, error, isOnline, refresh } = useInsightTrends();
 
   // Subscription-level lock: free users only see day_of_week card
   // Step 45: Trial users get full preview access to all insight chips
   const isSubLocked = isFree && subscriptionEnabled;
-  const tierUnlocked = isSubLocked ? false : (isInTrial || currentTier >= 3);
-  const xpToUnlock = Math.max(0, (TIER_THRESHOLDS[3] ?? 1250) - totalXp);
+  const totalXp = isSubLocked ? subXp : gamificationXp;
+  const currentTier = isSubLocked ? subTier : gamificationTier;
+  const tierUnlocked = isSubLocked ? false : (isInTrial || currentTier >= 4);
+  const xpToUnlock = Math.max(0, (TIER_THRESHOLDS[4] ?? 2500) - totalXp);
 
   const [activeModal, setActiveModal] = useState<ReportId | null>(null);
   const [showLockToast, setShowLockToast] = useState(false);
@@ -582,10 +595,23 @@ export default function InsightTrendsScreen() {
 
                     {/* Preview or Locked */}
                     {locked ? (
-                      <View style={styles.lockedRow}>
-                        <Lock size={10} color={colors.textMuted} />
-                        <Text style={[styles.chipPreview, { color: colors.textMuted }]}>Locked</Text>
-                      </View>
+                      isSubLocked ? (
+                        <View style={styles.rewardFrame}>
+                          <Text style={[styles.chipPreview, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {CHIP_DESCRIPTIONS[chip.id]}
+                          </Text>
+                          <Text style={[styles.rewardTierText, { color: colors.cyan }]} numberOfLines={1}>
+                            {totalXp >= (TIER_THRESHOLDS[4] ?? 2500)
+                              ? "You've earned this"
+                              : `${((TIER_THRESHOLDS[4] ?? 2500) - totalXp).toLocaleString()} XP to go`}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.lockedRow}>
+                          <Lock size={10} color={colors.textMuted} />
+                          <Text style={[styles.chipPreview, { color: colors.textMuted }]}>Locked</Text>
+                        </View>
+                      )
                     ) : (
                       <Text style={[styles.chipPreview, { color: colors.textSecondary }]} numberOfLines={1}>
                         {preview}
@@ -630,10 +656,23 @@ export default function InsightTrendsScreen() {
                       {lastChip.title}
                     </Text>
                     {locked ? (
-                      <View style={styles.lockedRow}>
-                        <Lock size={10} color={colors.textMuted} />
-                        <Text style={[styles.chipPreview, { color: colors.textMuted }]}>Locked</Text>
-                      </View>
+                      isSubLocked ? (
+                        <View style={styles.rewardFrame}>
+                          <Text style={[styles.chipPreview, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {CHIP_DESCRIPTIONS[lastChip.id]}
+                          </Text>
+                          <Text style={[styles.rewardTierText, { color: colors.cyan }]} numberOfLines={1}>
+                            {totalXp >= (TIER_THRESHOLDS[4] ?? 2500)
+                              ? "You've earned this"
+                              : `${((TIER_THRESHOLDS[4] ?? 2500) - totalXp).toLocaleString()} XP to go`}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.lockedRow}>
+                          <Lock size={10} color={colors.textMuted} />
+                          <Text style={[styles.chipPreview, { color: colors.textMuted }]}>Locked</Text>
+                        </View>
+                      )
                     ) : (
                       <Text style={[styles.chipPreview, { color: colors.textSecondary }]} numberOfLines={1}>
                         {preview}
@@ -647,12 +686,22 @@ export default function InsightTrendsScreen() {
             {/* Unlock hint for Tier 1-3 */}
             {!tierUnlocked && (
               <View style={styles.unlockHint}>
-                <Lock size={12} color={colors.textMuted} />
-                <Text style={[styles.unlockHintText, { color: colors.textMuted }]}>
-                  {xpToUnlock > 0
-                    ? `Reach Guardian (Tier 3) — ${xpToUnlock.toLocaleString()} XP to unlock all reports`
-                    : 'Reach Guardian (Tier 3) to unlock'}
-                </Text>
+                {isSubLocked ? (
+                  <Text style={[styles.unlockHintText, { color: colors.textMuted }]}>
+                    {totalXp >= (TIER_THRESHOLDS[4] ?? 2500)
+                      ? "You've earned these insights — upgrade to Premium to activate"
+                      : `Available as a ${TIER_NAMES[4]} reward. Upgrade to Premium to unlock.`}
+                  </Text>
+                ) : (
+                  <>
+                    <Lock size={12} color={colors.textMuted} />
+                    <Text style={[styles.unlockHintText, { color: colors.textMuted }]}>
+                      {xpToUnlock > 0
+                        ? `Reach ${TIER_NAMES[4]} (Tier 4) — ${xpToUnlock.toLocaleString()} XP to unlock all reports`
+                        : `Reach ${TIER_NAMES[4]} (Tier 4) to unlock`}
+                    </Text>
+                  </>
+                )}
               </View>
             )}
           </>
@@ -668,7 +717,7 @@ export default function InsightTrendsScreen() {
       />
 
       {/* Lock toast */}
-      <LockToast key={lockToastKey.current} visible={showLockToast} xpNeeded={xpToUnlock} />
+      <LockToast key={lockToastKey.current} visible={showLockToast} xpNeeded={xpToUnlock} isSubLocked={isSubLocked} />
       </>
     </SafeAreaView>
   );
@@ -793,6 +842,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  rewardFrame: {
+    gap: 2,
+  },
+  rewardTierText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   // Unlock hint
   unlockHint: {

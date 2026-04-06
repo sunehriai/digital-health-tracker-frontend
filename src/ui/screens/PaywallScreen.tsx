@@ -19,6 +19,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { useAuth } from '../hooks/useAuth';
@@ -35,6 +36,7 @@ const VALUE_PROPS = [
 
 export default function PaywallScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation();
   const { subscribe, restore, loading: subLoading, error } = useSubscription();
   const { signOut } = useAuth();
   const [packages, setPackages] = useState<SubscriptionPackage[]>([]);
@@ -194,6 +196,12 @@ export default function PaywallScreen() {
             <Text style={[styles.linkText, { color: colors.textSecondary }]}>Privacy Policy</Text>
           </TouchableOpacity>
         </View>
+
+        {navigation.canGoBack() && (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.link}>
+            <Text style={[styles.linkText, { color: colors.cyan }]}>Maybe Later</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity onPress={signOut} style={styles.link}>
           <Text style={[styles.linkText, { color: colors.error }]}>Sign Out</Text>
