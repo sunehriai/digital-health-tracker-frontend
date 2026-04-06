@@ -9,6 +9,7 @@ import { Lock, ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { TIER_ASSETS, TIER_NAMES, TIER_THRESHOLDS } from '../../domain/constants/tierAssets';
+import { estimateDaysToXp } from '../../domain/utils/xpCalculator';
 import { useTheme } from '../theme/ThemeContext';
 
 interface LockedFeatureScreenProps {
@@ -16,6 +17,8 @@ interface LockedFeatureScreenProps {
   requiredTier: number;
   currentTier: number;
   currentXp: number;
+  streakDays?: number;
+  doseDaysPerWeek?: number;
 }
 
 export default function LockedFeatureScreen({
@@ -23,6 +26,8 @@ export default function LockedFeatureScreen({
   requiredTier,
   currentTier,
   currentXp,
+  streakDays = 0,
+  doseDaysPerWeek = 7,
 }: LockedFeatureScreenProps) {
   const { colors } = useTheme();
   const navigation = useNavigation();
@@ -30,6 +35,9 @@ export default function LockedFeatureScreen({
   const requiredTierName = TIER_NAMES[requiredTier] ?? 'Unknown';
   const requiredXp = TIER_THRESHOLDS[requiredTier] ?? 0;
   const xpNeeded = Math.max(0, requiredXp - currentXp);
+  const estDays = doseDaysPerWeek > 0 && xpNeeded > 0
+    ? estimateDaysToXp(xpNeeded, streakDays, doseDaysPerWeek)
+    : 0;
 
   const currentBadge = TIER_ASSETS[currentTier];
   const requiredBadge = TIER_ASSETS[requiredTier];
@@ -88,8 +96,15 @@ export default function LockedFeatureScreen({
             <Text style={[styles.xpLabel, { color: colors.textMuted }]}>needed to unlock</Text>
           </View>
 
+          {estDays > 0 && (
+            <Text style={[styles.estDays, { color: colors.textSecondary }]}>
+              That's about <Text style={{ color: colors.cyan, fontWeight: '700' }}>~{estDays} day{estDays !== 1 ? 's' : ''}</Text> of perfect adherence
+              {doseDaysPerWeek < 7 ? ' based on your schedule' : ''}
+            </Text>
+          )}
+
           <Text style={[styles.encouragement, { color: colors.textSecondary }]}>
-            Keep logging your medications daily to earn XP and unlock {featureLabel}!
+            Keep logging your medications{doseDaysPerWeek < 7 ? ' on your scheduled days' : ' daily'} to earn XP and unlock {featureLabel}!
           </Text>
         </View>
       </View>
@@ -127,5 +142,6 @@ const styles = StyleSheet.create({
   },
   xpNeeded: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   xpLabel: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  estDays: { fontSize: 15, fontWeight: '500', textAlign: 'center', lineHeight: 22, marginBottom: 16, paddingHorizontal: 16 },
   encouragement: { fontSize: 14, fontWeight: '500', textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
 });

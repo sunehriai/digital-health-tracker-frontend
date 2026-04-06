@@ -48,6 +48,116 @@ export function estimateDailyXp(streakDays: number, isBoostActive: boolean): num
 }
 
 /**
+ * Estimate how many calendar days of perfect adherence are needed to earn
+ * a given amount of XP, accounting for non-dose days (e.g. alternate-day meds).
+ *
+ * On non-dose days the streak is preserved but no XP is earned.
+ *
+ * @param xpNeeded - Total XP the user still needs
+ * @param currentStreak - Current streak days from useGamification()
+ * @param doseDaysPerWeek - Average number of days per week with at least one scheduled dose (1-7)
+ * @returns Estimated calendar days (rounded up)
+ */
+export function estimateDaysToXp(
+  xpNeeded: number,
+  currentStreak: number,
+  doseDaysPerWeek: number,
+): number {
+  if (xpNeeded <= 0) return 0;
+  if (doseDaysPerWeek <= 0) return 0;
+
+  const doseRatio = Math.min(doseDaysPerWeek, 7) / 7;
+  let accumulated = 0;
+  let streak = currentStreak;
+  let calendarDays = 0;
+  // Track fractional dose-day accumulation for non-integer ratios
+  let doseDayBudget = 0;
+
+  while (accumulated < xpNeeded && calendarDays < 3650) {
+    calendarDays++;
+    doseDayBudget += doseRatio;
+
+    if (doseDayBudget >= 1) {
+      // This is a dose day
+      doseDayBudget -= 1;
+      streak++;
+      const streakBonus = Math.min(XP_STREAK_MULT * streak, XP_STREAK_CAP);
+      accumulated += XP_BASE + streakBonus;
+    }
+    // Non-dose day: streak preserved, no XP
+  }
+
+  return calendarDays;
+}
+
+/**
+ * Compute the average number of dose-days per week across all active medications.
+ * Returns 7 if any medication is daily; otherwise computes the union coverage.
+ *
+ * @param medications - Array of active, non-paused, non-archived medications
+ * @returns Average dose-days per week (0-7)
+ */
+export function computeDoseDaysPerWeek(
+  medications: Array<{
+    frequency: string;
+    custom_days: number[] | null;
+    is_paused?: boolean;
+    is_archived?: boolean;
+    is_as_needed?: boolean;
+  }>,
+): number {
+  const active = medications.filter(
+    (m) => !m.is_paused && !m.is_archived && !m.is_as_needed,
+  );
+  if (active.length === 0) return 0;
+
+  // If any med is daily, the user has doses every day
+  if (active.some((m) => m.frequency === 'daily')) return 7;
+
+  // Collect unique weekday coverage (0-6) from fixed-day schedules
+  const coveredDays = new Set<number>();
+  let hasVariableSchedule = false;
+  let bestVariableRatio = 0;
+
+  for (const med of active) {
+    switch (med.frequency) {
+      case 'mon_fri':
+        for (let d = 0; d < 5; d++) coveredDays.add(d); // Mon-Fri
+        break;
+
+      case 'custom':
+        if (med.custom_days && med.custom_days.length > 0) {
+          for (const d of med.custom_days) {
+            if (d >= 0 && d <= 6) coveredDays.add(d);
+          }
+        }
+        break;
+
+      case 'every_other_day': {
+        hasVariableSchedule = true;
+        // Custom interval stored as negative number in custom_days
+        let interval = 2;
+        if (med.custom_days && med.custom_days.length === 1 && med.custom_days[0] < 0) {
+          interval = Math.abs(med.custom_days[0]);
+        }
+        const ratio = 7 / interval;
+        bestVariableRatio = Math.max(bestVariableRatio, ratio);
+        break;
+      }
+    }
+  }
+
+  // Fixed-day coverage is known exactly
+  const fixedDays = coveredDays.size;
+
+  if (!hasVariableSchedule) return fixedDays;
+
+  // Variable schedules (every_other_day) don't map to fixed weekdays,
+  // so we take the higher of fixed coverage or variable coverage estimate
+  return Math.min(7, Math.max(fixedDays, Math.round(bestVariableRatio)));
+}
+
+/**
  * Get the raw XP constants for display or debugging.
  * SYNC: must match vision-backend gamification_service.py
  */

@@ -16,6 +16,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useGamification } from '../hooks/useGamification';
 import { useSubscription } from '../hooks/useSubscription';
 import { isFeatureUnlocked } from '../../domain/utils/tierGating';
+import { computeDoseDaysPerWeek } from '../../domain/utils/xpCalculator';
+import { useMedications } from '../hooks/useMedications';
 import LockedFeatureScreen from '../components/LockedFeatureScreen';
 // RitualTree deferred to V2
 import CalendarHeatMap from '../components/CalendarHeatMap';
@@ -49,8 +51,10 @@ export default function MyAdherenceScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useAuth();
-  const { currentTier, totalXp, perfectMonthsStreak, loading: gamLoading } = useGamification();
+  const { currentTier, totalXp, streakDays, perfectMonthsStreak, loading: gamLoading } = useGamification();
   const { isInTrial, subscriptionEnabled, trialDaysLeft } = useSubscription();
+  const { medications } = useMedications();
+  const doseDaysPerWeek = useMemo(() => computeDoseDaysPerWeek(medications), [medications]);
 
   // Earliest navigable month = account creation month
   const accountStartMonth = useMemo(() => {
@@ -199,6 +203,8 @@ export default function MyAdherenceScreen() {
         requiredTier={2}
         currentTier={currentTier}
         currentXp={totalXp}
+        streakDays={streakDays}
+        doseDaysPerWeek={doseDaysPerWeek}
       />
     );
   }

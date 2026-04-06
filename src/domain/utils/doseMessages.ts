@@ -18,7 +18,7 @@ const DOSE_MESSAGES: DoseMessage[] = [
   { title: 'Keep Going!', body: (n) => `${n} logged — keep that streak alive!` },
   { title: 'Well Played!', body: () => 'Small act, big impact.' },
   { title: 'All You!', body: () => 'Look at you being all responsible!' },
-  { title: 'Locked In!', body: (n) => `You + ${n} = dream team.` },
+  { title: 'Locked In!', body: (n) => `${n} — you're on a roll.` },
   { title: 'On Fire!', body: () => 'Your future self is cheering right now.' },
   { title: 'Check!', body: (n) => `${n} taken. One step closer.` },
 ];

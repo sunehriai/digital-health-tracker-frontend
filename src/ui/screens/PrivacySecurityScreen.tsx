@@ -313,7 +313,7 @@ export default function PrivacySecurityScreen({ navigation }: RootStackScreenPro
             <Text style={[styles.noticeTitle, { color: colors.cyan }]}>Health Data Protection</Text>
           </View>
           <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
-            Your health data is protected with industry-standard AES-256 encryption. Vision complies
+            Your health data is protected with industry-standard AES-256 encryption. Vitalic complies
             with App Store Health guidelines and does not share your data with third parties. You can
             export your complete medication history at any time.
           </Text>

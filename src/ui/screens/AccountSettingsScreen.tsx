@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, Key, Mail, Trash2, UserX, LogOut } from 'lucide-react-native';
+import auth from '@react-native-firebase/auth';
 import { useAuth } from '../hooks/useAuth';
 import { useAlert } from '../context/AlertContext';
 import { useDeletion } from '../hooks/useDeletion';
@@ -151,7 +152,10 @@ export default function AccountSettingsScreen({ navigation }: RootStackScreenPro
     setTier3Loading(true);
     setTier3Error('');
     try {
-      await authService.reauthenticate(user?.email || '', tier3Password);
+      // Use Firebase email (real identity) rather than backend profile email,
+      // which may differ in dev mode or after an email change.
+      const firebaseEmail = auth().currentUser?.email || user?.email || '';
+      await authService.reauthenticate(firebaseEmail, tier3Password);
       // Re-auth succeeded
       setTier3Visible(false);
       if (tier3Action === 'delete_data') {

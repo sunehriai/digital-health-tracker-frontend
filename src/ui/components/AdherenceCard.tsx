@@ -213,7 +213,7 @@ function DayBar({
   );
 }
 
-function WeeklyPerfectBar({ days }: { days: WeekDayRecord[] }) {
+function WeeklyPerfectBar({ days, todayStr }: { days: WeekDayRecord[]; todayStr: string }) {
   const { colors, isDark } = useTheme();
   const fillAnim = useRef(new Animated.Value(0)).current;
 
@@ -222,14 +222,18 @@ function WeeklyPerfectBar({ days }: { days: WeekDayRecord[] }) {
     (d) => d.total_scheduled > 0 && d.adherence_pct === 100
   ).length;
 
+  // Elapsed days = days up to and including today (exclude future)
+  const elapsedDays = days.filter((d) => d.date <= todayStr).length;
+  const denominator = Math.max(elapsedDays, 1);
+
   useEffect(() => {
     Animated.timing(fillAnim, {
-      toValue: Math.min(perfectDays / 7, 1),
+      toValue: Math.min(perfectDays / denominator, 1),
       duration: 800,
       easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start();
-  }, [perfectDays]);
+  }, [perfectDays, denominator]);
 
   const fillWidth = fillAnim.interpolate({
     inputRange: [0, 1],
@@ -244,7 +248,7 @@ function WeeklyPerfectBar({ days }: { days: WeekDayRecord[] }) {
           Streak days
         </Text>
         <Text style={[styles.weeklyPerfectCount, { color: colors.chartAccent }]}>
-          {perfectDays}/7
+          {perfectDays}/{denominator}
         </Text>
       </View>
       <View style={[styles.weeklyPerfectTrack, {
@@ -346,13 +350,18 @@ export default function AdherenceCard({
     };
   }, [waiverJustUsed, refreshToken]);
 
-  // Hide card until 7 full days have passed since the user's first medication.
-  // Also hide while loading (no data yet) to prevent a brief flash.
+  // Hide card while loading or if no data at all (no medications).
   if (loading || !weekData?.sufficient_history) return null;
 
   // Determine today's local date for highlighting (matches backend's timezone-aware date)
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // Progressive header: during the first 7 days the window is anchored at
+  // start_date and contains future empty days.  Detect this by checking if
+  // the last day in the array is after today.
+  const lastDayStr = weekData?.days?.[weekData.days.length - 1]?.date;
+  const isProgressivePhase = lastDayStr != null && lastDayStr > todayStr;
 
   // Trend arrow
   let trendText = '–';
@@ -426,7 +435,7 @@ export default function AdherenceCard({
         <View style={styles.headerLeft}>
           <Activity size={16} color={colors.chartAccent} />
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-            LAST 7 DAYS
+            {isProgressivePhase ? 'YOUR PROGRESS' : 'LAST 7 DAYS'}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -480,7 +489,7 @@ export default function AdherenceCard({
       )}
 
       {/* Weekly perfect days bar */}
-      <WeeklyPerfectBar days={weekData?.days ?? []} />
+      <WeeklyPerfectBar days={weekData?.days ?? []} todayStr={todayStr} />
 
       {/* Summary footer */}
       <View style={styles.footerWithWaiver}>
