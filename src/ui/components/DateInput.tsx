@@ -18,6 +18,8 @@ interface DateInputProps {
   label?: string;
   /** Maximum selectable date in YYYY-MM-DD format. Days after this are disabled. */
   maxDate?: string;
+  /** Minimum selectable date in YYYY-MM-DD format. Days before this are disabled. */
+  minDate?: string;
 }
 
 const MONTHS = [
@@ -42,7 +44,7 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
-export default function DateInput({ value, onChange, placeholder = 'Select date', label, maxDate }: DateInputProps) {
+export default function DateInput({ value, onChange, placeholder = 'Select date', label, maxDate, minDate }: DateInputProps) {
   const { colors } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -95,10 +97,15 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     setViewMode('calendar');
   };
 
-  /** Central guard: reject dates beyond maxDate */
+  // Parse boundary dates for year/month level checks
+  const maxDateParts = maxDate ? { year: parseInt(maxDate.slice(0, 4), 10), month: parseInt(maxDate.slice(5, 7), 10) - 1 } : null;
+  const minDateParts = minDate ? { year: parseInt(minDate.slice(0, 4), 10), month: parseInt(minDate.slice(5, 7), 10) - 1 } : null;
+
+  /** Central guard: reject dates beyond maxDate or before minDate */
   const isDateAllowed = (dateStr: string): boolean => {
-    if (!maxDate) return true;
-    return dateStr <= maxDate;
+    if (maxDate && dateStr > maxDate) return false;
+    if (minDate && dateStr < minDate) return false;
+    return true;
   };
 
   const handleSelectDay = (day: number) => {
@@ -108,7 +115,31 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
     handleClosePicker();
   };
 
+  /** Check if a given year is entirely outside the allowed range */
+  const isYearDisabled = (year: number): boolean => {
+    if (maxDateParts && year > maxDateParts.year) return true;
+    if (minDateParts && year < minDateParts.year) return true;
+    return false;
+  };
+
+  /** Check if a given month (0-indexed) in a given year is entirely outside the allowed range */
+  const isMonthDisabled = (year: number, month: number): boolean => {
+    if (maxDateParts && (year > maxDateParts.year || (year === maxDateParts.year && month > maxDateParts.month))) return true;
+    if (minDateParts && (year < minDateParts.year || (year === minDateParts.year && month < minDateParts.month))) return true;
+    return false;
+  };
+
+  const canGoNextMonth = !isMonthDisabled(
+    viewMonth === 11 ? viewYear + 1 : viewYear,
+    viewMonth === 11 ? 0 : viewMonth + 1
+  );
+  const canGoPrevMonth = !isMonthDisabled(
+    viewMonth === 0 ? viewYear - 1 : viewYear,
+    viewMonth === 0 ? 11 : viewMonth - 1
+  );
+
   const handlePrevMonth = () => {
+    if (!canGoPrevMonth) return;
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear(viewYear - 1);
@@ -118,6 +149,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
   };
 
   const handleNextMonth = () => {
+    if (!canGoNextMonth) return;
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear(viewYear + 1);
@@ -185,9 +217,12 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
   };
 
   const isDayDisabled = (day: number | null) => {
-    if (!day || !maxDate) return false;
+    if (!day) return false;
+    if (!maxDate && !minDate) return false;
     const dateStr = `${viewYear}-${(viewMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-    return dateStr > maxDate;
+    if (maxDate && dateStr > maxDate) return true;
+    if (minDate && dateStr < minDate) return true;
+    return false;
   };
 
   // Generate year grid (12 years at a time)
@@ -253,6 +288,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
               </TouchableOpacity>
             </View>
 
+            <ScrollView showsVerticalScrollIndicator={false}>
             {/* Manual input field */}
             <View style={styles.manualInputContainer}>
               <TextInput
@@ -276,39 +312,50 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
             {viewMode === 'year' && (
               <>
                 <View style={styles.calendarHeader}>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={() => setYearRangeStart(yearRangeStart - 12)}>
+                  <TouchableOpacity
+                    style={[styles.navBtn, { backgroundColor: colors.cyanDim }, minDateParts && yearRangeStart <= minDateParts.year && { opacity: 0.3 }]}
+                    onPress={() => { if (!minDateParts || yearRangeStart - 12 + 11 >= minDateParts.year) setYearRangeStart(yearRangeStart - 12); }}
+                  >
                     <ChevronLeft color={colors.cyan} size={24} />
                   </TouchableOpacity>
                   <Text style={[styles.monthYearText, { color: colors.textPrimary }]}>
                     {yearRangeStart} – {yearRangeStart + 11}
                   </Text>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={() => setYearRangeStart(yearRangeStart + 12)}>
+                  <TouchableOpacity
+                    style={[styles.navBtn, { backgroundColor: colors.cyanDim }, maxDateParts && yearRangeStart + 11 >= maxDateParts.year && { opacity: 0.3 }]}
+                    onPress={() => { if (!maxDateParts || yearRangeStart + 12 <= maxDateParts.year) setYearRangeStart(yearRangeStart + 12); }}
+                  >
                     <ChevronRight color={colors.cyan} size={24} />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.yearGrid}>
-                  {yearGrid.map((year) => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[
-                        styles.yearCell,
-                        { backgroundColor: colors.bgSubtle },
-                        year === viewYear && { backgroundColor: colors.cyan },
-                        year === thisYear && { borderWidth: 1, borderColor: colors.cyan },
-                      ]}
-                      onPress={() => handleSelectYear(year)}
-                    >
-                      <Text style={[
-                        styles.yearText,
-                        { color: colors.textPrimary },
-                        year === viewYear && { color: colors.bg, fontWeight: '700' as const },
-                        year === thisYear && !viewYear && { color: colors.cyan },
-                      ]}>
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {yearGrid.map((year) => {
+                    const yearOff = isYearDisabled(year);
+                    return (
+                      <TouchableOpacity
+                        key={year}
+                        style={[
+                          styles.yearCell,
+                          { backgroundColor: colors.bgSubtle },
+                          year === viewYear && !yearOff && { backgroundColor: colors.cyan },
+                          year === thisYear && !yearOff && { borderWidth: 1, borderColor: colors.cyan },
+                          yearOff && { opacity: 0.25 },
+                        ]}
+                        onPress={() => !yearOff && handleSelectYear(year)}
+                        disabled={yearOff}
+                      >
+                        <Text style={[
+                          styles.yearText,
+                          { color: colors.textPrimary },
+                          year === viewYear && !yearOff && { color: colors.bg, fontWeight: '700' as const },
+                          year === thisYear && !viewYear && { color: colors.cyan },
+                        ]}>
+                          {year}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </>
             )}
@@ -317,7 +364,10 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
             {viewMode === 'month' && (
               <>
                 <View style={styles.calendarHeader}>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={() => setViewYear(viewYear - 1)}>
+                  <TouchableOpacity
+                    style={[styles.navBtn, { backgroundColor: colors.cyanDim }, isYearDisabled(viewYear - 1) && { opacity: 0.3 }]}
+                    onPress={() => { if (!isYearDisabled(viewYear - 1)) setViewYear(viewYear - 1); }}
+                  >
                     <ChevronLeft color={colors.cyan} size={24} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => { setYearRangeStart(viewYear - 4); setViewMode('year'); }}>
@@ -325,31 +375,39 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
                       {viewYear}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={() => setViewYear(viewYear + 1)}>
+                  <TouchableOpacity
+                    style={[styles.navBtn, { backgroundColor: colors.cyanDim }, isYearDisabled(viewYear + 1) && { opacity: 0.3 }]}
+                    onPress={() => { if (!isYearDisabled(viewYear + 1)) setViewYear(viewYear + 1); }}
+                  >
                     <ChevronRight color={colors.cyan} size={24} />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.monthGrid}>
-                  {MONTHS_SHORT.map((m, index) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[
-                        styles.monthCell,
-                        { backgroundColor: colors.bgSubtle },
-                        index === viewMonth && viewYear === currentYear && { backgroundColor: colors.cyan },
-                      ]}
-                      onPress={() => handleSelectMonth(index)}
-                    >
-                      <Text style={[
-                        styles.monthCellText,
-                        { color: colors.textPrimary },
-                        index === viewMonth && viewYear === currentYear && { color: colors.bg, fontWeight: '700' as const },
-                      ]}>
-                        {m}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {MONTHS_SHORT.map((m, index) => {
+                    const monthOff = isMonthDisabled(viewYear, index);
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        style={[
+                          styles.monthCell,
+                          { backgroundColor: colors.bgSubtle },
+                          index === viewMonth && viewYear === currentYear && !monthOff && { backgroundColor: colors.cyan },
+                          monthOff && { opacity: 0.25 },
+                        ]}
+                        onPress={() => !monthOff && handleSelectMonth(index)}
+                        disabled={monthOff}
+                      >
+                        <Text style={[
+                          styles.monthCellText,
+                          { color: colors.textPrimary },
+                          index === viewMonth && viewYear === currentYear && !monthOff && { color: colors.bg, fontWeight: '700' as const },
+                        ]}>
+                          {m}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </>
             )}
@@ -359,7 +417,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
               <>
                 {/* Month/Year Navigation — tappable to jump */}
                 <View style={styles.calendarHeader}>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={handlePrevMonth}>
+                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }, !canGoPrevMonth && { opacity: 0.3 }]} onPress={handlePrevMonth} disabled={!canGoPrevMonth}>
                     <ChevronLeft color={colors.cyan} size={24} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleHeaderTap}>
@@ -367,7 +425,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
                       {MONTHS[viewMonth]} {viewYear}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }]} onPress={handleNextMonth}>
+                  <TouchableOpacity style={[styles.navBtn, { backgroundColor: colors.cyanDim }, !canGoNextMonth && { opacity: 0.3 }]} onPress={handleNextMonth} disabled={!canGoNextMonth}>
                     <ChevronRight color={colors.cyan} size={24} />
                   </TouchableOpacity>
                 </View>
@@ -428,6 +486,7 @@ export default function DateInput({ value, onChange, placeholder = 'Select date'
                 })()}
               </>
             )}
+            </ScrollView>
           </View>
         </View>
       </Modal>

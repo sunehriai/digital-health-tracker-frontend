@@ -384,7 +384,10 @@ export default function InsightTrendsScreen() {
   const { totalXp: gamificationXp, currentTier: gamificationTier } = useGamification();
   const { isFree, isInTrial, subscriptionEnabled, totalXp: subXp, currentTier: subTier } = useSubscription();
   // For free users, useGamification returns 403; use subscription hook values instead
-  const { data, loading, error, isOnline, refresh } = useInsightTrends();
+  const { data, loading, error, isOnline, refresh, refreshIfStale } = useInsightTrends();
+
+  // Re-fetch stale data when screen gains focus (e.g., user took a dose and navigated back)
+  useFocusEffect(useCallback(() => { refreshIfStale(); }, [refreshIfStale]));
 
   // Subscription-level lock: free users only see day_of_week card
   // Step 45: Trial users get full preview access to all insight chips

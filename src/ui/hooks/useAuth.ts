@@ -210,6 +210,38 @@ export function useAuthProvider(): AuthContextType {
     return () => subscription.remove();
   }, []);
 
+  // Poll for email verification while unverified (handles in-app verification detection).
+  // Firebase onAuthStateChanged does NOT fire on email verification — only login/logout.
+  // The AppState listener above handles background→foreground, but misses scenarios like
+  // notification overlays, split-screen, or quick app switches.
+  useEffect(() => {
+    if (!firebaseUser || firebaseUser.emailVerified) return;
+    if (user?.auth_provider !== 'email') return;
+
+    const interval = setInterval(async () => {
+      try {
+        await auth().currentUser?.reload();
+        if (auth().currentUser?.emailVerified) {
+          setFirebaseUser(auth().currentUser);
+          setFirebaseUserRefreshKey((k) => k + 1);
+          try {
+            const profile = await profileService.getMe();
+            setUser((prev) => prev ? { ...prev, ...profile } : prev);
+          } catch {}
+          clearInterval(interval);
+        }
+      } catch {}
+    }, 5000);
+
+    // Stop polling after 5 minutes to avoid battery drain
+    const timeout = setTimeout(() => clearInterval(interval), 5 * 60 * 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [firebaseUser?.emailVerified, user?.auth_provider]);
+
   // R9: Listen for mid-session deactivation events from ApiClient
   useEffect(() => {
     const unsubscribe = onAccountDeactivated(async () => {

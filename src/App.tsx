@@ -16,6 +16,7 @@ import PrivacyOverlay from './ui/components/PrivacyOverlay';
 import RecordingOverlay from './ui/components/RecordingOverlay';
 import { profileService } from './data/services/profileService';
 import { initNotifications } from './data/utils/notifications';
+import './data/utils/fcmBackgroundHandler'; // Register FCM background task at module scope
 import { useNotificationScheduler } from './ui/hooks/useNotificationScheduler';
 import { useMedications } from './ui/hooks/useMedications';
 import { useNotificationPrefs } from './ui/hooks/useNotificationPrefs';

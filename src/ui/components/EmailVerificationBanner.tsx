@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Mail, X } from 'lucide-react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 interface EmailVerificationBannerProps {
   onVerifyNow: () => Promise<void>;
@@ -12,15 +12,13 @@ interface EmailVerificationBannerProps {
 
 const COOLDOWN_SECONDS = 60;
 
-const WARNING_BG = 'rgba(245, 158, 11, 0.15)';
-const WARNING_COLOR = '#F59E0B';
-
 export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = ({
   onVerifyNow,
   onDismiss,
   isEscalated = false,
   hoursRemaining,
 }) => {
+  const { colors } = useTheme();
   const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,9 +47,8 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
     }
   }, [isSending, cooldown, onVerifyNow]);
 
-  // Always use warning amber for visibility — verification is important
-  const accentColor = WARNING_COLOR;
-  const bgColor = WARNING_BG;
+  const accentColor = colors.warning;
+  const bgColor = `${colors.warning}26`; // 15% opacity
 
   const messageText = isEscalated
     ? `Only ${hoursRemaining ?? 0} hours left to verify your email. Access will be paused after 24 hours.`
@@ -62,7 +59,7 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
       <Mail size={20} color={accentColor} style={styles.icon} />
 
       <View style={styles.textBlock}>
-        <Text style={styles.message}>
+        <Text style={[styles.message, { color: colors.textPrimary }]}>
           {messageText}
         </Text>
         {cooldown ? (
@@ -91,7 +88,7 @@ export const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = (
 
       {!isEscalated && (
         <TouchableOpacity onPress={onDismiss} activeOpacity={0.7} style={styles.dismiss}>
-          <X size={16} color={colors.textMuted} />
+          <X size={16} color={accentColor} />
         </TouchableOpacity>
       )}
     </View>
@@ -118,7 +115,6 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 13,
     fontWeight: '500',
-    color: colors.textPrimary,
     lineHeight: 18,
   },
   actionRow: {

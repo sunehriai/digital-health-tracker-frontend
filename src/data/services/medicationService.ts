@@ -1,5 +1,6 @@
 import { apiClient } from '../api/client';
 import { ENDPOINTS } from '../api/endpoints';
+import { setMedicationCache } from '../utils/notifications';
 import type {
   Medication,
   MedicationInsert,
@@ -13,7 +14,9 @@ import type {
 
 export const medicationService = {
   async getAll(): Promise<Medication[]> {
-    return apiClient.request(ENDPOINTS.MEDICATIONS);
+    const medications = await apiClient.request<Medication[]>(ENDPOINTS.MEDICATIONS);
+    setMedicationCache(medications).catch(() => {}); // Fire-and-forget cache write
+    return medications;
   },
 
   async getById(id: string): Promise<Medication> {

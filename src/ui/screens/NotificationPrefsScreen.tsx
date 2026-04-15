@@ -36,6 +36,7 @@ import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import { useAppPreferences } from '../hooks/useAppPreferences';
 import { useSubscription } from '../hooks/useSubscription';
 import { formatTime } from '../../domain/utils/dateTimeUtils';
+import { getMedNameToggle, setMedNameToggle } from '../../data/utils/notifications';
 import type { RootStackScreenProps } from '../navigation/types';
 
 // Dropdown option types
@@ -92,12 +93,17 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
   const [showQuietStart, setShowQuietStart] = useState(false);
   const [showQuietEnd, setShowQuietEnd] = useState(false);
 
-  // Check OS permission on focus
+  // PHI privacy toggle
+  const [showMedNames, setShowMedNames] = useState(false);
+  const [showPrivacyDisclosure, setShowPrivacyDisclosure] = useState(false);
+
+  // Check OS permission + read privacy toggle on focus
   useEffect(() => {
     if (isFocused) {
       Notifications.getPermissionsAsync().then(({ status }) => {
         setOsPermission(status);
       });
+      getMedNameToggle().then(setShowMedNames);
     }
   }, [isFocused]);
 
@@ -167,6 +173,67 @@ export default function NotificationPrefsScreen({ navigation }: RootStackScreenP
             </View>
             <ChevronRight color={colors.textMuted} size={18} />
           </TouchableOpacity>
+        )}
+
+        {/* ── PRIVACY ── */}
+        <Text style={[styles.sectionTitle, { color: colors.cyan }]}>PRIVACY</Text>
+
+        <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <View style={[styles.settingIcon, { backgroundColor: colors.cyanDim }]}>
+            <Shield color={colors.cyan} size={20} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Show Medication Names</Text>
+            <Text style={[styles.settingSubtitle, { color: colors.textMuted }]}>
+              When off, notifications use generic text to protect your privacy
+            </Text>
+          </View>
+          <Switch
+            value={showMedNames}
+            onValueChange={(value) => {
+              if (value) {
+                setShowPrivacyDisclosure(true);
+              } else {
+                setShowMedNames(false);
+                setMedNameToggle(false);
+              }
+            }}
+            trackColor={{ false: colors.border, true: colors.cyan }}
+          />
+        </View>
+
+        {showPrivacyDisclosure && (
+          <View style={[styles.settingCard, { backgroundColor: colors.bgCard, borderColor: colors.warning, borderWidth: 1 }]}>
+            <View style={{ flex: 1, padding: 4 }}>
+              <Text style={[styles.settingTitle, { color: colors.textPrimary, marginBottom: 8 }]}>
+                Medication Names in Notifications
+              </Text>
+              <Text style={[styles.settingSubtitle, { color: colors.textSecondary, marginBottom: 12 }]}>
+                Turning this on allows Vitalic to show your specific medication names in your
+                reminders. A secure signal is sent to your device via Apple/Google services.
+                While your health data is encrypted, these providers will facilitate the delivery
+                of the notification to your lock screen.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={[styles.disclosureBtn, { borderColor: colors.border }]}
+                  onPress={() => setShowPrivacyDisclosure(false)}
+                >
+                  <Text style={{ color: colors.textSecondary, fontWeight: '600', fontSize: 13 }}>Keep Off</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.disclosureBtn, { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
+                  onPress={() => {
+                    setShowMedNames(true);
+                    setMedNameToggle(true);
+                    setShowPrivacyDisclosure(false);
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Allow</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         )}
 
         {/* ── DOSE REMINDERS ── */}
@@ -892,5 +959,14 @@ const styles = StyleSheet.create({
   noticeText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+
+  // Privacy disclosure buttons
+  disclosureBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
   },
 });

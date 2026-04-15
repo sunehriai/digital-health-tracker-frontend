@@ -904,6 +904,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
             <View style={styles.wheelPickerContainer}>
               <View style={[styles.wheelPickerHighlight, { backgroundColor: `${colors.cyan}1A`, borderColor: `${colors.cyan}4D` }]} />
               <ScrollView
+                nestedScrollEnabled={true}
                 showsVerticalScrollIndicator={false}
                 snapToInterval={50}
                 decelerationRate="fast"
@@ -1009,6 +1010,7 @@ export default function ManualMedicationEntryScreen({ navigation, route }: RootS
             <View style={styles.wheelPickerContainer}>
               <View style={[styles.wheelPickerHighlight, { backgroundColor: `${colors.cyan}1A`, borderColor: `${colors.cyan}4D` }]} />
               <ScrollView
+                nestedScrollEnabled={true}
                 showsVerticalScrollIndicator={false}
                 snapToInterval={50}
                 decelerationRate="fast"

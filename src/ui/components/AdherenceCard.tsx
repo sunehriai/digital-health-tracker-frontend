@@ -319,14 +319,16 @@ export default function AdherenceCard({
   const [fetchError, setFetchError] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
 
-  // Listen for dose_taken / dose_reverted events to refresh the chart
+  // Listen for dose/medication events to refresh the chart
   useEffect(() => {
     const onDoseChange = () => setRefreshToken((t) => t + 1);
     medicationEvents.on('dose_taken', onDoseChange);
     medicationEvents.on('dose_reverted', onDoseChange);
+    medicationEvents.on('medication_created', onDoseChange);
     return () => {
       medicationEvents.off('dose_taken', onDoseChange);
       medicationEvents.off('dose_reverted', onDoseChange);
+      medicationEvents.off('medication_created', onDoseChange);
     };
   }, []);
 

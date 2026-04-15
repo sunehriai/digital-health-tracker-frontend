@@ -67,6 +67,7 @@ import { measureElement } from '../utils/measureElement';
 import SpotlightHint from '../components/onboarding/SpotlightHint';
 import type { TargetRect } from '../../domain/types';
 import { getRandomDoseMessage } from '../../domain/utils/doseMessages';
+import { getMedNameToggle } from '../../data/utils/notifications';
 import { logEndOfDay } from '../../data/utils/notificationDebugLog';
 
 export default function HomeScreen() {
@@ -151,6 +152,12 @@ export default function HomeScreen() {
   const [doseToast, setDoseToast] = useState<{ visible: boolean; title: string; body: string }>({
     visible: false, title: '', body: '',
   });
+
+  // PHI privacy toggle — read once on mount, used by dose success messages
+  const [showMedNames, setShowMedNames] = useState(true);
+  useEffect(() => {
+    getMedNameToggle().then(setShowMedNames);
+  }, []);
 
   // Email verification banner state (B16)
   const [bannerDismissed, setBannerDismissed] = useState(true); // default hidden until checked
@@ -809,7 +816,7 @@ export default function HomeScreen() {
           const batchLabel = names.length <= 2
             ? names.join(' & ')
             : `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
-          const msg = getRandomDoseMessage(batchLabel);
+          const msg = getRandomDoseMessage(batchLabel, showMedNames);
           setDoseToast({ visible: true, title: msg.title, body: msg.body });
         }
 
@@ -901,7 +908,7 @@ export default function HomeScreen() {
         handleGamificationAfterDose();
 
         // Show peppy dose toast
-        const msg = getRandomDoseMessage(medication.name);
+        const msg = getRandomDoseMessage(medication.name, showMedNames);
         setDoseToast({ visible: true, title: msg.title, body: msg.body });
 
         return true;

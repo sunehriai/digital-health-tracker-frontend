@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Switch, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
@@ -9,6 +9,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { typography } from '../../theme/typography';
 import DateInput from '../../components/DateInput';
 import Button from '../../primitives/Button';
+import { getMedNameToggle, setMedNameToggle } from '../../../data/utils/notifications';
 
 const getEighteenYearsAgo = (): string => {
   const d = new Date();
@@ -35,6 +36,35 @@ export default function AgeGateScreen() {
   const [dob, setDob] = useState(getEighteenYearsAgo());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // PHI privacy toggle
+  const [showMedNames, setShowMedNames] = useState(false);
+  const [showDisclosure, setShowDisclosure] = useState(false);
+
+  useEffect(() => {
+    getMedNameToggle().then(setShowMedNames);
+  }, []);
+
+  const handleToggleOn = () => {
+    // Show disclosure before enabling
+    setShowDisclosure(true);
+  };
+
+  const handleToggleOff = () => {
+    setShowMedNames(false);
+    setMedNameToggle(false);
+  };
+
+  const handleDisclosureAllow = () => {
+    setShowMedNames(true);
+    setMedNameToggle(true);
+    setShowDisclosure(false);
+  };
+
+  const handleDisclosureKeepOff = () => {
+    setShowDisclosure(false);
+    // Toggle stays OFF, no persistence needed
+  };
 
   const handleContinue = async () => {
     setError(null);
@@ -87,14 +117,33 @@ export default function AgeGateScreen() {
 
         <View style={styles.dateSection}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>Date of Birth</Text>
-          <DateInput value={dob} onChange={setDob} maxDate={getEighteenYearsAgo()} />
+          <DateInput value={dob} onChange={setDob} maxDate={getEighteenYearsAgo()} minDate="1920-01-01" />
+        </View>
+
+        {/* PHI Privacy Toggle */}
+        <View style={[styles.privacySection, { borderColor: colors.border }]}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextContainer}>
+              <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                Show Medication Names in Notifications
+              </Text>
+              <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
+                When off, notifications use generic text to protect your privacy.
+              </Text>
+            </View>
+            <Switch
+              value={showMedNames}
+              onValueChange={(value) => value ? handleToggleOn() : handleToggleOff()}
+              trackColor={{ false: colors.border, true: colors.cyan }}
+            />
+          </View>
         </View>
 
         <Button
           title="Continue"
           onPress={handleContinue}
           variant="primary"
-          disabled={loading}
+          disabled={loading || showDisclosure}
           loading={loading}
         />
 
@@ -102,6 +151,43 @@ export default function AgeGateScreen() {
           <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         )}
       </View>
+
+      {/* Disclosure Modal */}
+      <Modal
+        visible={showDisclosure}
+        transparent
+        animationType="fade"
+        onRequestClose={handleDisclosureKeepOff}
+      >
+        <Pressable style={styles.modalOverlay} onPress={handleDisclosureKeepOff}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.bgCard }]} onPress={() => {}}>
+            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: 12 }]}>
+              Medication Names in Notifications
+            </Text>
+            <Text style={[styles.modalBody, { color: colors.textSecondary }]}>
+              Turning this on allows Vitalic to show your specific medication names in your
+              reminders. To do this, a secure signal is sent to your device via Apple/Google
+              services. While your health data is encrypted, these providers will facilitate
+              the delivery of the notification to your lock screen.{'\n\n'}You can choose
+              &quot;Keep Off&quot; for maximum privacy.
+            </Text>
+            <View style={styles.modalButtons}>
+              <Button
+                title="Keep Off"
+                onPress={handleDisclosureKeepOff}
+                variant="secondary"
+                style={styles.modalButton}
+              />
+              <Button
+                title="Allow"
+                onPress={handleDisclosureAllow}
+                variant="primary"
+                style={styles.modalButton}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -134,9 +220,57 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
+  privacySection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 16,
+    marginBottom: 24,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 12,
+  },
   errorText: {
     fontSize: 13,
     textAlign: 'center',
     marginTop: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
   },
 });

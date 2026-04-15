@@ -479,7 +479,7 @@ export default function PersonalInfoScreen({ navigation }: RootStackScreenProps<
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>

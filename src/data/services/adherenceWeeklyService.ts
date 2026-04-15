@@ -4,6 +4,10 @@ import type { WeeklyAdherenceResponse } from '../../domain/types';
 
 export const adherenceWeeklyService = {
   async getWeeklyAdherence(): Promise<WeeklyAdherenceResponse> {
-    return apiClient.request<WeeklyAdherenceResponse>(ENDPOINTS.ADHERENCE_WEEKLY);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const url = tz
+      ? `${ENDPOINTS.ADHERENCE_WEEKLY}?timezone=${encodeURIComponent(tz)}`
+      : ENDPOINTS.ADHERENCE_WEEKLY;
+    return apiClient.request<WeeklyAdherenceResponse>(url);
   },
 };

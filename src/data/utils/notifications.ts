@@ -53,6 +53,46 @@ function registerNotificationHandler(): void {
 // Configure how notifications appear when app is in foreground
 registerNotificationHandler();
 
+// ── PHI Privacy Toggle ───────────────────────────────────────────────
+// Controls whether medication names appear in notification bodies.
+// Default OFF (null treated as false) — privacy-safe.
+
+const MED_NAME_TOGGLE_KEY = '@vision_show_med_names_notifications';
+const MED_CACHE_KEY = '@vision_medications_cache';
+
+export async function getMedNameToggle(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(MED_NAME_TOGGLE_KEY);
+    return value === 'true';
+  } catch {
+    return false; // Privacy-safe fallback
+  }
+}
+
+export async function setMedNameToggle(value: boolean): Promise<void> {
+  await AsyncStorage.setItem(MED_NAME_TOGGLE_KEY, value ? 'true' : 'false');
+}
+
+// ── Medication Cache (for FCM background handler) ────────────────────
+// Written on every medication list fetch. Read by the headless FCM handler.
+
+export async function setMedicationCache(medications: Medication[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MED_CACHE_KEY, JSON.stringify(medications));
+  } catch {
+    // Non-critical — cache miss falls back to generic notification body
+  }
+}
+
+export async function getMedicationCache(): Promise<Medication[]> {
+  try {
+    const raw = await AsyncStorage.getItem(MED_CACHE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Initialize notification system: request permissions, set up channels and categories.
  * Call once at app startup.
@@ -328,14 +368,14 @@ let lastLoggedHash: string | null = null; // Dedup activity log entries across r
 let rescheduleRunning = false; // Mutex to prevent concurrent rescheduleAll calls
 let pendingReschedule: { medications: Medication[]; prefs: NotificationPreferences } | null = null;
 
-function computeInputHash(medications: Medication[], prefs: NotificationPreferences): string {
-  // Lightweight hash: combine IDs, pause/archive states, prefs toggles
+function computeInputHash(medications: Medication[], prefs: NotificationPreferences, showMedNames: boolean): string {
+  // Lightweight hash: combine IDs, pause/archive states, prefs toggles, privacy toggle
   const medHash = medications
     .filter((m) => !m.is_paused && !m.is_archived)
     .map((m) => `${m.id}:${m.is_paused}:${m.is_archived}:${m.time_of_day}:${m.dose_times?.join(',')}:${m.frequency}`)
     .join('|');
   const prefsHash = `${prefs.dose_reminders_enabled}:${prefs.advance_reminder_minutes}:${prefs.quiet_hours_enabled}:${prefs.quiet_hours_start}:${prefs.quiet_hours_end}:${prefs.critical_bypass_quiet}:${JSON.stringify(prefs.medication_overrides)}`;
-  return `${medHash}##${prefsHash}`;
+  return `${medHash}##${prefsHash}##${showMedNames}`;
 }
 
 // ── rescheduleAll ──────────────────────────────────────────────────────
@@ -358,8 +398,11 @@ export async function rescheduleAll(
     return;
   }
 
-  // Issue 10: Skip if nothing changed
-  const inputHash = computeInputHash(medications, prefs);
+  // Read privacy toggle once before hash + scheduling loop
+  const showMedNames = await getMedNameToggle();
+
+  // Issue 10: Skip if nothing changed (includes toggle value in hash)
+  const inputHash = computeInputHash(medications, prefs, showMedNames);
   if (inputHash === lastRescheduleHash) {
     nlog('  SKIPPED: input hash unchanged (cached)');
     return;
@@ -412,10 +455,14 @@ export async function rescheduleAll(
         resolvePrefsForMedication(med, prefs).advanceMinutes
       ));
 
+      const notifBody = showMedNames
+        ? `${med.name}${med.strength ? ` (${med.strength})` : ''} — ${med.dose_size} ${med.dose_unit || 'dose'}`
+        : 'Time for your dose';
+
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Time for your dose',
-          body: `${med.name}${med.strength ? ` (${med.strength})` : ''} — ${med.dose_size} ${med.dose_unit || 'dose'}`,
+          body: notifBody,
           data: {
             type: 'dose_reminder',
             medicationId: med.id,
@@ -632,7 +679,8 @@ export function registerNotificationActionHandler(
           medicationEvents.emit('dose_taken', medicationId);
 
           // Show success notification (app isn't open, so toast won't be visible)
-          const doseMsg = getRandomDoseMessage(med.name);
+          const showNames = await getMedNameToggle();
+          const doseMsg = getRandomDoseMessage(med.name, showNames);
           await Notifications.scheduleNotificationAsync({
             content: {
               title: doseMsg.title,
